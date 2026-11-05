@@ -14,17 +14,12 @@ env:
 
 jobs:
   ci:
-    if: github.repository == 'BestOlumese/switchboard'
     uses: ./.github/workflows/ci.yml
     secrets: inherit
 
   migrate:
-    if: github.repository == 'BestOlumese/switchboard'
     needs: ci
     runs-on: ubuntu-latest
-    # Reads DATABASE_URL_PROD_UNPOOLED from Repository Secrets or the 'production' Environment.
-    # Keep "Required reviewers" disabled on 'production' during active development so pushes to
-    # main are not paused waiting for manual approval.
     environment: production
     steps:
       - uses: actions/checkout@v4
@@ -32,35 +27,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - name: Verify DATABASE_URL_PROD_UNPOOLED secret is configured
+      - name: Migrate Neon main (unpooled)
         env:
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_PROD_UNPOOLED }}
         run: |
           if [ -z "$DATABASE_URL_UNPOOLED" ]; then
-            echo "::error::Missing GitHub secret DATABASE_URL_PROD_UNPOOLED in Repository Secrets or the 'production' environment."
-            exit 1
-          fi
-      - name: Migrate Neon main (unpooled)
-        run: pnpm db:migrate
-        env: { DATABASE_URL_UNPOOLED: "${{ secrets.DATABASE_URL_PROD_UNPOOLED }}" }
-
-  sync-fork:
-    if: github.repository == 'BestOlumese/switchboard'
-    needs: [ci, migrate]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Sync Fork workflow on MarcoMynous/switchboard
-        env:
-          FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
-        run: |
-          if [ -n "$FORK_SYNC_TOKEN" ]; then
-            curl -fsSL -X POST \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer $FORK_SYNC_TOKEN" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              https://api.github.com/repos/MarcoMynous/switchboard/actions/workflows/sync-fork.yml/dispatches \
-              -d '{"ref":"main"}'
-            echo "::notice::Triggered sync-fork.yml on MarcoMynous/switchboard."
+            echo "::warning::DATABASE_URL_PROD_UNPOOLED is not configured yet in Repository Secrets or the 'production' environment. Skipping DB migration."
           else
-            echo "::notice::FORK_SYNC_TOKEN is not configured; skipping automatic fork dispatch."
+            pnpm db:migrate
           fi

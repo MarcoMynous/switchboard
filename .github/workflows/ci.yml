@@ -4,6 +4,7 @@ name: ci
 # so it runs exactly once per event and deploys always wait for it.
 on:
   workflow_call:
+  workflow_dispatch:
 
 env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
