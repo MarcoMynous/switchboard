@@ -12,7 +12,7 @@ export function createPool(connectionString: string, options: pg.PoolConfig = {}
     // Small per-instance pool: Vercel scales out instances, Neon's pooler fans in.
     max: 5,
     idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 30_000,
     ...options,
   });
 }

@@ -12,7 +12,7 @@ const pool = new Pool({
   connectionString: env.DATABASE_URL,
   max: 5,
   idleTimeoutMillis: 10_000,
-  connectionTimeoutMillis: 5_000,
+  connectionTimeoutMillis: 30_000,
 });
 
 const db = drizzle(pool, { schema });
