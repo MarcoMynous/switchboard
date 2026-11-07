@@ -4,64 +4,90 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
-
-type FormState = 'idle' | 'invalid' | 'submitting' | 'server-error' | 'success';
+import { authClient } from '@/lib/auth-client';
 
 export default function SignInPage() {
   const router = useRouter();
-  const [formState, setFormState] = useState<FormState>('idle');
-  const [email, setEmail] = useState('marcus.vance@acmelabs.io');
-  const [activeTab, setActiveTab] = useState<'demo' | 'invalid' | 'submitting' | 'error'>('demo');
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleTabSwitch = (tab: 'demo' | 'invalid' | 'submitting' | 'error') => {
-    setActiveTab(tab);
-    if (tab === 'demo') {
-      setFormState('idle');
-      setEmail('marcus.vance@acmelabs.io');
-    } else if (tab === 'invalid') {
-      setFormState('invalid');
-      setEmail('invalid-email-format');
-    } else if (tab === 'submitting') {
-      setFormState('submitting');
-      setEmail('marcus.vance@acmelabs.io');
-    } else if (tab === 'error') {
-      setFormState('server-error');
-      setEmail('ops@switchboard-cloud.internal');
-    }
-  };
-
-  const handleFormSubmit = (e: FormEvent) => {
+  const handleFormSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setClientError(null);
+    setServerError(null);
+
     const trimmed = email.trim();
-    if (!trimmed?.includes('@') || !trimmed.includes('.')) {
-      setFormState('invalid');
-      setActiveTab('invalid');
+    if (!trimmed) {
+      setClientError('Please enter your work email address.');
       return;
     }
 
-    setFormState('submitting');
-    setActiveTab('submitting');
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(trimmed)) {
+      setClientError('Please enter a valid work email address (e.g. name@domain.com).');
+      return;
+    }
 
-    setTimeout(() => {
-      setFormState('success');
+    setIsLoading(true);
+
+    try {
+      const res = await authClient.signIn.magicLink({
+        email: trimmed,
+        callbackURL: '/',
+      });
+
+      if (res?.error) {
+        setServerError(
+          res.error.message ||
+            'Unable to verify enterprise credentials. Please check your network or try again.',
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      setIsSuccess(true);
       setTimeout(() => {
         router.push('/auth/check-email');
-      }, 1200);
-    }, 1000);
+      }, 1000);
+    } catch (_err) {
+      setServerError(
+        'Workspace connection failure. Unable to verify enterprise credentials. Please check your network or try again.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleGoogleAuth = () => {
-    setFormState('submitting');
-    setActiveTab('submitting');
-    setTimeout(() => {
-      router.push('/auth/check-email');
-    }, 900);
+  const handleGoogleAuth = async () => {
+    setClientError(null);
+    setServerError(null);
+    setIsLoading(true);
+
+    try {
+      const res = await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: '/',
+      });
+
+      if (res?.error) {
+        setServerError(
+          res.error.message || 'Failed to authenticate with Google. Please try again.',
+        );
+      }
+    } catch (_err) {
+      setServerError('Unable to initiate Google sign-in. Please verify your connection.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen w-full bg-background font-body-md text-body-md text-on-surface antialiased flex items-center justify-center p-4 sm:p-6 lg:p-10 selection:bg-primary-container selection:text-white">
       {/* Centered spacious responsive auth container */}
-      <main className="w-full max-w-6xl min-h-[760px] lg:min-h-[800px] rounded-2xl overflow-hidden shadow-2xl border border-border/80 bg-surface flex flex-col lg:flex-row transition-all">
+      <main className="w-full max-w-6xl min-h-[720px] lg:min-h-[780px] rounded-2xl overflow-hidden shadow-2xl border border-border/80 bg-surface flex flex-col lg:flex-row transition-all">
         {/* Left Showcase Panel (52% on desktop, full width on mobile) */}
         <div className="w-full lg:w-[52%] bg-midnight-hero p-6 sm:p-8 lg:p-12 relative flex flex-col justify-between overflow-hidden text-surface">
           {/* Ambient Iris Glows */}
@@ -201,7 +227,7 @@ export default function SignInPage() {
         {/* Right Authentication Panel (48% on desktop, full width on mobile) */}
         <div className="w-full lg:w-[48%] bg-surface-bright p-6 sm:p-8 lg:p-12 flex flex-col justify-between">
           {/* Back Navigation */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-8">
             <Link
               href="/"
               className="inline-flex items-center gap-1.5 font-label-md text-label-md text-text-secondary hover:text-text-primary transition-colors"
@@ -216,54 +242,6 @@ export default function SignInPage() {
 
           {/* Main Form Wrapper */}
           <div className="w-full max-w-[420px] mx-auto my-auto flex flex-col">
-            {/* Interactive State Sandbox Switcher */}
-            <div className="mb-6 p-1.5 bg-surface-container rounded-lg flex items-center gap-1 text-center border border-border/60">
-              <button
-                type="button"
-                onClick={() => handleTabSwitch('demo')}
-                className={`flex-1 py-1 px-2 rounded font-label-sm text-label-sm transition-all font-medium ${
-                  activeTab === 'demo'
-                    ? 'bg-surface text-text-primary shadow-sm'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                Demo
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTabSwitch('invalid')}
-                className={`flex-1 py-1 px-2 rounded font-label-sm text-label-sm transition-all font-medium ${
-                  activeTab === 'invalid'
-                    ? 'bg-surface text-text-primary shadow-sm'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                Invalid
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTabSwitch('submitting')}
-                className={`flex-1 py-1 px-2 rounded font-label-sm text-label-sm transition-all font-medium ${
-                  activeTab === 'submitting'
-                    ? 'bg-surface text-text-primary shadow-sm'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                Submitting
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTabSwitch('error')}
-                className={`flex-1 py-1 px-2 rounded font-label-sm text-label-sm transition-all font-medium ${
-                  activeTab === 'error'
-                    ? 'bg-surface text-text-primary shadow-sm'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                Server Err
-              </button>
-            </div>
-
             {/* Emblem & Header */}
             <div className="text-left mb-6">
               <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary-container mb-3 shadow-sm border border-border/50">
@@ -278,16 +256,14 @@ export default function SignInPage() {
             </div>
 
             {/* Server Error Notification Banner */}
-            {formState === 'server-error' && (
+            {serverError && (
               <div className="mb-4 p-3.5 rounded-lg bg-error-container text-on-error-container text-body-sm font-body-sm flex items-start gap-2.5 border border-error/30 animate-in fade-in duration-200">
                 <span className="material-symbols-outlined text-[18px] text-error mt-0.5 shrink-0">
                   error
                 </span>
                 <div>
-                  <p className="font-medium text-error">Workspace connection failure</p>
-                  <p className="text-on-error-container text-body-sm mt-0.5">
-                    Unable to verify enterprise credentials. Please check your network or try again.
-                  </p>
+                  <p className="font-medium text-error">Authentication failed</p>
+                  <p className="text-on-error-container text-body-sm mt-0.5">{serverError}</p>
                 </div>
               </div>
             )}
@@ -307,14 +283,15 @@ export default function SignInPage() {
                     type="email"
                     autoComplete="email"
                     value={email}
-                    disabled={formState === 'submitting'}
+                    disabled={isLoading}
                     onChange={(e) => {
                       setEmail(e.target.value);
-                      if (formState === 'invalid') setFormState('idle');
+                      if (clientError) setClientError(null);
+                      if (serverError) setServerError(null);
                     }}
                     placeholder="you@company.com"
                     className={`w-full px-3.5 py-2.5 rounded-lg bg-surface text-text-primary placeholder:text-text-secondary/60 text-body-md font-body-md shadow-sm outline-none transition-all duration-150 border ${
-                      formState === 'invalid'
+                      clientError
                         ? 'border-error bg-error-container/20 text-error focus:ring-1 focus:ring-error'
                         : 'border-border focus:border-primary focus:ring-1 focus:ring-primary'
                     }`}
@@ -322,29 +299,27 @@ export default function SignInPage() {
                 </div>
                 <p
                   className={`mt-1.5 font-body-sm text-body-sm ${
-                    formState === 'invalid' ? 'text-error font-medium' : 'text-text-secondary'
+                    clientError ? 'text-error font-medium' : 'text-text-secondary'
                   }`}
                 >
-                  {formState === 'invalid'
-                    ? 'Please enter a valid work email address (e.g. name@domain.com)'
-                    : 'We’ll email you a secure one-click sign in link.'}
+                  {clientError || "We'll email you a secure one-click sign in link."}
                 </p>
               </div>
 
               {/* Primary Submit CTA */}
               <button
                 type="submit"
-                disabled={formState === 'submitting'}
+                disabled={isLoading}
                 className="w-full h-11 px-4 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-primary active:scale-[0.99] transition-all shadow-md disabled:opacity-75 disabled:cursor-not-allowed"
               >
-                {formState === 'submitting' ? (
+                {isLoading ? (
                   <>
                     <span className="material-symbols-outlined animate-spin text-[18px]">
                       progress_activity
                     </span>
                     <span>Sending Magic Link...</span>
                   </>
-                ) : formState === 'success' ? (
+                ) : isSuccess ? (
                   <>
                     <span className="material-symbols-outlined text-[18px]">mark_email_read</span>
                     <span>Check Your Inbox</span>
@@ -370,7 +345,7 @@ export default function SignInPage() {
             <button
               type="button"
               onClick={handleGoogleAuth}
-              disabled={formState === 'submitting'}
+              disabled={isLoading}
               className="w-full h-11 px-4 rounded-lg bg-surface text-text-primary font-label-md text-label-md font-medium flex items-center justify-center gap-3 hover:bg-surface-container-low transition-all shadow-sm border border-border/80 active:scale-[0.99] disabled:opacity-75"
             >
               <svg aria-hidden="true" className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
@@ -395,7 +370,7 @@ export default function SignInPage() {
             </button>
 
             {/* Dynamic Success Toast */}
-            {formState === 'success' && (
+            {isSuccess && (
               <div className="mt-4 p-3 rounded-lg bg-surface-container text-success font-body-sm text-body-sm flex items-center justify-between shadow-sm border border-success/30 animate-in fade-in duration-200">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[18px]">mark_email_read</span>
