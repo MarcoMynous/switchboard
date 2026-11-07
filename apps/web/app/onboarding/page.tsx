@@ -472,8 +472,8 @@ export default function OnboardingPage() {
       {/* =====================================================================
           MOBILE HEADER (< lg) — Matches Mobile Mockup
       ===================================================================== */}
-      <header className="lg:hidden w-full bg-white sticky top-0 z-30">
-        <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+      <header className="lg:hidden w-full bg-white border-b border-slate-200/80 sticky top-0 z-30">
+        <div className="px-5 py-3.5 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#6258E8] flex items-center justify-center text-white shadow-xs">
               <span className="material-symbols-outlined text-[20px]">hub</span>
@@ -489,18 +489,6 @@ export default function OnboardingPage() {
               <span className="material-symbols-outlined text-[18px]">person</span>
             </div>
           </div>
-        </div>
-
-        {/* Top Segmented Progress Bar */}
-        <div className="grid grid-cols-6 gap-1.5 px-5 pb-3 border-b border-slate-200/80">
-          {STEPS.map((s) => (
-            <div
-              key={s.id}
-              className={`h-1.5 rounded-full transition-colors duration-300 ${
-                s.id <= currentStep ? 'bg-[#6258E8]' : 'bg-slate-200'
-              }`}
-            />
-          ))}
         </div>
       </header>
 
