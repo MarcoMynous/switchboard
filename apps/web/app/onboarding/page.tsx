@@ -424,12 +424,27 @@ export default function OnboardingPage() {
     return Object.keys(stepErrors).length === 0;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!validateStep(currentStep)) return;
     if (currentStep < 6) {
       setCurrentStep((prev) => prev + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
+      try {
+        await fetch('/api/workspace', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: state.businessName,
+            slug: state.slug,
+            vertical: state.category === 'beauty' ? 'salon' : state.category,
+            timezone: state.timezone,
+            agentEnabled: true,
+          }),
+        });
+      } catch {
+        // Proceed with local persisted draft if offline
+      }
       router.push('/dashboard');
     }
   };
