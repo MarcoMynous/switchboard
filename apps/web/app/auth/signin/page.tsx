@@ -50,7 +50,7 @@ export default function SignInPage() {
 
       setIsSuccess(true);
       setTimeout(() => {
-        router.push('/auth/check-email');
+        router.push(`/auth/check-email?email=${encodeURIComponent(trimmed)}`);
       }, 1000);
     } catch (_err) {
       setServerError(
