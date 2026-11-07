@@ -416,7 +416,6 @@ export default function OnboardingPage() {
       setCurrentStep((prev) => prev + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      // Final activation
       router.push('/dashboard');
     }
   };
@@ -429,54 +428,47 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background font-body-md text-on-surface antialiased flex flex-col justify-between selection:bg-primary-container selection:text-white">
+    <div className="min-h-screen bg-[#F7F8FB] font-sans text-[#111827] antialiased flex flex-col justify-between selection:bg-[#6258E8] selection:text-white">
       {/* Top Header */}
-      <header className="w-full py-space-md lg:py-space-lg px-gutter border-b border-border/40 bg-surface/50 backdrop-blur-md sticky top-0 z-20">
+      <header className="w-full py-5 px-6">
         <div className="max-w-[1120px] mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-space-sm group">
-            <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center transition-transform group-hover:scale-105 shadow-sm">
-              <span className="material-symbols-outlined text-on-primary text-[20px]">hub</span>
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-[#6258E8] flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105">
+              <span className="material-symbols-outlined text-[20px]">hub</span>
             </div>
-            <span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-text-primary">
-              Switchboard
-            </span>
+            <span className="text-xl font-bold tracking-tight text-[#111827]">Switchboard</span>
           </Link>
 
-          <div className="flex items-center gap-space-sm">
-            <span className="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider font-mono hidden sm:inline-block">
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-wider text-slate-500 font-mono font-medium hidden sm:inline-block">
               Workspace Setup
             </span>
-            <span className="px-2 py-0.5 rounded bg-surface-container text-[11px] font-mono text-text-secondary border border-border">
+            <span className="px-2 py-0.5 rounded-full bg-[#dbe2f8] text-[#3f4758] text-[11px] font-mono font-medium">
               v2.4
             </span>
           </div>
         </div>
       </header>
 
-      {/* Main Persistent Layout */}
-      <div className="flex-1 max-w-[1120px] w-full mx-auto px-gutter py-4 lg:py-8">
-        <main className="w-full bg-surface rounded-xl border border-border shadow-sm flex flex-col lg:flex-row overflow-hidden min-h-[720px]">
+      {/* Main Persistent Layout Container */}
+      <main className="w-full flex-1 flex items-center justify-center px-4 sm:px-6 py-4">
+        <div className="w-full max-w-[1120px] bg-white rounded-xl border border-slate-200 shadow-[0_1px_3px_0_rgba(16,24,39,0.04),0_1px_2px_-1px_rgba(16,24,39,0.04)] overflow-hidden flex flex-col lg:flex-row min-h-[660px]">
           {/* Left Persistent Sidebar (35%) */}
-          <aside className="w-full lg:w-[35%] bg-surface-container-low p-space-lg border-b lg:border-b-0 lg:border-r border-border flex flex-col justify-between">
-            <div className="space-y-space-lg">
-              <div>
-                <span className="font-label-sm text-label-sm uppercase tracking-wider text-primary font-semibold block mb-1">
+          <aside className="w-full lg:w-[35%] bg-[#f2f3f6] p-6 lg:p-8 border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col justify-between">
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold block">
                   Onboarding Wizard
                 </span>
-                <h1 className="font-headline-md text-headline-md font-semibold text-text-primary tracking-tight">
-                  Get Started
-                </h1>
-                <p className="font-body-sm text-body-sm text-text-secondary mt-1">
+                <h1 className="text-xl font-bold text-[#111827] tracking-tight">Get Started</h1>
+                <p className="text-xs text-slate-500 mt-1">
                   Configure your appointment engine in 6 quick stages.
                 </p>
               </div>
 
               {/* Vertical Stepper with continuous line */}
-              <nav
-                aria-label="Onboarding Progress"
-                className="relative flex flex-col gap-space-lg py-2"
-              >
-                <div className="absolute left-[15px] top-3 bottom-3 w-[2px] bg-border z-0" />
+              <nav aria-label="Onboarding Progress" className="relative flex flex-col gap-6 py-2">
+                <div className="absolute left-[15px] top-4 bottom-4 w-[2px] bg-slate-200 z-0" />
 
                 {STEPS.map((step) => {
                   const isActive = currentStep === step.id;
@@ -491,19 +483,19 @@ export default function OnboardingPage() {
                           setCurrentStep(step.id);
                         }
                       }}
-                      className="group relative z-10 flex items-start gap-space-md text-left transition-opacity"
+                      className="group relative z-10 flex items-start gap-3.5 text-left transition-opacity"
                     >
                       <span
-                        className={`w-8 h-8 rounded-full font-metric-md text-metric-md flex items-center justify-center shrink-0 transition-all ${
+                        className={`w-8 h-8 rounded-full text-xs font-mono font-medium flex items-center justify-center shrink-0 transition-all ${
                           isActive
-                            ? 'bg-primary text-on-primary ring-4 ring-primary/10 shadow-sm'
+                            ? 'bg-[#6258E8] text-white shadow-sm ring-4 ring-[#6258E8]/15 font-semibold'
                             : isDone
-                              ? 'bg-success text-on-primary'
-                              : 'border border-border bg-surface text-text-secondary group-hover:border-primary group-hover:text-primary'
+                              ? 'bg-[#10B981] text-white'
+                              : 'border border-slate-200 bg-white text-slate-500 group-hover:border-[#6258E8] group-hover:text-[#6258E8]'
                         }`}
                       >
                         {isDone ? (
-                          <span className="material-symbols-outlined text-[18px]">check</span>
+                          <span className="material-symbols-outlined text-[16px]">check</span>
                         ) : (
                           `0${step.id}`
                         )}
@@ -511,17 +503,15 @@ export default function OnboardingPage() {
 
                       <div className="space-y-0.5 pt-0.5">
                         <div
-                          className={`font-label-md text-label-md font-medium transition-colors ${
+                          className={`text-xs font-semibold transition-colors ${
                             isActive
-                              ? 'text-primary font-semibold'
-                              : 'text-text-primary group-hover:text-primary'
+                              ? 'text-[#111827]'
+                              : 'text-slate-700 group-hover:text-[#111827]'
                           }`}
                         >
                           {step.label}
                         </div>
-                        <div className="font-body-sm text-body-sm text-text-secondary text-xs">
-                          {step.desc}
-                        </div>
+                        <div className="text-[11px] text-slate-500">{step.desc}</div>
                       </div>
                     </button>
                   );
@@ -530,40 +520,40 @@ export default function OnboardingPage() {
             </div>
 
             {/* Sidebar Engine Status */}
-            <div className="pt-space-lg mt-6 border-t border-border flex items-center justify-between text-text-secondary">
-              <span className="font-label-sm text-label-sm">Switchboard Engine</span>
-              <span className="font-metric-sm text-metric-sm text-success flex items-center gap-1.5 font-medium">
-                <span className="w-2 h-2 rounded-full bg-success inline-block animate-pulse" />
+            <div className="pt-6 mt-6 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+              <span>Switchboard Engine</span>
+              <span className="text-xs font-mono font-medium text-[#10B981] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#10B981] inline-block animate-pulse" />
                 Live
               </span>
             </div>
           </aside>
 
           {/* Right Persistent Content Panel (65%) */}
-          <section className="w-full lg:w-[65%] flex flex-col justify-between bg-surface">
+          <section className="w-full lg:w-[65%] flex flex-col justify-between bg-white">
             {/* Scrollable Form Region */}
-            <div className="p-space-lg lg:p-space-xl flex-1 overflow-y-auto">
-              <div className="flex flex-col gap-space-lg">
+            <div className="p-6 lg:p-8 flex-1 overflow-y-auto">
+              <div className="flex flex-col gap-6">
                 {/* Step Header Context */}
-                <div className="space-y-space-xs border-b border-border/60 pb-space-md">
+                <div className="space-y-1.5 border-b border-slate-100 pb-5">
                   <div className="flex items-center justify-between">
-                    <span className="font-label-sm text-label-sm uppercase tracking-wider text-primary font-semibold">
+                    <span className="text-xs uppercase tracking-wider text-[#6258E8] font-bold">
                       Step 0{currentStep} of 06
                     </span>
 
-                    <div className="flex items-center gap-space-xs bg-surface-container-low px-2.5 py-1 rounded-full border border-border/50">
+                    <div className="flex items-center gap-1.5 bg-[#f2f3f6] px-2.5 py-1 rounded-full border border-slate-200/50">
                       <span
-                        className={`w-2 h-2 rounded-full ${
-                          saveStatus === 'saved' ? 'bg-success' : 'bg-primary animate-spin'
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          saveStatus === 'saved' ? 'bg-[#10B981]' : 'bg-[#6258E8] animate-pulse'
                         }`}
                       />
-                      <span className="font-metric-sm text-metric-sm text-text-secondary">
-                        {saveStatus === 'saved' ? 'Draft Saved' : 'Saving Changes...'}
+                      <span className="text-xs font-mono text-slate-500">
+                        {saveStatus === 'saved' ? 'Profile Draft Sync' : 'Saving Changes...'}
                       </span>
                     </div>
                   </div>
 
-                  <h2 className="font-headline-md text-headline-md font-semibold text-text-primary tracking-tight">
+                  <h2 className="text-2xl font-bold text-[#111827] tracking-tight">
                     {currentStep === 1 && 'Tell us about your business'}
                     {currentStep === 2 && 'What services do you offer?'}
                     {currentStep === 3 && 'When are you available?'}
@@ -572,7 +562,7 @@ export default function OnboardingPage() {
                     {currentStep === 6 && 'Your business is almost ready'}
                   </h2>
 
-                  <p className="font-body-md text-body-md text-text-secondary max-w-xl text-sm">
+                  <p className="text-sm text-slate-500 max-w-xl">
                     {currentStep === 1 &&
                       'Provide foundational information so your AI assistant knows who it represents and how to handle customer inquiries accurately.'}
                     {currentStep === 2 &&
@@ -590,22 +580,22 @@ export default function OnboardingPage() {
 
                 {/* Step 1: Your Business */}
                 {currentStep === 1 && (
-                  <div className="space-y-space-lg">
+                  <div className="space-y-5">
                     {/* Business Name */}
                     <div className="space-y-1.5">
                       <label
                         htmlFor="biz-name"
-                        className="font-label-md text-label-md font-medium text-text-primary flex items-center justify-between"
+                        className="text-xs font-semibold text-[#111827] flex items-center justify-between"
                       >
                         <span>
-                          Official Business Name <span className="text-error">*</span>
+                          Official Business Name <span className="text-[#ba1a1a]">*</span>
                         </span>
-                        <span className="font-label-sm text-label-sm text-text-secondary">
+                        <span className="text-xs font-normal text-slate-500">
                           Public display name
                         </span>
                       </label>
-                      <div className="relative rounded-lg shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-secondary">
+                      <div className="relative rounded-lg shadow-xs">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                           <span className="material-symbols-outlined text-[18px]">domain</span>
                         </div>
                         <input
@@ -613,34 +603,36 @@ export default function OnboardingPage() {
                           type="text"
                           value={state.businessName}
                           onChange={(e) => updateState({ businessName: e.target.value })}
-                          placeholder="e.g. Fade Republic, Ota"
-                          className={`w-full pl-9 pr-10 py-2.5 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ${
-                            errors.businessName ? 'ring-error' : 'ring-border'
-                          } focus:ring-2 focus:ring-inset focus:ring-primary outline-none transition-all`}
+                          placeholder="e.g. Acme Studio Inc."
+                          className={`w-full pl-9 pr-10 py-2.5 bg-white text-[#111827] text-sm rounded-lg border ${
+                            errors.businessName
+                              ? 'border-[#ba1a1a] ring-1 ring-[#ba1a1a]'
+                              : 'border-slate-200'
+                          } focus:ring-2 focus:ring-[#6258E8] focus:border-transparent outline-none transition-all shadow-xs`}
                         />
                         {state.businessName && (
-                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-success">
+                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[#10B981]">
                             <span className="material-symbols-outlined text-[18px]">verified</span>
                           </div>
                         )}
                       </div>
                       {errors.businessName && (
-                        <p className="text-xs text-error font-medium">{errors.businessName}</p>
+                        <p className="text-xs text-[#ba1a1a] font-medium">{errors.businessName}</p>
                       )}
                     </div>
 
                     {/* Industry Cards */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="font-label-md text-label-md font-medium text-text-primary">
-                          Primary Business Category <span className="text-error">*</span>
+                        <span className="text-xs font-semibold text-[#111827]">
+                          Primary Business Category <span className="text-[#ba1a1a]">*</span>
                         </span>
-                        <span className="font-label-sm text-label-sm text-text-secondary">
-                          Loads tailored presets
+                        <span className="text-xs text-slate-500">
+                          Tailors reasoning prompts & schema
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {(Object.keys(CATEGORY_METADATA) as BusinessCategory[]).map((catKey) => {
                           const meta = CATEGORY_METADATA[catKey];
                           const isSelected = state.category === catKey;
@@ -650,99 +642,117 @@ export default function OnboardingPage() {
                               key={catKey}
                               type="button"
                               onClick={() => handleCategorySelect(catKey)}
-                              className={`p-3.5 rounded-lg border text-left flex items-start gap-3 transition-all ${
+                              className={`p-3.5 rounded-lg border text-left flex items-start gap-3 transition-all relative cursor-pointer ${
                                 isSelected
-                                  ? 'border-primary ring-2 ring-primary/20 bg-primary-fixed/20'
-                                  : 'border-border bg-surface hover:bg-surface-container-low/50'
+                                  ? 'border-[#6258E8] ring-2 ring-[#6258E8]/20 bg-[#6258E8]/5 shadow-xs'
+                                  : 'border-slate-200 bg-white hover:bg-slate-50/80 shadow-xs'
                               }`}
                             >
                               <div
-                                className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                                className={`w-8 h-8 rounded flex items-center justify-center shrink-0 mt-0.5 ${
                                   isSelected
-                                    ? 'bg-primary text-on-primary'
-                                    : 'bg-surface-container text-text-secondary'
+                                    ? 'bg-[#6258E8]/10 text-[#6258E8]'
+                                    : 'bg-slate-100 text-slate-500'
                                 }`}
                               >
-                                <span className="material-symbols-outlined text-[18px]">
+                                <span className="material-symbols-outlined text-[20px]">
                                   {meta.icon}
                                 </span>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-label-md text-label-md font-medium text-text-primary flex items-center justify-between">
-                                  <span>{meta.label}</span>
-                                  {isSelected && (
-                                    <span className="material-symbols-outlined text-primary text-[18px]">
-                                      check_circle
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="font-body-sm text-body-sm text-text-secondary text-xs truncate">
+                              <div className="flex-1 min-w-0 pr-4">
+                                <p className="text-xs font-semibold text-[#111827] truncate">
+                                  {meta.label}
+                                </p>
+                                <p className="text-[11px] text-slate-500 truncate mt-0.5">
                                   {meta.sub}
-                                </div>
+                                </p>
                               </div>
+                              {isSelected && (
+                                <span className="material-symbols-outlined text-[#6258E8] text-[18px] absolute top-3 right-3">
+                                  check_circle
+                                </span>
+                              )}
                             </button>
                           );
                         })}
                       </div>
                     </div>
 
-                    {/* Country & Timezone (Nigerian Defaults) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+                    {/* Country & Timezone */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <label
-                          htmlFor="country-select"
-                          className="font-label-md text-label-md font-medium text-text-primary"
+                          htmlFor="biz-country"
+                          className="text-xs font-semibold text-[#111827] block"
                         >
                           Country of Registry
                         </label>
-                        <select
-                          id="country-select"
-                          value={state.country}
-                          onChange={(e) => updateState({ country: e.target.value })}
-                          className="w-full py-2.5 px-3 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-inset focus:ring-primary outline-none"
-                        >
-                          <option value="Nigeria">Nigeria (NG)</option>
-                          <option value="Ghana">Ghana (GH)</option>
-                          <option value="Kenya">Kenya (KE)</option>
-                        </select>
+                        <div className="relative rounded-lg shadow-xs">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <span className="material-symbols-outlined text-[18px]">public</span>
+                          </div>
+                          <select
+                            id="biz-country"
+                            value={state.country}
+                            onChange={(e) => updateState({ country: e.target.value })}
+                            className="w-full pl-9 pr-8 py-2.5 bg-white text-[#111827] text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#6258E8] focus:border-transparent outline-none appearance-none cursor-pointer"
+                          >
+                            <option value="Nigeria">Nigeria (NG)</option>
+                            <option value="Ghana">Ghana (GH)</option>
+                            <option value="Kenya">Kenya (KE)</option>
+                          </select>
+                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                            <span className="material-symbols-outlined text-[18px]">
+                              expand_more
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="space-y-1.5">
                         <label
-                          htmlFor="timezone-select"
-                          className="font-label-md text-label-md font-medium text-text-primary"
+                          htmlFor="biz-timezone"
+                          className="text-xs font-semibold text-[#111827] block"
                         >
                           Operating Timezone
                         </label>
-                        <select
-                          id="timezone-select"
-                          value={state.timezone}
-                          onChange={(e) => updateState({ timezone: e.target.value })}
-                          className="w-full py-2.5 px-3 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-inset focus:ring-primary outline-none"
-                        >
-                          <option value="Africa/Lagos (GMT+1)">Africa/Lagos (GMT+1)</option>
-                          <option value="Africa/Accra (GMT)">Africa/Accra (GMT)</option>
-                          <option value="Africa/Nairobi (GMT+3)">Africa/Nairobi (GMT+3)</option>
-                        </select>
+                        <div className="relative rounded-lg shadow-xs">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <span className="material-symbols-outlined text-[18px]">schedule</span>
+                          </div>
+                          <select
+                            id="biz-timezone"
+                            value={state.timezone}
+                            onChange={(e) => updateState({ timezone: e.target.value })}
+                            className="w-full pl-9 pr-8 py-2.5 bg-white text-[#111827] text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#6258E8] focus:border-transparent outline-none appearance-none cursor-pointer"
+                          >
+                            <option value="Africa/Lagos (GMT+1)">Africa/Lagos (GMT+1)</option>
+                            <option value="Africa/Accra (GMT)">Africa/Accra (GMT)</option>
+                            <option value="Africa/Nairobi (GMT+3)">Africa/Nairobi (GMT+3)</option>
+                          </select>
+                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                            <span className="material-symbols-outlined text-[18px]">
+                              expand_more
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     {/* Phone & Address */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label
-                          htmlFor="biz-phone"
-                          className="font-label-md text-label-md font-medium text-text-primary flex items-center justify-between"
-                        >
-                          <span>
-                            Dispatch Phone Number <span className="text-error">*</span>
-                          </span>
-                          <span className="font-label-sm text-label-sm text-text-secondary">
-                            Customer contact
-                          </span>
-                        </label>
-                        <div className="relative rounded-lg shadow-sm">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-secondary">
+                        <div className="flex items-center justify-between">
+                          <label
+                            htmlFor="biz-phone"
+                            className="text-xs font-semibold text-[#111827]"
+                          >
+                            Dispatch Phone <span className="text-[#ba1a1a]">*</span>
+                          </label>
+                          <span className="text-xs text-slate-500">Voice & SMS bridge</span>
+                        </div>
+                        <div className="relative rounded-lg shadow-xs">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                             <span className="material-symbols-outlined text-[18px]">call</span>
                           </div>
                           <input
@@ -751,28 +761,33 @@ export default function OnboardingPage() {
                             value={state.phone}
                             onChange={(e) => updateState({ phone: e.target.value })}
                             placeholder="+234 803 000 0000"
-                            className={`w-full pl-9 pr-3 py-2.5 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ${
-                              errors.phone ? 'ring-error' : 'ring-border'
-                            } focus:ring-2 focus:ring-inset focus:ring-primary outline-none`}
+                            className={`w-full pl-9 pr-9 py-2.5 bg-white text-[#111827] text-sm font-mono rounded-lg border ${
+                              errors.phone
+                                ? 'border-[#ba1a1a] ring-1 ring-[#ba1a1a]'
+                                : 'border-slate-200'
+                            } focus:ring-2 focus:ring-[#6258E8] focus:border-transparent outline-none`}
                           />
+                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                            <span className="material-symbols-outlined text-[18px]">dialpad</span>
+                          </div>
                         </div>
                         {errors.phone && (
-                          <p className="text-xs text-error font-medium">{errors.phone}</p>
+                          <p className="text-xs text-[#ba1a1a] font-medium">{errors.phone}</p>
                         )}
                       </div>
 
                       <div className="space-y-1.5">
-                        <label
-                          htmlFor="biz-address"
-                          className="font-label-md text-label-md font-medium text-text-primary flex items-center justify-between"
-                        >
-                          <span>Physical Address</span>
-                          <span className="font-label-sm text-label-sm text-text-secondary">
-                            Optional
-                          </span>
-                        </label>
-                        <div className="relative rounded-lg shadow-sm">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-secondary">
+                        <div className="flex items-center justify-between">
+                          <label
+                            htmlFor="biz-address"
+                            className="text-xs font-semibold text-[#111827]"
+                          >
+                            Physical Address
+                          </label>
+                          <span className="text-xs text-slate-500">Optional</span>
+                        </div>
+                        <div className="relative rounded-lg shadow-xs">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                             <span className="material-symbols-outlined text-[18px]">
                               location_on
                             </span>
@@ -782,47 +797,65 @@ export default function OnboardingPage() {
                             type="text"
                             value={state.address}
                             onChange={(e) => updateState({ address: e.target.value })}
-                            placeholder="e.g. 14 Ogunu Road, Warri or Victoria Island, Lagos"
-                            className="w-full pl-9 pr-3 py-2.5 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-inset focus:ring-primary outline-none"
+                            placeholder="e.g. KM 10 Idiroko Road, Ota"
+                            className="w-full pl-9 pr-3 py-2.5 bg-white text-[#111827] text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#6258E8] focus:border-transparent outline-none"
                           />
                         </div>
                       </div>
                     </div>
 
-                    {/* Website & Description */}
+                    {/* Website */}
                     <div className="space-y-1.5">
-                      <label
-                        htmlFor="biz-website"
-                        className="font-label-md text-label-md font-medium text-text-primary flex items-center justify-between"
-                      >
-                        <span>Website or Social Profile URL</span>
-                        <span className="font-label-sm text-label-sm text-text-secondary">
-                          Optional
-                        </span>
-                      </label>
-                      <input
-                        id="biz-website"
-                        type="url"
-                        value={state.website}
-                        onChange={(e) => updateState({ website: e.target.value })}
-                        placeholder="https://instagram.com/yourbusiness or https://yourbiz.ng"
-                        className="w-full px-3 py-2.5 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-inset focus:ring-primary outline-none"
-                      />
+                      <div className="flex items-center justify-between">
+                        <label
+                          htmlFor="biz-website"
+                          className="text-xs font-semibold text-[#111827]"
+                        >
+                          Primary Web Domain
+                        </label>
+                        <span className="text-xs text-slate-500">Auto-ingests FAQ</span>
+                      </div>
+                      <div className="relative rounded-lg shadow-xs">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <span className="material-symbols-outlined text-[18px]">language</span>
+                        </div>
+                        <input
+                          id="biz-website"
+                          type="url"
+                          value={state.website}
+                          onChange={(e) => updateState({ website: e.target.value })}
+                          placeholder="https://yourbusiness.ng"
+                          className="w-full pl-9 pr-9 py-2.5 bg-white text-[#111827] text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#6258E8] focus:border-transparent outline-none"
+                        />
+                        {state.website && (
+                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[#10B981]">
+                            <span className="material-symbols-outlined text-[18px]">
+                              check_circle
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Info Callout */}
+                    <div className="flex items-center gap-2 bg-[#f2f3f6]/70 p-3 rounded-lg border border-slate-200/50 text-xs text-slate-600">
+                      <span className="material-symbols-outlined text-[18px] text-[#6258E8]">
+                        info
+                      </span>
+                      <span>Changes save automatically to your draft workspace.</span>
                     </div>
                   </div>
                 )}
 
                 {/* Step 2: Services & Staff */}
                 {currentStep === 2 && (
-                  <div className="space-y-space-xl">
+                  <div className="space-y-6">
                     {/* Services Section */}
-                    <div className="space-y-space-md">
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-headline-sm text-headline-sm font-semibold text-text-primary">
-                            Bookable Services
-                          </h3>
-                          <p className="font-body-sm text-body-sm text-text-secondary">
+                          <h3 className="text-base font-bold text-[#111827]">Bookable Services</h3>
+                          <p className="text-xs text-slate-500">
                             Define durations and pricing in Nigerian Naira (₦).
                           </p>
                         </div>
@@ -847,29 +880,29 @@ export default function OnboardingPage() {
                               ],
                             }));
                           }}
-                          className="px-3 py-1.5 rounded-lg border border-border bg-surface text-primary hover:bg-surface-container-low font-label-md text-label-md font-medium flex items-center gap-1.5 shadow-sm transition-colors"
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[#6258E8] hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[18px]">add</span>
+                          <span className="material-symbols-outlined text-[16px]">add</span>
                           Add Service
                         </button>
                       </div>
 
                       {errors.services && (
-                        <p className="text-xs text-error font-medium">{errors.services}</p>
+                        <p className="text-xs text-[#ba1a1a] font-medium">{errors.services}</p>
                       )}
 
                       <div className="space-y-3">
                         {state.services.map((svc, idx) => (
                           <div
                             key={svc.id}
-                            className="p-4 rounded-lg border border-border bg-surface space-y-3 hover:border-primary/40 transition-colors shadow-xs"
+                            className="p-3.5 rounded-lg border border-slate-200 bg-white space-y-2.5 hover:border-[#6258E8]/30 transition-colors shadow-xs"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 grid grid-cols-1 sm:grid-cols-12 gap-3">
                                 <div className="sm:col-span-6">
                                   <label
                                     htmlFor={`svc-name-${svc.id}`}
-                                    className="font-label-sm text-label-sm text-text-secondary block mb-1"
+                                    className="text-[11px] text-slate-500 font-medium block mb-1"
                                   >
                                     Service Name
                                   </label>
@@ -884,14 +917,14 @@ export default function OnboardingPage() {
                                         updateState({ services: updated });
                                       }
                                     }}
-                                    className="w-full px-3 py-1.5 bg-surface text-text-primary font-body-sm text-body-sm rounded-md border border-border focus:ring-1 focus:ring-primary outline-none"
+                                    className="w-full px-3 py-1.5 bg-white text-[#111827] text-xs font-medium rounded-md border border-slate-200 focus:ring-1 focus:ring-[#6258E8] outline-none"
                                   />
                                 </div>
 
                                 <div className="sm:col-span-3">
                                   <label
                                     htmlFor={`svc-duration-${svc.id}`}
-                                    className="font-label-sm text-label-sm text-text-secondary block mb-1"
+                                    className="text-[11px] text-slate-500 font-medium block mb-1"
                                   >
                                     Duration
                                   </label>
@@ -908,7 +941,7 @@ export default function OnboardingPage() {
                                         updateState({ services: updated });
                                       }
                                     }}
-                                    className="w-full px-2 py-1.5 bg-surface text-text-primary font-body-sm text-body-sm rounded-md border border-border focus:ring-1 focus:ring-primary outline-none"
+                                    className="w-full px-2 py-1.5 bg-white text-[#111827] text-xs rounded-md border border-slate-200 focus:ring-1 focus:ring-[#6258E8] outline-none cursor-pointer"
                                   >
                                     <option value={15}>15 mins</option>
                                     <option value={30}>30 mins</option>
@@ -922,7 +955,7 @@ export default function OnboardingPage() {
                                 <div className="sm:col-span-3">
                                   <label
                                     htmlFor={`svc-price-${svc.id}`}
-                                    className="font-label-sm text-label-sm text-text-secondary block mb-1"
+                                    className="text-[11px] text-slate-500 font-medium block mb-1"
                                   >
                                     Price (₦)
                                   </label>
@@ -944,7 +977,7 @@ export default function OnboardingPage() {
                                         updateState({ services: updated });
                                       }
                                     }}
-                                    className="w-full px-3 py-1.5 bg-surface text-text-primary font-body-sm text-body-sm rounded-md border border-border focus:ring-1 focus:ring-primary outline-none"
+                                    className="w-full px-3 py-1.5 bg-white text-[#111827] text-xs font-semibold rounded-md border border-slate-200 focus:ring-1 focus:ring-[#6258E8] outline-none"
                                   />
                                 </div>
                               </div>
@@ -957,7 +990,7 @@ export default function OnboardingPage() {
                                     services: prev.services.filter((_, i) => i !== idx),
                                   }));
                                 }}
-                                className="p-1.5 text-text-secondary hover:text-error hover:bg-error-container/30 rounded transition-colors"
+                                className="p-1 text-slate-400 hover:text-[#ba1a1a] rounded transition-colors"
                                 title="Remove Service"
                               >
                                 <span className="material-symbols-outlined text-[18px]">
@@ -977,7 +1010,7 @@ export default function OnboardingPage() {
                                   updateState({ services: updated });
                                 }
                               }}
-                              className="w-full px-3 py-1 bg-surface-container-low/50 text-text-secondary text-xs rounded border border-border/40 focus:ring-1 focus:ring-primary outline-none"
+                              className="w-full px-2.5 py-1 bg-slate-50 text-slate-500 text-xs rounded border border-slate-200/60 focus:ring-1 focus:ring-[#6258E8] outline-none"
                             />
                           </div>
                         ))}
@@ -985,13 +1018,13 @@ export default function OnboardingPage() {
                     </div>
 
                     {/* Staff Members Section */}
-                    <div className="space-y-space-md pt-space-md border-t border-border">
+                    <div className="space-y-3 pt-4 border-t border-slate-100">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-headline-sm text-headline-sm font-semibold text-text-primary">
+                          <h3 className="text-base font-bold text-[#111827]">
                             Staff Roster & Providers
                           </h3>
-                          <p className="font-body-sm text-body-sm text-text-secondary">
+                          <p className="text-xs text-slate-500">
                             Bookable team members assigned to provide appointments.
                           </p>
                         </div>
@@ -1014,9 +1047,9 @@ export default function OnboardingPage() {
                                 ],
                               }));
                             }}
-                            className="px-3 py-1.5 rounded-lg border border-border bg-surface text-text-primary hover:bg-surface-container-low font-label-md text-label-md font-medium flex items-center gap-1.5 shadow-sm"
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[#111827] hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-xs"
                           >
-                            <span className="material-symbols-outlined text-[18px]">
+                            <span className="material-symbols-outlined text-[16px]">
                               person_add
                             </span>
                             Add Staff
@@ -1025,34 +1058,34 @@ export default function OnboardingPage() {
                       </div>
 
                       {/* Solo Provider Toggle */}
-                      <label className="flex items-center gap-2 p-3 bg-surface-container-low/60 rounded-lg border border-border cursor-pointer">
+                      <label className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={state.selfProvided}
                           onChange={(e) => updateState({ selfProvided: e.target.checked })}
-                          className="w-4 h-4 text-primary rounded border-border focus:ring-primary"
+                          className="w-4 h-4 text-[#6258E8] rounded border-slate-300 focus:ring-[#6258E8]"
                         />
-                        <span className="font-label-md text-label-md text-text-primary">
+                        <span className="text-xs font-medium text-[#111827]">
                           I provide all the services myself (Solo operator)
                         </span>
                       </label>
 
                       {errors.staff && (
-                        <p className="text-xs text-error font-medium">{errors.staff}</p>
+                        <p className="text-xs text-[#ba1a1a] font-medium">{errors.staff}</p>
                       )}
 
                       {!state.selfProvided && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {state.staff.map((member, idx) => (
                             <div
                               key={member.id}
-                              className="p-3.5 rounded-lg border border-border bg-surface space-y-2 relative"
+                              className="p-3 rounded-lg border border-slate-200 bg-white space-y-2 relative shadow-xs"
                             >
                               <div className="flex items-start justify-between">
                                 <div className="space-y-1 flex-1 pr-2">
                                   <label
                                     htmlFor={`staff-name-${member.id}`}
-                                    className="font-label-sm text-label-sm text-text-secondary block"
+                                    className="text-[11px] text-slate-500 font-medium block"
                                   >
                                     Staff Name
                                   </label>
@@ -1067,7 +1100,7 @@ export default function OnboardingPage() {
                                         updateState({ staff: updated });
                                       }
                                     }}
-                                    className="w-full px-2.5 py-1 text-sm font-medium text-text-primary rounded border border-border focus:ring-1 focus:ring-primary outline-none"
+                                    className="w-full px-2.5 py-1 text-xs font-semibold text-[#111827] rounded border border-slate-200 focus:ring-1 focus:ring-[#6258E8] outline-none"
                                   />
                                 </div>
 
@@ -1079,7 +1112,7 @@ export default function OnboardingPage() {
                                       staff: prev.staff.filter((_, i) => i !== idx),
                                     }));
                                   }}
-                                  className="text-text-secondary hover:text-error p-1"
+                                  className="text-slate-400 hover:text-[#ba1a1a] p-1"
                                   title="Remove Staff"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">
@@ -1088,11 +1121,11 @@ export default function OnboardingPage() {
                                 </button>
                               </div>
 
-                              <div className="flex items-center gap-1.5 text-xs text-text-secondary pt-1">
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
                                 <span className="material-symbols-outlined text-[14px]">
                                   event_available
                                 </span>
-                                <span>Assigned to {state.services.length} services</span>
+                                <span>Assigned to all services</span>
                               </div>
                             </div>
                           ))}
@@ -1104,10 +1137,10 @@ export default function OnboardingPage() {
 
                 {/* Step 3: Working Hours */}
                 {currentStep === 3 && (
-                  <div className="space-y-space-lg">
+                  <div className="space-y-5">
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <span className="font-label-md text-label-md text-text-secondary">
-                        Adjust weekly working hours & booking windows
+                      <span className="text-xs font-semibold text-[#111827]">
+                        Weekly Working Schedule
                       </span>
                       <div className="flex items-center gap-2">
                         <button
@@ -1123,7 +1156,7 @@ export default function OnboardingPage() {
                               return { ...prev, schedule: updated };
                             });
                           }}
-                          className="px-2.5 py-1 text-xs font-medium rounded border border-border bg-surface hover:bg-surface-container-low text-text-primary transition-colors"
+                          className="px-2.5 py-1 text-xs font-medium rounded border border-slate-200 bg-white hover:bg-slate-50 text-[#111827] transition-colors"
                         >
                           Apply Mon to Weekdays
                         </button>
@@ -1137,7 +1170,7 @@ export default function OnboardingPage() {
                               schedule: { ...prev.schedule, Saturday: { ...mon } },
                             }));
                           }}
-                          className="px-2.5 py-1 text-xs font-medium rounded border border-border bg-surface hover:bg-surface-container-low text-text-primary transition-colors"
+                          className="px-2.5 py-1 text-xs font-medium rounded border border-slate-200 bg-white hover:bg-slate-50 text-[#111827] transition-colors"
                         >
                           Copy to Saturday
                         </button>
@@ -1145,11 +1178,11 @@ export default function OnboardingPage() {
                     </div>
 
                     {/* Schedule List */}
-                    <div className="space-y-2 rounded-lg border border-border divide-y divide-border overflow-hidden bg-surface">
+                    <div className="space-y-1.5 rounded-lg border border-slate-200 divide-y divide-slate-100 overflow-hidden bg-white">
                       {Object.entries(state.schedule).map(([day, sched]) => (
                         <div
                           key={day}
-                          className="p-3 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap"
+                          className="px-3.5 py-2.5 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap"
                         >
                           <div className="flex items-center gap-3 w-32 shrink-0">
                             <input
@@ -1165,14 +1198,12 @@ export default function OnboardingPage() {
                                   },
                                 }));
                               }}
-                              className="w-4 h-4 text-primary rounded border-border focus:ring-primary cursor-pointer"
+                              className="w-4 h-4 text-[#6258E8] rounded border-slate-300 focus:ring-[#6258E8] cursor-pointer"
                             />
                             <label
                               htmlFor={`day-toggle-${day}`}
-                              className={`font-label-md text-label-md font-medium cursor-pointer ${
-                                sched.open
-                                  ? 'text-text-primary'
-                                  : 'text-text-secondary line-through'
+                              className={`text-xs font-semibold cursor-pointer ${
+                                sched.open ? 'text-[#111827]' : 'text-slate-400 line-through'
                               }`}
                             >
                               {day}
@@ -1193,9 +1224,9 @@ export default function OnboardingPage() {
                                     },
                                   }));
                                 }}
-                                className="px-2.5 py-1 text-xs rounded border border-border bg-surface text-text-primary focus:ring-1 focus:ring-primary outline-none"
+                                className="px-2.5 py-1 text-xs rounded border border-slate-200 bg-white text-[#111827] font-mono focus:ring-1 focus:ring-[#6258E8] outline-none"
                               />
-                              <span className="text-text-secondary text-xs">to</span>
+                              <span className="text-slate-400 text-xs">to</span>
                               <input
                                 type="time"
                                 value={sched.closeTime}
@@ -1208,11 +1239,11 @@ export default function OnboardingPage() {
                                     },
                                   }));
                                 }}
-                                className="px-2.5 py-1 text-xs rounded border border-border bg-surface text-text-primary focus:ring-1 focus:ring-primary outline-none"
+                                className="px-2.5 py-1 text-xs rounded border border-slate-200 bg-white text-[#111827] font-mono focus:ring-1 focus:ring-[#6258E8] outline-none"
                               />
                             </div>
                           ) : (
-                            <span className="text-xs font-mono uppercase text-text-secondary px-2 py-0.5 rounded bg-surface-container-low">
+                            <span className="text-[11px] font-mono uppercase text-slate-400 px-2 py-0.5 rounded bg-slate-100">
                               Closed
                             </span>
                           )}
@@ -1221,11 +1252,11 @@ export default function OnboardingPage() {
                     </div>
 
                     {/* Advance Limits */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                       <div className="space-y-1.5">
                         <label
                           htmlFor="advance-window"
-                          className="font-label-md text-label-md font-medium text-text-primary"
+                          className="text-xs font-semibold text-[#111827] block"
                         >
                           Booking Advance Window
                         </label>
@@ -1233,7 +1264,7 @@ export default function OnboardingPage() {
                           id="advance-window"
                           value={state.advanceDays}
                           onChange={(e) => updateState({ advanceDays: Number(e.target.value) })}
-                          className="w-full py-2.5 px-3 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary outline-none"
+                          className="w-full py-2.5 px-3 bg-white text-[#111827] text-xs font-medium rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#6258E8] outline-none"
                         >
                           <option value={7}>Up to 7 days in advance</option>
                           <option value={14}>Up to 14 days in advance</option>
@@ -1243,14 +1274,14 @@ export default function OnboardingPage() {
                       </div>
 
                       <div className="space-y-1.5 flex flex-col justify-end">
-                        <label className="flex items-center gap-2 p-2.5 bg-surface-container-low rounded-lg border border-border cursor-pointer">
+                        <label className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={state.allowSameDay}
                             onChange={(e) => updateState({ allowSameDay: e.target.checked })}
-                            className="w-4 h-4 text-primary rounded border-border focus:ring-primary"
+                            className="w-4 h-4 text-[#6258E8] rounded border-slate-300 focus:ring-[#6258E8]"
                           />
-                          <span className="font-label-md text-label-md text-text-primary">
+                          <span className="text-xs font-semibold text-[#111827]">
                             Allow same-day bookings
                           </span>
                         </label>
@@ -1261,40 +1292,40 @@ export default function OnboardingPage() {
 
                 {/* Step 4: Booking & Deposits */}
                 {currentStep === 4 && (
-                  <div className="space-y-space-lg">
+                  <div className="space-y-5">
                     {/* Deposit Toggle */}
-                    <div className="p-4 rounded-lg border border-border bg-surface-container-low/50 space-y-4">
+                    <div className="p-4 rounded-lg border border-slate-200 bg-[#f2f3f6]/40 space-y-4">
                       <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1">
-                          <span className="font-label-md text-label-md font-semibold text-text-primary block">
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-bold text-[#111827] block">
                             Require Upfront Deposit
                           </span>
-                          <p className="font-body-sm text-body-sm text-text-secondary text-xs">
-                            Customers pay a non-refundable or credited deposit through Kora to
-                            confirm and reserve their slot.
+                          <p className="text-xs text-slate-500">
+                            Customers pay a verified deposit through Kora to eliminate no-shows and
+                            lock their slot.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => updateState({ depositRequired: !state.depositRequired })}
-                          className={`w-12 h-6 rounded-full transition-colors relative focus:outline-none ${
-                            state.depositRequired ? 'bg-primary' : 'bg-surface-container-highest'
+                          className={`w-11 h-6 rounded-full transition-colors relative focus:outline-none ${
+                            state.depositRequired ? 'bg-[#6258E8]' : 'bg-slate-200'
                           }`}
                         >
                           <span
                             className={`w-5 h-5 rounded-full bg-white shadow-sm block transition-transform absolute top-0.5 ${
-                              state.depositRequired ? 'translate-x-6' : 'translate-x-0.5'
+                              state.depositRequired ? 'translate-x-5' : 'translate-x-0.5'
                             }`}
                           />
                         </button>
                       </div>
 
                       {state.depositRequired && (
-                        <div className="pt-3 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="pt-3 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <label
                               htmlFor="dep-amount"
-                              className="font-label-sm text-label-sm text-text-secondary block"
+                              className="text-[11px] text-slate-500 font-medium block"
                             >
                               Standard Deposit Amount (₦)
                             </label>
@@ -1306,17 +1337,17 @@ export default function OnboardingPage() {
                               onChange={(e) =>
                                 updateState({ depositAmount: Number(e.target.value) })
                               }
-                              className="w-full px-3 py-2 bg-surface text-text-primary rounded border border-border focus:ring-1 focus:ring-primary outline-none text-sm font-semibold"
+                              className="w-full px-3 py-2 bg-white text-[#111827] rounded border border-slate-200 focus:ring-1 focus:ring-[#6258E8] outline-none text-xs font-bold"
                             />
                           </div>
 
                           <div className="space-y-1">
-                            <span className="font-label-sm text-label-sm text-text-secondary block">
+                            <span className="text-[11px] text-slate-500 font-medium block">
                               Hold Duration Window
                             </span>
-                            <div className="px-3 py-2 bg-surface-container rounded border border-border text-sm font-mono text-text-primary flex items-center justify-between">
+                            <div className="px-3 py-2 bg-slate-100 rounded border border-slate-200 text-xs font-mono text-[#111827] flex items-center justify-between">
                               <span>15 Minutes</span>
-                              <span className="material-symbols-outlined text-text-secondary text-[16px]">
+                              <span className="material-symbols-outlined text-slate-400 text-[16px]">
                                 lock
                               </span>
                             </div>
@@ -1326,12 +1357,12 @@ export default function OnboardingPage() {
                     </div>
 
                     {/* Invariant Explanation Callout */}
-                    <div className="p-4 rounded-lg bg-primary-fixed/30 border border-primary/20 space-y-2">
-                      <div className="flex items-center gap-2 text-primary font-semibold text-sm">
-                        <span className="material-symbols-outlined text-[20px]">verified_user</span>
+                    <div className="p-4 rounded-lg bg-[#6258E8]/5 border border-[#6258E8]/20 space-y-2">
+                      <div className="flex items-center gap-2 text-[#6258E8] font-bold text-xs">
+                        <span className="material-symbols-outlined text-[18px]">verified_user</span>
                         <span>Switchboard Correctness Guarantee</span>
                       </div>
-                      <p className="text-xs text-text-secondary leading-relaxed">
+                      <p className="text-xs text-slate-600 leading-relaxed">
                         Customers receive a temporary <strong>15-minute slot hold</strong> during
                         checkout. A booking is confirmed <strong>only</strong> after Kora
                         independently verifies the transaction through our cryptographic webhook and
@@ -1341,22 +1372,22 @@ export default function OnboardingPage() {
                     </div>
 
                     {/* Kora Status Badge */}
-                    <div className="p-3.5 rounded-lg border border-border bg-surface flex items-center justify-between">
+                    <div className="p-3.5 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center text-success">
+                        <div className="w-8 h-8 rounded-full bg-[#10B981]/10 flex items-center justify-center text-[#10B981]">
                           <span className="material-symbols-outlined text-[18px]">credit_card</span>
                         </div>
                         <div>
-                          <div className="font-label-md text-label-md font-medium text-text-primary">
+                          <div className="text-xs font-bold text-[#111827]">
                             Kora Checkout Engine
                           </div>
-                          <div className="text-xs text-text-secondary">
+                          <div className="text-[11px] text-slate-500">
                             Cards, Bank Transfer & USSD in Nigerian Naira
                           </div>
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full bg-success/10 text-success text-xs font-mono font-medium flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                      <span className="px-2.5 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] text-xs font-mono font-medium flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
                         Connected
                       </span>
                     </div>
@@ -1365,19 +1396,17 @@ export default function OnboardingPage() {
                     <div className="space-y-1.5">
                       <label
                         htmlFor="cancellation-policy"
-                        className="font-label-md text-label-md font-medium text-text-primary flex items-center justify-between"
+                        className="text-xs font-semibold text-[#111827] flex items-center justify-between"
                       >
                         <span>Cancellation & Refund Policy</span>
-                        <span className="font-label-sm text-label-sm text-text-secondary">
-                          Relayed by AI
-                        </span>
+                        <span className="text-xs text-slate-500">Relayed by AI</span>
                       </label>
                       <textarea
                         id="cancellation-policy"
                         rows={2}
                         value={state.cancellationPolicy}
                         onChange={(e) => updateState({ cancellationPolicy: e.target.value })}
-                        className="w-full px-3 py-2 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary outline-none"
+                        className="w-full px-3 py-2 bg-white text-[#111827] text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#6258E8] outline-none"
                       />
                     </div>
                   </div>
@@ -1385,13 +1414,13 @@ export default function OnboardingPage() {
 
                 {/* Step 5: AI Receptionist */}
                 {currentStep === 5 && (
-                  <div className="space-y-space-lg">
+                  <div className="space-y-5">
                     {/* Persona & Tone */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <label
                           htmlFor="ai-name"
-                          className="font-label-md text-label-md font-medium text-text-primary"
+                          className="text-xs font-semibold text-[#111827] block"
                         >
                           Assistant Name
                         </label>
@@ -1400,12 +1429,12 @@ export default function OnboardingPage() {
                           type="text"
                           value={state.assistantName}
                           onChange={(e) => updateState({ assistantName: e.target.value })}
-                          className="w-full px-3 py-2.5 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary outline-none"
+                          className="w-full px-3 py-2.5 bg-white text-[#111827] text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#6258E8] outline-none"
                         />
                       </div>
 
                       <div className="space-y-1.5">
-                        <span className="font-label-md text-label-md font-medium text-text-primary block">
+                        <span className="text-xs font-semibold text-[#111827] block">
                           Conversation Tone
                         </span>
                         <div className="grid grid-cols-3 gap-2">
@@ -1414,10 +1443,10 @@ export default function OnboardingPage() {
                               key={tone}
                               type="button"
                               onClick={() => updateState({ tone })}
-                              className={`py-2 px-2 text-xs font-medium rounded-lg border text-center transition-all ${
+                              className={`py-2 px-2 text-xs font-semibold rounded-lg border text-center transition-all ${
                                 state.tone === tone
-                                  ? 'border-primary bg-primary-fixed/20 text-primary font-semibold ring-1 ring-primary'
-                                  : 'border-border bg-surface text-text-secondary hover:bg-surface-container-low'
+                                  ? 'border-[#6258E8] bg-[#6258E8]/10 text-[#6258E8] ring-1 ring-[#6258E8]'
+                                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                               }`}
                             >
                               {tone}
@@ -1431,26 +1460,24 @@ export default function OnboardingPage() {
                     <div className="space-y-1.5">
                       <label
                         htmlFor="ai-greeting"
-                        className="font-label-md text-label-md font-medium text-text-primary flex items-center justify-between"
+                        className="text-xs font-semibold text-[#111827] flex items-center justify-between"
                       >
                         <span>Customer Welcome Greeting</span>
-                        <span className="font-label-sm text-label-sm text-text-secondary">
-                          First message
-                        </span>
+                        <span className="text-xs text-slate-500">First message</span>
                       </label>
                       <textarea
                         id="ai-greeting"
                         rows={3}
                         value={state.greeting}
                         onChange={(e) => updateState({ greeting: e.target.value })}
-                        className="w-full px-3 py-2 bg-surface text-text-primary font-body-sm text-body-sm rounded-lg border-0 shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary outline-none text-sm"
+                        className="w-full px-3 py-2 bg-white text-[#111827] text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#6258E8] outline-none"
                       />
                     </div>
 
                     {/* Common FAQs */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="font-label-md text-label-md font-medium text-text-primary">
+                        <span className="text-xs font-semibold text-[#111827]">
                           Common Questions (FAQs)
                         </span>
                         <button
@@ -1469,7 +1496,7 @@ export default function OnboardingPage() {
                               ],
                             }));
                           }}
-                          className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
+                          className="text-xs text-[#6258E8] font-semibold hover:underline flex items-center gap-1"
                         >
                           <span className="material-symbols-outlined text-[16px]">add</span>
                           Add FAQ
@@ -1480,7 +1507,7 @@ export default function OnboardingPage() {
                         {state.faqs.map((faq, idx) => (
                           <div
                             key={faq.id}
-                            className="p-3 rounded-lg border border-border bg-surface space-y-2"
+                            className="p-3 rounded-lg border border-slate-200 bg-white space-y-1.5 shadow-xs"
                           >
                             <div className="flex items-center justify-between gap-2">
                               <input
@@ -1494,7 +1521,7 @@ export default function OnboardingPage() {
                                     updateState({ faqs: updated });
                                   }
                                 }}
-                                className="w-full font-medium text-xs text-text-primary border-0 border-b border-transparent focus:border-primary outline-none"
+                                className="w-full font-semibold text-xs text-[#111827] border-0 border-b border-transparent focus:border-[#6258E8] outline-none"
                               />
                               <button
                                 type="button"
@@ -1504,7 +1531,7 @@ export default function OnboardingPage() {
                                     faqs: prev.faqs.filter((_, i) => i !== idx),
                                   }));
                                 }}
-                                className="text-text-secondary hover:text-error text-xs"
+                                className="text-slate-400 hover:text-[#ba1a1a] text-xs"
                               >
                                 <span className="material-symbols-outlined text-[16px]">
                                   delete
@@ -1522,7 +1549,7 @@ export default function OnboardingPage() {
                                   updateState({ faqs: updated });
                                 }
                               }}
-                              className="w-full text-xs text-text-secondary border-0 outline-none"
+                              className="w-full text-xs text-slate-500 border-0 outline-none"
                             />
                           </div>
                         ))}
@@ -1530,39 +1557,37 @@ export default function OnboardingPage() {
                     </div>
 
                     {/* Channels Configuration */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm pt-2">
-                      <div className="p-3 rounded-lg border border-border bg-surface flex items-center justify-between">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between shadow-xs">
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary text-[20px]">
+                          <span className="material-symbols-outlined text-[#6258E8] text-[20px]">
                             chat
                           </span>
                           <div>
-                            <div className="text-xs font-semibold text-text-primary">
+                            <div className="text-xs font-bold text-[#111827]">
                               Web Booking Widget
                             </div>
-                            <div className="text-[11px] text-text-secondary">
-                              Embeddable online chat
-                            </div>
+                            <div className="text-[11px] text-slate-500">Embeddable online chat</div>
                           </div>
                         </div>
-                        <span className="text-[11px] font-mono text-success bg-success/10 px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-mono text-[#10B981] bg-[#10B981]/10 px-2 py-0.5 rounded font-medium">
                           Enabled
                         </span>
                       </div>
 
-                      <div className="p-3 rounded-lg border border-border bg-surface flex items-center justify-between">
+                      <div className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between shadow-xs">
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-text-secondary text-[20px]">
+                          <span className="material-symbols-outlined text-slate-400 text-[20px]">
                             phone_iphone
                           </span>
                           <div>
-                            <div className="text-xs font-semibold text-text-primary">
+                            <div className="text-xs font-bold text-[#111827]">
                               WhatsApp Business
                             </div>
-                            <div className="text-[11px] text-text-secondary">Pair in Dashboard</div>
+                            <div className="text-[11px] text-slate-500">Pair in Dashboard</div>
                           </div>
                         </div>
-                        <span className="text-[11px] font-mono text-text-secondary bg-surface-container px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-medium">
                           Ready to Pair
                         </span>
                       </div>
@@ -1572,160 +1597,153 @@ export default function OnboardingPage() {
 
                 {/* Step 6: Review & Activate */}
                 {currentStep === 6 && (
-                  <div className="space-y-space-lg">
+                  <div className="space-y-5">
                     {/* 6 Summary Sections */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {/* 1. Profile */}
-                      <div className="p-3.5 rounded-lg border border-border bg-surface space-y-1 relative">
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-white space-y-1 relative shadow-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-label-sm text-label-sm font-semibold text-primary uppercase">
+                          <span className="text-[11px] font-bold text-[#6258E8] uppercase font-mono">
                             01 Business Profile
                           </span>
                           <button
                             type="button"
                             onClick={() => setCurrentStep(1)}
-                            className="text-xs text-text-secondary hover:text-primary underline"
+                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
                         </div>
-                        <div className="font-medium text-sm text-text-primary">
-                          {state.businessName}
-                        </div>
-                        <div className="text-xs text-text-secondary">
+                        <div className="font-bold text-xs text-[#111827]">{state.businessName}</div>
+                        <div className="text-[11px] text-slate-500">
                           {CATEGORY_METADATA[state.category].label} • {state.country}
                         </div>
-                        <div className="text-xs text-text-secondary">{state.phone}</div>
+                        <div className="text-[11px] text-slate-500">{state.phone}</div>
                       </div>
 
                       {/* 2. Services */}
-                      <div className="p-3.5 rounded-lg border border-border bg-surface space-y-1 relative">
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-white space-y-1 relative shadow-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-label-sm text-label-sm font-semibold text-primary uppercase">
+                          <span className="text-[11px] font-bold text-[#6258E8] uppercase font-mono">
                             02 Services & Staff
                           </span>
                           <button
                             type="button"
                             onClick={() => setCurrentStep(2)}
-                            className="text-xs text-text-secondary hover:text-primary underline"
+                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
                         </div>
-                        <div className="font-medium text-sm text-text-primary">
+                        <div className="font-bold text-xs text-[#111827]">
                           {state.services.length} active service
                           {state.services.length === 1 ? '' : 's'}
                         </div>
-                        <div className="text-xs text-text-secondary">
+                        <div className="text-[11px] text-slate-500">
                           {state.selfProvided
                             ? 'Solo provider'
                             : `${state.staff.length} staff members`}
                         </div>
-                        <div className="text-xs text-text-secondary">
-                          Ranging from ₦
-                          {Math.min(...state.services.map((s) => s.price)).toLocaleString()}
+                        <div className="text-[11px] text-slate-500">
+                          From ₦{Math.min(...state.services.map((s) => s.price)).toLocaleString()}
                         </div>
                       </div>
 
                       {/* 3. Hours */}
-                      <div className="p-3.5 rounded-lg border border-border bg-surface space-y-1 relative">
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-white space-y-1 relative shadow-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-label-sm text-label-sm font-semibold text-primary uppercase">
+                          <span className="text-[11px] font-bold text-[#6258E8] uppercase font-mono">
                             03 Working Hours
                           </span>
                           <button
                             type="button"
                             onClick={() => setCurrentStep(3)}
-                            className="text-xs text-text-secondary hover:text-primary underline"
+                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
                         </div>
-                        <div className="font-medium text-sm text-text-primary">
+                        <div className="font-bold text-xs text-[#111827]">
                           {Object.values(state.schedule).filter((s) => s.open).length} days open /
                           week
                         </div>
-                        <div className="text-xs text-text-secondary">
-                          Timezone: {state.timezone}
-                        </div>
-                        <div className="text-xs text-text-secondary">
-                          Up to {state.advanceDays} days in advance
+                        <div className="text-[11px] text-slate-500">{state.timezone}</div>
+                        <div className="text-[11px] text-slate-500">
+                          Up to {state.advanceDays} days ahead
                         </div>
                       </div>
 
                       {/* 4. Deposits */}
-                      <div className="p-3.5 rounded-lg border border-border bg-surface space-y-1 relative">
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-white space-y-1 relative shadow-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-label-sm text-label-sm font-semibold text-primary uppercase">
+                          <span className="text-[11px] font-bold text-[#6258E8] uppercase font-mono">
                             04 Booking & Deposits
                           </span>
                           <button
                             type="button"
                             onClick={() => setCurrentStep(4)}
-                            className="text-xs text-text-secondary hover:text-primary underline"
+                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
                         </div>
-                        <div className="font-medium text-sm text-text-primary">
+                        <div className="font-bold text-xs text-[#111827]">
                           {state.depositRequired
                             ? `₦${state.depositAmount.toLocaleString()} Kora Deposit`
                             : 'No Deposit'}
                         </div>
-                        <div className="text-xs text-text-secondary">
+                        <div className="text-[11px] text-slate-500">
                           15-minute slot reservation hold
                         </div>
-                        <div className="text-xs text-success flex items-center gap-1 font-mono">
-                          <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                        <div className="text-[11px] text-[#10B981] flex items-center gap-1 font-mono">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
                           Kora payments verified
                         </div>
                       </div>
 
                       {/* 5. Receptionist */}
-                      <div className="p-3.5 rounded-lg border border-border bg-surface space-y-1 relative">
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-white space-y-1 relative shadow-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-label-sm text-label-sm font-semibold text-primary uppercase">
+                          <span className="text-[11px] font-bold text-[#6258E8] uppercase font-mono">
                             05 AI Receptionist
                           </span>
                           <button
                             type="button"
                             onClick={() => setCurrentStep(5)}
-                            className="text-xs text-text-secondary hover:text-primary underline"
+                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
                         </div>
-                        <div className="font-medium text-sm text-text-primary">
+                        <div className="font-bold text-xs text-[#111827]">
                           {state.assistantName} ({state.tone} tone)
                         </div>
-                        <div className="text-xs text-text-secondary">{state.language}</div>
-                        <div className="text-xs text-text-secondary">
+                        <div className="text-[11px] text-slate-500">{state.language}</div>
+                        <div className="text-[11px] text-slate-500">
                           {state.faqs.length} pre-trained answers
                         </div>
                       </div>
 
                       {/* 6. Channels */}
-                      <div className="p-3.5 rounded-lg border border-border bg-surface space-y-1 relative">
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-white space-y-1 relative shadow-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-label-sm text-label-sm font-semibold text-primary uppercase">
+                          <span className="text-[11px] font-bold text-[#6258E8] uppercase font-mono">
                             06 Channels
                           </span>
                           <button
                             type="button"
                             onClick={() => setCurrentStep(5)}
-                            className="text-xs text-text-secondary hover:text-primary underline"
+                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
                         </div>
-                        <div className="font-medium text-sm text-text-primary">
+                        <div className="font-bold text-xs text-[#111827]">
                           Web Booking Widget (Live)
                         </div>
-                        <div className="text-xs text-text-secondary">
-                          WhatsApp Cloud bridge ready
-                        </div>
-                        <div className="text-xs text-text-secondary">
-                          Public link: switchboard.ng/b/fade-republic
+                        <div className="text-[11px] text-slate-500">WhatsApp bridge ready</div>
+                        <div className="text-[11px] text-slate-500">
+                          switchboard.ng/b/fade-republic
                         </div>
                       </div>
                     </div>
@@ -1738,9 +1756,9 @@ export default function OnboardingPage() {
                           setTestTimer(900);
                           setTestModalOpen(true);
                         }}
-                        className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-container-low text-text-primary font-label-md text-label-md font-medium flex items-center justify-center gap-2 shadow-sm transition-colors"
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[#111827] text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[18px] text-primary">
+                        <span className="material-symbols-outlined text-[18px] text-[#6258E8]">
                           play_circle
                         </span>
                         Test Booking Flow
@@ -1749,7 +1767,7 @@ export default function OnboardingPage() {
                       <button
                         type="button"
                         onClick={() => router.push('/dashboard')}
-                        className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-container-low text-text-secondary font-label-md text-label-md font-medium text-center transition-colors"
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold text-center transition-colors"
                       >
                         Save & Go to Dashboard
                       </button>
@@ -1757,7 +1775,7 @@ export default function OnboardingPage() {
                       <button
                         type="button"
                         onClick={() => router.push('/dashboard')}
-                        className="w-full sm:flex-1 py-2.5 px-5 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold flex items-center justify-center gap-2 shadow-sm transition-all"
+                        className="w-full sm:flex-1 py-2.5 px-5 rounded-lg bg-[#6258E8] hover:bg-[#5247d8] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all"
                       >
                         <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
                         Activate Workspace
@@ -1769,19 +1787,19 @@ export default function OnboardingPage() {
             </div>
 
             {/* Persistent Bottom Navigation Footer */}
-            <div className="p-space-md lg:p-space-lg border-t border-border bg-surface flex items-center justify-between gap-4">
+            <footer className="p-5 lg:p-6 border-t border-slate-200 bg-white flex items-center justify-between gap-4">
               <button
                 type="button"
                 onClick={handleBack}
                 disabled={currentStep === 1}
-                className="px-4 py-2 rounded-lg border border-border text-text-primary hover:bg-surface-container-low font-label-md text-label-md font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-[#111827] hover:bg-slate-50 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                 Back
               </button>
 
-              <div className="hidden sm:flex items-center gap-2 text-text-secondary text-xs">
-                <span className="material-symbols-outlined text-[16px] text-success">
+              <div className="hidden sm:flex items-center gap-1.5 text-slate-500 text-xs font-medium">
+                <span className="material-symbols-outlined text-[18px] text-[#10B981]">
                   check_circle
                 </span>
                 <span>All changes saved</span>
@@ -1795,7 +1813,7 @@ export default function OnboardingPage() {
                       setCurrentStep((prev) => prev + 1);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="text-text-secondary hover:text-text-primary text-xs font-medium px-2 py-1"
+                    className="text-slate-500 hover:text-[#111827] text-xs font-semibold px-2 py-1"
                   >
                     Skip
                   </button>
@@ -1804,70 +1822,68 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={handleContinue}
-                  className="px-5 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-medium flex items-center gap-1.5 shadow-sm transition-all"
+                  className="px-5 py-2 rounded-lg bg-[#6258E8] hover:bg-[#5247d8] text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
                 >
                   <span>{currentStep === 6 ? 'Activate Workspace' : 'Continue'}</span>
                   <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </button>
               </div>
-            </div>
+            </footer>
           </section>
-        </main>
-      </div>
+        </div>
+      </main>
 
       {/* Test Booking Simulation Modal */}
       {testModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-surface rounded-xl border border-border shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-xl border border-slate-200 shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center text-on-primary">
+                <div className="w-8 h-8 rounded-lg bg-[#6258E8] flex items-center justify-center text-white">
                   <span className="material-symbols-outlined text-[18px]">science</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-text-primary text-sm">
-                    Safe Test Booking Simulation
-                  </h3>
-                  <p className="text-xs text-text-secondary">Sandbox Mode • No live charges</p>
+                  <h3 className="font-bold text-[#111827] text-sm">Test Booking Preview</h3>
+                  <p className="text-xs text-slate-500">Sandbox Mode • No live charges</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setTestModalOpen(false)}
-                className="text-text-secondary hover:text-text-primary p-1"
+                className="text-slate-400 hover:text-slate-700 p-1"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
 
-            <div className="p-3 rounded-lg bg-surface-container-low border border-border space-y-2 text-xs">
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-text-secondary">Service:</span>
-                <span className="font-semibold text-text-primary">
+                <span className="text-slate-500">Service:</span>
+                <span className="font-semibold text-[#111827]">
                   {state.services[0]?.name || 'Classic Haircut'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-secondary">Assigned Staff:</span>
-                <span className="font-semibold text-text-primary">
+                <span className="text-slate-500">Assigned Staff:</span>
+                <span className="font-semibold text-[#111827]">
                   {state.staff[0]?.name || 'Lead Barber'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-secondary">Slot Hold Timer:</span>
-                <span className="font-mono font-bold text-primary">
+                <span className="text-slate-500">Slot Hold Timer:</span>
+                <span className="font-mono font-bold text-[#6258E8]">
                   {Math.floor(testTimer / 60)}:{(testTimer % 60).toString().padStart(2, '0')}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-secondary">Kora Required Deposit:</span>
-                <span className="font-semibold text-success">
+                <span className="text-slate-500">Kora Required Deposit:</span>
+                <span className="font-semibold text-[#10B981]">
                   ₦{state.depositAmount.toLocaleString()}
                 </span>
               </div>
             </div>
 
-            <div className="p-3 rounded-lg bg-primary-fixed/20 border border-primary/20 text-[11px] text-text-secondary">
+            <div className="p-3 rounded-lg bg-[#6258E8]/5 border border-[#6258E8]/15 text-[11px] text-slate-600">
               🔒 <strong>Invariant Verification</strong>: The slot will be tentatively held for
               exactly 15 minutes. Confirmation only occurs when Kora transaction status returns{' '}
               <code>success</code>.
@@ -1876,7 +1892,7 @@ export default function OnboardingPage() {
             <button
               type="button"
               onClick={() => setTestModalOpen(false)}
-              className="w-full py-2 rounded-lg bg-primary text-on-primary font-medium text-xs shadow-sm hover:bg-primary-container transition-colors"
+              className="w-full py-2 rounded-lg bg-[#6258E8] text-white font-semibold text-xs shadow-sm hover:bg-[#5247d8] transition-colors"
             >
               Close Test Preview
             </button>
@@ -1885,7 +1901,7 @@ export default function OnboardingPage() {
       )}
 
       {/* Footer */}
-      <footer className="w-full py-4 text-center text-xs text-text-secondary">
+      <footer className="w-full py-4 text-center text-xs text-slate-400">
         © 2026 Switchboard Technologies Inc. All rights reserved.
       </footer>
     </div>
