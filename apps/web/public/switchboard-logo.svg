@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 160" fill="none" role="img" aria-label="Switchboard Logo">
+  <title>Switchboard Logo</title>
+  <defs>
+    <radialGradient id="sb-logo-bg" cx="50%" cy="35%" r="70%" fx="50%" fy="35%">
+      <stop offset="0%" stop-color="#1E2778" />
+      <stop offset="55%" stop-color="#141A56" />
+      <stop offset="100%" stop-color="#0B0F38" />
+    </radialGradient>
+    <linearGradient id="sb-logo-smile" x1="28" y1="120" x2="132" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="50%" stop-color="#FBBF24" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+  </defs>
+
+  <!-- Icon Squircle -->
+  <rect x="4" y="4" width="152" height="152" rx="40" fill="url(#sb-logo-bg)" />
+  <rect x="24" y="68" width="15" height="34" rx="7.5" fill="#FFFFFF" />
+  <rect x="48" y="51" width="15" height="58" rx="7.5" fill="#FFFFFF" />
+  <rect x="72.5" y="32" width="15" height="84" rx="7.5" fill="#FFFFFF" />
+  <rect x="97" y="51" width="15" height="58" rx="7.5" fill="#FFFFFF" />
+  <rect x="121" y="68" width="15" height="34" rx="7.5" fill="#FFFFFF" />
+  <path
+    d="M33 116.5C31 114.8 33.4 111.5 36.2 113.1C50.5 121.2 65.8 124.8 81.5 124.6C98.2 124.4 114.2 119.5 126.4 112.4C128.5 111.2 130.6 113.6 128.8 115.6C116.8 129.1 99.1 136.5 79.8 136.8C60.2 137.1 43.2 129.4 33 116.5Z"
+    fill="url(#sb-logo-smile)"
+  />
+
+  <!-- Wordmark -->
+  <g transform="translate(176, 25)">
+    <text
+      x="0"
+      y="84"
+      fill="#0C1233"
+      font-family="Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      font-size="82"
+      font-weight="800"
+      letter-spacing="-2.5"
+    >Sw</text>
+    <rect x="121" y="40" width="14.5" height="44" rx="2.5" fill="#0C1233" />
+    <circle cx="128.25" cy="24" r="9.5" fill="#F59E0B" />
+    <text
+      x="142"
+      y="84"
+      fill="#0C1233"
+      font-family="Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      font-size="82"
+      font-weight="800"
+      letter-spacing="-2.5"
+    >tchboard</text>
+  </g>
+</svg>

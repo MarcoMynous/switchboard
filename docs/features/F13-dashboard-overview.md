@@ -72,3 +72,4 @@ When bookings, conversations, or payment events exist:
    - Displays confirmed slots and any active 15-minute held slots with the amber draining Hold Band.
 3. **Recent Booking & Payment Activity + Exceptions**:
    - Shows verified deposits, expired holds, or `pending_verification` items requiring reconciliation.
+

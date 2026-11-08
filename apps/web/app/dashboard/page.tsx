@@ -2,6 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { AppIcon } from '@/components/AppIcon';
+import { SwitchboardLogo } from '@/components/SwitchboardLogo';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import type { OnboardingState } from '../onboarding/page';
 
 type NavSection =
@@ -668,21 +673,14 @@ export default function DashboardPage() {
         <div className="flex flex-col overflow-y-auto">
           {/* Brand Header */}
           <div className="h-16 px-4 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-xl bg-primary-container flex items-center justify-center text-on-primary">
-                <span className="material-symbols-outlined text-[18px]">hub</span>
-              </div>
-              <span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-text-primary">
-                Switchboard
-              </span>
-            </Link>
+            <SwitchboardLogo href="/" size="sm" theme="light" />
             <button
               type="button"
               onClick={() => setSidebarOpenMobile(false)}
-              className="p-1 text-on-surface-variant hover:text-on-surface transition-colors lg:hidden"
+              className="p-1.5 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all active:scale-95 lg:hidden"
               aria-label="Close sidebar"
             >
-              <span className="material-symbols-outlined text-[18px]">close</span>
+              <AppIcon name="close" className="text-[18px]" />
             </button>
           </div>
 
@@ -695,17 +693,16 @@ export default function DashboardPage() {
             >
               <div className="flex items-center gap-2 overflow-hidden">
                 <div className="w-5 h-5 rounded-md bg-secondary-container flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[14px] text-on-secondary-container">
-                    storefront
-                  </span>
+                  <AppIcon name="storefront" className="text-[14px] text-on-secondary-container" />
                 </div>
                 <span className="font-label-md text-label-md text-text-primary truncate font-medium">
                   {workspace.businessName}
                 </span>
               </div>
-              <span className="material-symbols-outlined text-[16px] text-on-surface-variant shrink-0">
-                unfold_more
-              </span>
+              <AppIcon
+                name="unfold_more"
+                className="text-[16px] text-on-surface-variant shrink-0"
+              />
             </Link>
           </div>
 
@@ -737,7 +734,7 @@ export default function DashboardPage() {
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                          <AppIcon name={item.icon} className="text-[18px]" />
                           <span className="font-body-sm text-body-sm">{item.label}</span>
                         </div>
                         {item.badge !== undefined && item.badge > 0 && (
@@ -792,9 +789,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low transition-colors">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-on-primary text-[18px]">
-                  person
-                </span>
+                <AppIcon name="person" className="text-on-primary text-[18px]" />
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="font-label-md text-label-md text-text-primary font-medium truncate">
@@ -810,7 +805,7 @@ export default function DashboardPage() {
               className="p-1 text-on-surface-variant hover:text-on-surface transition-colors"
               title="Workspace Setup"
             >
-              <span className="material-symbols-outlined text-[16px]">tune</span>
+              <AppIcon name="tune" className="text-[16px]" />
             </Link>
           </div>
         </div>
@@ -828,16 +823,14 @@ export default function DashboardPage() {
               className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low lg:hidden"
               aria-label="Open navigation menu"
             >
-              <span className="material-symbols-outlined text-[20px]">menu</span>
+              <AppIcon name="menu" className="text-[20px]" />
             </button>
 
             <div className="flex items-center gap-1.5 font-label-md text-label-md text-text-secondary">
               <span className="hover:text-text-primary transition-colors hidden sm:inline">
                 Switchboard
               </span>
-              <span className="material-symbols-outlined text-[14px] hidden sm:inline">
-                chevron_right
-              </span>
+              <AppIcon name="chevron_right" className="text-[14px] hidden sm:inline" />
               <span className="text-text-primary font-semibold capitalize">
                 {activeNav.replace('-', ' ')}
               </span>
@@ -861,7 +854,7 @@ export default function DashboardPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-text-primary font-metric-sm text-metric-sm transition-colors border border-border/60 cursor-pointer"
               title="Copy public booking link"
             >
-              <span className="material-symbols-outlined text-[15px] text-primary">link</span>
+              <AppIcon name="link" className="text-[15px] text-primary" />
               <span className="hidden md:inline">/b/{workspace.slug}</span>
               <span className="text-[11px] text-primary font-semibold">
                 {copiedSlug ? 'Copied!' : 'Copy'}
@@ -872,40 +865,36 @@ export default function DashboardPage() {
               href={`/b/${workspace.slug}`}
               className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-label-md text-label-md transition-colors"
             >
-              <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+              <AppIcon name="open_in_new" className="text-[16px]" />
               <span>Booking Page</span>
             </Link>
 
             <button
               type="button"
               onClick={() => setActiveNav('needs-attention')}
-              className="relative p-1.5 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+              className="relative p-2 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all active:scale-95 cursor-pointer"
               aria-label="Notifications and Needs Attention"
             >
-              <span className="material-symbols-outlined text-[20px]">notifications</span>
+              <AppIcon name="notifications" className="text-[20px]" />
               {metrics.needsAttentionCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error ring-2 ring-surface" />
               )}
             </button>
-
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-xs">
-              {apiState.ownerName.slice(0, 2).toUpperCase()}
-            </div>
           </div>
         </header>
 
         {/* ===================================================================
             MAIN CONTENT CONTAINER
         =================================================================== */}
-        <main className="relative pt-16 pb-20 lg:pb-12 bg-background min-h-screen">
+        <main className="relative pt-16 pb-20 lg:pb-12 bg-linear-to-br from-[#F7F8FE] via-[#F2F4FC] to-[#FFFDF8] min-h-screen overflow-x-hidden">
+          <div className="pointer-events-none fixed -top-24 right-0 w-96 h-96 rounded-full bg-[#181F63]/5 blur-3xl" />
+          <div className="pointer-events-none fixed bottom-0 left-1/3 w-96 h-96 rounded-full bg-[#F59E0B]/6 blur-3xl" />
           <div className="w-full max-w-[1440px] mx-auto p-5 sm:p-8">
             {/* Truthful API / Network Status Alert when offline */}
             {apiState.error && (
               <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-4 text-amber-900">
                 <div className="flex items-center gap-2.5 text-sm">
-                  <span className="material-symbols-outlined text-[20px] text-amber-600">
-                    cloud_off
-                  </span>
+                  <AppIcon name="cloud_off" className="text-[20px] text-amber-600" />
                   <span>{apiState.error}</span>
                 </div>
                 <button
@@ -946,24 +935,24 @@ export default function DashboardPage() {
 
                   {/* Quick Global Actions */}
                   <div className="flex items-center gap-3 flex-wrap shrink-0">
-                    <button
+                    <Button
                       type="button"
+                      variant="default"
+                      size="sm"
                       onClick={handleCreateSimulatedBooking}
-                      className="h-9 px-4 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md shadow-sm transition-all flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                      <AppIcon name="add_circle" className="text-[16px]" />
                       <span>Simulate Customer Booking</span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => setChatDrawerOpen(true)}
-                      className="h-9 px-4 rounded-lg bg-surface hover:bg-surface-container-low text-text-primary font-label-md text-label-md border border-border shadow-xs transition-all flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="material-symbols-outlined text-[16px] text-primary">
-                        chat
-                      </span>
+                      <AppIcon name="chat" className="text-[16px] text-primary" />
                       <span>Test {workspace.assistantName} Chat</span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -986,9 +975,10 @@ export default function DashboardPage() {
                         onClick={handleTriggerHumanEscalation}
                         className="px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-container-low text-xs font-medium text-text-secondary hover:text-text-primary flex items-center gap-1.5 cursor-pointer"
                       >
-                        <span className="material-symbols-outlined text-[16px] text-amber-600">
-                          notification_important
-                        </span>
+                        <AppIcon
+                          name="notification_important"
+                          className="text-[16px] text-amber-600"
+                        />
                         Simulate Needs-Attention Escalation
                       </button>
                     </div>
@@ -998,9 +988,7 @@ export default function DashboardPage() {
                       <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/60">
                         <div className="flex items-center justify-between text-text-secondary mb-2">
                           <span className="font-label-md text-label-md">Confirmed Bookings</span>
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            event_available
-                          </span>
+                          <AppIcon name="event_available" className="text-[18px] text-success" />
                         </div>
                         <div className="font-metric-lg text-metric-lg text-text-primary font-bold">
                           {metrics.confirmedCount}
@@ -1021,9 +1009,7 @@ export default function DashboardPage() {
                           <span className="font-label-md text-label-md">
                             Verified Kora Deposits
                           </span>
-                          <span className="material-symbols-outlined text-[18px] text-primary">
-                            payments
-                          </span>
+                          <AppIcon name="payments" className="text-[18px] text-primary" />
                         </div>
                         <div className="font-metric-lg text-metric-lg text-success font-bold">
                           {formatNairaFromKobo(metrics.verifiedDepositKobo)}
@@ -1044,9 +1030,7 @@ export default function DashboardPage() {
                           <span className="font-label-md text-label-md">
                             Customer Conversations
                           </span>
-                          <span className="material-symbols-outlined text-[18px] text-primary">
-                            forum
-                          </span>
+                          <AppIcon name="forum" className="text-[18px] text-primary" />
                         </div>
                         <div className="font-metric-lg text-metric-lg text-text-primary font-bold">
                           {metrics.conversationsCount}
@@ -1059,9 +1043,10 @@ export default function DashboardPage() {
                       <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/60">
                         <div className="flex items-center justify-between text-text-secondary mb-2">
                           <span className="font-label-md text-label-md">Needs Attention</span>
-                          <span className="material-symbols-outlined text-[18px] text-error">
-                            notification_important
-                          </span>
+                          <AppIcon
+                            name="notification_important"
+                            className="text-[18px] text-error"
+                          />
                         </div>
                         <div className="font-metric-lg text-metric-lg text-text-primary font-bold">
                           {metrics.needsAttentionCount}
@@ -1178,9 +1163,7 @@ export default function DashboardPage() {
                                   )}
                                   {bk.status === 'confirmed' && (
                                     <span className="font-metric-sm text-metric-sm text-success flex items-center gap-1">
-                                      <span className="material-symbols-outlined text-[16px]">
-                                        verified
-                                      </span>
+                                      <AppIcon name="verified" className="text-[16px]" />
                                       Kora Verified
                                     </span>
                                   )}
@@ -1204,18 +1187,16 @@ export default function DashboardPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-primary-fixed flex items-center justify-center text-primary shrink-0">
-                            <span className="material-symbols-outlined text-[22px]">
-                              rocket_launch
-                            </span>
+                            <AppIcon name="rocket_launch" className="text-[22px]" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <h2 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
                                 Setup Checklist
                               </h2>
-                              <span className="font-metric-sm text-metric-sm px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-medium">
+                              <Badge variant="default">
                                 {checklist.completedCount} of {checklist.totalCount} Completed
-                              </span>
+                              </Badge>
                             </div>
                             <p className="font-body-sm text-body-sm text-text-secondary mt-0.5">
                               Derived from your persisted business, service, and deposit settings
@@ -1232,12 +1213,7 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Dynamic Progress Track */}
-                      <div className="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
-                        <div
-                          className="h-full bg-primary-container rounded-full transition-all duration-500 ease-out"
-                          style={{ width: `${checklist.percent}%` }}
-                        />
-                      </div>
+                      <Progress value={checklist.percent} />
                     </div>
 
                     {/* Checklist Items */}
@@ -1257,9 +1233,7 @@ export default function DashboardPage() {
                           >
                             {isDone ? (
                               <div className="w-6 h-6 rounded-full bg-success flex items-center justify-center shrink-0 text-white mt-0.5 shadow-xs">
-                                <span className="material-symbols-outlined text-[15px] font-bold">
-                                  check
-                                </span>
+                                <AppIcon name="check" className="text-[15px] font-bold" />
                               </div>
                             ) : isFocal ? (
                               <div className="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center shrink-0 text-on-primary mt-0.5">
@@ -1308,9 +1282,7 @@ export default function DashboardPage() {
                                 }`}
                               >
                                 <span>{item.actionLabel}</span>
-                                <span className="material-symbols-outlined text-[14px]">
-                                  arrow_forward
-                                </span>
+                                <AppIcon name="arrow_forward" className="text-[14px]" />
                               </button>
                             </div>
                           </div>
@@ -1324,7 +1296,7 @@ export default function DashboardPage() {
                         href="/onboarding"
                         className="font-label-md text-label-md text-text-secondary hover:text-text-primary transition-colors flex items-center gap-1.5"
                       >
-                        <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                        <AppIcon name="edit_note" className="text-[16px]" />
                         <span>Re-open 6-Step Onboarding Wizard</span>
                       </Link>
                       <span className="font-metric-sm text-metric-sm text-text-secondary">
@@ -1385,9 +1357,7 @@ export default function DashboardPage() {
 
                       <div className="relative z-10 mt-6 pt-4 bg-surface/5 rounded-lg p-3 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center shrink-0">
-                          <span className="material-symbols-outlined text-[16px] text-on-primary">
-                            smart_toy
-                          </span>
+                          <AppIcon name="smart_toy" className="text-[16px] text-on-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-label-md text-label-md text-on-primary truncate">
@@ -1405,7 +1375,7 @@ export default function DashboardPage() {
                           className="p-1.5 rounded hover:bg-surface/10 text-on-primary transition-colors cursor-pointer"
                           title="Open Web Chat Simulator"
                         >
-                          <span className="material-symbols-outlined text-[18px]">play_circle</span>
+                          <AppIcon name="play_circle" className="text-[18px]" />
                         </button>
                       </div>
                     </div>
@@ -1413,9 +1383,7 @@ export default function DashboardPage() {
                     {/* Correctness Guarantee Micro-Card (Replaces legacy HIPAA copy) */}
                     <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/60 flex flex-col gap-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-primary">
-                          verified_user
-                        </span>
+                        <AppIcon name="verified_user" className="text-[18px] text-primary" />
                         <span className="font-label-md text-label-md text-text-primary font-semibold">
                           Verified Booking Guarantee
                         </span>
@@ -1458,7 +1426,7 @@ export default function DashboardPage() {
                   <div className="bg-surface rounded-xl p-6 shadow-xs border border-border/60 flex flex-col justify-between relative overflow-hidden hover:shadow-md transition-shadow">
                     <div>
                       <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary mb-5">
-                        <span className="material-symbols-outlined text-[24px]">chat_bubble</span>
+                        <AppIcon name="chat_bubble" className="text-[24px]" />
                       </div>
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="font-headline-sm text-headline-sm text-text-primary font-medium">
@@ -1483,7 +1451,7 @@ export default function DashboardPage() {
                         onClick={() => setChatDrawerOpen(true)}
                         className="h-8 px-3 rounded-lg bg-surface hover:bg-surface-container text-primary border border-border font-label-sm text-label-sm shadow-2xs transition-colors flex items-center gap-1 font-medium cursor-pointer"
                       >
-                        <span className="material-symbols-outlined text-[14px]">chat</span>
+                        <AppIcon name="chat" className="text-[14px]" />
                         <span>Try Web Chat</span>
                       </button>
                     </div>
@@ -1493,9 +1461,7 @@ export default function DashboardPage() {
                   <div className="bg-surface rounded-xl p-6 shadow-xs border border-border/60 flex flex-col justify-between relative overflow-hidden hover:shadow-md transition-shadow">
                     <div>
                       <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary mb-5">
-                        <span className="material-symbols-outlined text-[24px]">
-                          calendar_month
-                        </span>
+                        <AppIcon name="calendar_month" className="text-[24px]" />
                       </div>
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="font-headline-sm text-headline-sm text-text-primary font-medium">
@@ -1538,7 +1504,7 @@ export default function DashboardPage() {
                         onClick={handleCreateSimulatedBooking}
                         className="h-8 px-3 rounded-lg bg-surface hover:bg-surface-container text-text-primary border border-border font-label-sm text-label-sm shadow-2xs transition-colors flex items-center gap-1 font-medium cursor-pointer"
                       >
-                        <span className="material-symbols-outlined text-[14px]">add</span>
+                        <AppIcon name="add" className="text-[14px]" />
                         <span>Hold Test Slot</span>
                       </button>
                     </div>
@@ -1548,7 +1514,7 @@ export default function DashboardPage() {
                   <div className="bg-surface rounded-xl p-6 shadow-xs border border-border/60 flex flex-col justify-between relative overflow-hidden hover:shadow-md transition-shadow">
                     <div>
                       <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary mb-5">
-                        <span className="material-symbols-outlined text-[24px]">payments</span>
+                        <AppIcon name="payments" className="text-[24px]" />
                       </div>
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="font-headline-sm text-headline-sm text-text-primary font-medium">
@@ -1564,9 +1530,7 @@ export default function DashboardPage() {
                         Inngest.
                       </p>
                       <div className="mt-4 p-3 rounded-lg bg-surface-container-low flex items-center gap-3">
-                        <span className="material-symbols-outlined text-[18px] text-success">
-                          verified
-                        </span>
+                        <AppIcon name="verified" className="text-[18px] text-success" />
                         <span className="font-label-sm text-label-sm text-text-secondary">
                           Kora webhook signature + query verification active
                         </span>
@@ -1581,7 +1545,7 @@ export default function DashboardPage() {
                         onClick={() => setActiveNav('payments')}
                         className="h-8 px-3 rounded-lg bg-surface hover:bg-surface-container text-text-primary border border-border font-label-sm text-label-sm shadow-2xs transition-colors flex items-center gap-1 font-medium cursor-pointer"
                       >
-                        <span className="material-symbols-outlined text-[14px]">tune</span>
+                        <AppIcon name="tune" className="text-[14px]" />
                         <span>Manage Kora</span>
                       </button>
                     </div>
@@ -1607,7 +1571,7 @@ export default function DashboardPage() {
                       className="font-label-md text-label-md text-primary hover:text-primary-container transition-colors flex items-center gap-1"
                     >
                       <span>Preview Public Booking Page</span>
-                      <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                      <AppIcon name="open_in_new" className="text-[14px]" />
                     </Link>
                   </div>
 
@@ -1630,7 +1594,7 @@ export default function DashboardPage() {
                     >
                       <div>
                         <div className="flex items-center gap-2 text-text-secondary mb-3">
-                          <span className="material-symbols-outlined text-[18px]">chat</span>
+                          <AppIcon name="chat" className="text-[18px]" />
                           <span className="font-label-sm text-label-sm uppercase tracking-wider">
                             WhatsApp Cloud
                           </span>
@@ -1645,9 +1609,10 @@ export default function DashboardPage() {
                       </div>
                       <div className="mt-6 flex items-center justify-between text-text-secondary font-metric-sm text-metric-sm pt-4">
                         <span>3 min setup</span>
-                        <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">
-                          arrow_forward
-                        </span>
+                        <AppIcon
+                          name="arrow_forward"
+                          className="text-[16px] group-hover:translate-x-1 transition-transform"
+                        />
                       </div>
                     </button>
 
@@ -1670,7 +1635,7 @@ export default function DashboardPage() {
                     >
                       <div>
                         <div className="flex items-center gap-2 text-text-secondary mb-3">
-                          <span className="material-symbols-outlined text-[18px]">payments</span>
+                          <AppIcon name="payments" className="text-[18px]" />
                           <span className="font-label-sm text-label-sm uppercase tracking-wider">
                             Kora Deposits
                           </span>
@@ -1685,9 +1650,10 @@ export default function DashboardPage() {
                       </div>
                       <div className="mt-6 flex items-center justify-between text-text-secondary font-metric-sm text-metric-sm pt-4">
                         <span>4 min read</span>
-                        <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">
-                          arrow_forward
-                        </span>
+                        <AppIcon
+                          name="arrow_forward"
+                          className="text-[16px] group-hover:translate-x-1 transition-transform"
+                        />
                       </div>
                     </button>
 
@@ -1695,7 +1661,7 @@ export default function DashboardPage() {
                     <div className="p-5 rounded-lg bg-primary-fixed text-on-primary-fixed flex flex-col justify-between relative overflow-hidden">
                       <div>
                         <div className="flex items-center gap-2 text-primary font-semibold mb-3">
-                          <span className="material-symbols-outlined text-[18px]">share</span>
+                          <AppIcon name="share" className="text-[18px]" />
                           <span className="font-label-sm text-label-sm uppercase tracking-wider">
                             Go Live Today
                           </span>
@@ -1718,9 +1684,7 @@ export default function DashboardPage() {
                           className="h-8 px-3 rounded bg-primary text-on-primary font-label-sm text-label-sm hover:bg-primary-container transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
                         >
                           <span>{copiedSlug ? 'Link Copied!' : 'Copy Booking Link'}</span>
-                          <span className="material-symbols-outlined text-[14px]">
-                            content_copy
-                          </span>
+                          <AppIcon name="content_copy" className="text-[14px]" />
                         </button>
                       </div>
                     </div>
@@ -1756,9 +1720,7 @@ export default function DashboardPage() {
 
                 {bookings.length === 0 ? (
                   <div className="bg-surface rounded-xl p-10 border border-border text-center space-y-3">
-                    <span className="material-symbols-outlined text-[36px] text-primary">
-                      calendar_month
-                    </span>
+                    <AppIcon name="calendar_month" className="text-[36px] text-primary" />
                     <h3 className="text-lg font-semibold text-text-primary">
                       No bookings on the calendar for today
                     </h3>
@@ -1857,9 +1819,7 @@ export default function DashboardPage() {
 
                 {conversations.length === 0 ? (
                   <div className="bg-surface rounded-xl p-10 border border-border text-center space-y-3">
-                    <span className="material-symbols-outlined text-[36px] text-primary">
-                      forum
-                    </span>
+                    <AppIcon name="forum" className="text-[36px] text-primary" />
                     <h3 className="text-lg font-semibold text-text-primary">
                       No active conversations yet
                     </h3>
@@ -2117,7 +2077,7 @@ export default function DashboardPage() {
                 active ? 'text-primary font-semibold' : 'text-text-secondary'
               }`}
             >
-              <span className="material-symbols-outlined text-[20px]">{tab.icon}</span>
+              <AppIcon name={tab.icon} className="text-[20px]" />
               <span className="text-[11px]">{tab.label}</span>
             </button>
           );
@@ -2149,7 +2109,7 @@ export default function DashboardPage() {
                 onClick={() => setChatDrawerOpen(false)}
                 className="p-1 text-text-secondary hover:text-text-primary"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <AppIcon name="close" className="text-[20px]" />
               </button>
             </div>
 
@@ -2215,7 +2175,7 @@ export default function DashboardPage() {
                 onClick={() => setGuideModal(null)}
                 className="p-1 text-text-secondary hover:text-text-primary"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <AppIcon name="close" className="text-[20px]" />
               </button>
             </div>
 

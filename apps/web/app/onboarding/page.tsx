@@ -1,8 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { AppIcon } from '@/components/AppIcon';
+import { SwitchboardLogo } from '@/components/SwitchboardLogo';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export type BusinessCategory = 'barber' | 'beauty' | 'auto' | 'property';
 
@@ -460,49 +463,45 @@ export default function OnboardingPage() {
   const bookingUrl = `https://switchboard.ng/b/${state.slug}`;
 
   return (
-    <div className="min-h-screen bg-white lg:bg-[#F7F8FB] font-sans text-[#111827] antialiased flex flex-col justify-between selection:bg-[#6258E8] selection:text-white">
+    <div className="relative min-h-screen bg-linear-to-br from-[#F7F8FE] via-[#F2F4FC] to-[#FFFDF8] font-sans text-[#0C1233] antialiased flex flex-col justify-between selection:bg-[#6258E8] selection:text-white overflow-x-hidden">
+      {/* Ambient Logo-Harmonized Gradient Glows */}
+      <div className="pointer-events-none fixed -top-28 -left-28 w-96 h-96 rounded-full bg-[#181F63]/7 blur-3xl" />
+      <div className="pointer-events-none fixed top-1/4 -right-28 w-96 h-96 rounded-full bg-[#F59E0B]/8 blur-3xl" />
+
       {/* =====================================================================
           DESKTOP HEADER (>= lg)
       ===================================================================== */}
-      <header className="hidden lg:block w-full py-5 px-6">
+      <header className="hidden lg:block w-full py-5 px-6 relative z-20">
         <div className="max-w-[1140px] mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-lg bg-[#6258E8] flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105">
-              <span className="material-symbols-outlined text-[20px]">hub</span>
-            </div>
-            <span className="text-xl font-bold tracking-tight text-[#111827]">Switchboard</span>
-          </Link>
+          <SwitchboardLogo href="/" size="md" theme="light" />
 
           <div className="flex items-center gap-2.5">
-            <span className="text-xs uppercase tracking-wider text-slate-500 font-mono font-medium">
-              Workspace Setup
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-[#dbe2f8] text-[#3f4758] text-xs font-mono font-semibold">
+            <Badge variant="default" className="px-3.5 py-1 rounded-full font-mono text-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+              Workspace Setup · Step 0{currentStep}/06
+            </Badge>
+            <Badge variant="secondary" className="font-mono text-xs">
               v2.4
-            </span>
+            </Badge>
           </div>
         </div>
       </header>
 
       {/* =====================================================================
-          MOBILE HEADER (< lg) — Matches Mobile Mockup
+          MOBILE HEADER (< lg) — Clean Glassmorphic Top Bar (No Account Icon)
       ===================================================================== */}
-      <header className="lg:hidden w-full bg-white border-b border-slate-200/80 sticky top-0 z-30">
+      <header className="lg:hidden w-full bg-white/85 backdrop-blur-md border-b border-slate-200/75 sticky top-0 z-30 transition-all">
         <div className="px-5 py-3.5 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#6258E8] flex items-center justify-center text-white shadow-xs">
-              <span className="material-symbols-outlined text-[20px]">hub</span>
-            </div>
-            <span className="text-xl font-bold tracking-tight text-[#111827]">Switchboard</span>
-          </Link>
+          <SwitchboardLogo href="/" size="sm" theme="light" />
 
-          <div className="flex items-center gap-2.5">
-            <span className="px-3 py-1 rounded-full bg-[#f2f3f6] text-slate-600 text-xs font-medium">
-              Step {currentStep} Of 6
-            </span>
-            <div className="w-9 h-9 rounded-full bg-[#6258E8] text-white flex items-center justify-center shadow-xs">
-              <span className="material-symbols-outlined text-[18px]">person</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="default"
+              className="px-3.5 py-1 rounded-full font-semibold text-xs shadow-2xs transition-all duration-200 active:scale-95"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+              Step {currentStep} of 6
+            </Badge>
           </div>
         </div>
       </header>
@@ -510,12 +509,12 @@ export default function OnboardingPage() {
       {/* =====================================================================
           MAIN CONTAINER (Responsive Mobile Single-Col / Desktop Split Card)
       ===================================================================== */}
-      <main className="w-full flex-1 flex items-start lg:items-center justify-center px-0 lg:px-6 py-0 lg:py-3">
-        <div className="w-full max-w-[1140px] bg-white lg:rounded-2xl lg:border lg:border-slate-200 lg:shadow-[0_1px_3px_0_rgba(16,24,39,0.04),0_1px_2px_-1px_rgba(16,24,39,0.04)] overflow-hidden flex flex-col lg:flex-row lg:min-h-[680px]">
+      <main className="relative z-10 w-full flex-1 flex items-start lg:items-center justify-center px-0 lg:px-6 py-0 lg:py-3">
+        <div className="w-full max-w-[1140px] bg-white/95 backdrop-blur-xs lg:rounded-3xl lg:border lg:border-slate-200/85 lg:shadow-[0_12px_40px_-12px_rgba(12,18,51,0.08)] overflow-hidden flex flex-col lg:flex-row lg:min-h-[680px]">
           {/* -----------------------------------------------------------------
               LEFT PERSISTENT SIDEBAR (Desktop Only >= lg)
           ----------------------------------------------------------------- */}
-          <aside className="hidden lg:flex lg:w-[34%] bg-[#f2f3f6] p-8 border-r border-slate-200 flex-col justify-between">
+          <aside className="hidden lg:flex lg:w-[34%] bg-linear-to-b from-[#F4F6FC] via-[#F2F3F8] to-[#FAF8F5] p-8 border-r border-slate-200/80 flex-col justify-between">
             <div className="space-y-7">
               <div className="space-y-1">
                 <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold block">
@@ -555,11 +554,7 @@ export default function OnboardingPage() {
                               : 'border border-slate-300 bg-white text-slate-500 group-hover:border-[#6258E8] group-hover:text-[#6258E8]'
                         }`}
                       >
-                        {isDone ? (
-                          <span className="material-symbols-outlined text-[18px]">check</span>
-                        ) : (
-                          `0${step.id}`
-                        )}
+                        {isDone ? <AppIcon name="check" className="text-[18px]" /> : `0${step.id}`}
                       </span>
 
                       <div className="space-y-0.5 pt-0.5">
@@ -620,10 +615,19 @@ export default function OnboardingPage() {
                   <div className="lg:hidden space-y-3 pt-1">
                     <div className="grid grid-cols-6 gap-1.5">
                       {STEPS.map((s) => (
-                        <div
+                        <button
                           key={s.id}
-                          className={`h-1.5 rounded-full transition-colors duration-300 ${
-                            s.id <= currentStep ? 'bg-[#6258E8]' : 'bg-slate-200'
+                          type="button"
+                          aria-label={`Go to step ${s.id}`}
+                          onClick={() => {
+                            if (s.id <= currentStep) setCurrentStep(s.id);
+                          }}
+                          className={`h-2 rounded-full transition-all duration-300 active:scale-95 ${
+                            s.id < currentStep
+                              ? 'bg-[#181F63]'
+                              : s.id === currentStep
+                                ? 'bg-linear-to-r from-[#181F63] via-[#6258E8] to-[#F59E0B]'
+                                : 'bg-slate-200'
                           }`}
                         />
                       ))}
@@ -662,7 +666,7 @@ export default function OnboardingPage() {
                       </label>
                       <div className="relative rounded-xl shadow-xs">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                          <span className="material-symbols-outlined text-[20px]">domain</span>
+                          <AppIcon name="domain" className="text-[20px]" />
                         </div>
                         <input
                           id="biz-name"
@@ -686,7 +690,7 @@ export default function OnboardingPage() {
                         />
                         {state.businessName && (
                           <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-[#10B981]">
-                            <span className="material-symbols-outlined text-[20px]">verified</span>
+                            <AppIcon name="verified" className="text-[20px]" />
                           </div>
                         )}
                       </div>
@@ -729,9 +733,7 @@ export default function OnboardingPage() {
                                     : 'bg-slate-100 text-slate-500'
                                 }`}
                               >
-                                <span className="material-symbols-outlined text-[22px]">
-                                  {meta.icon}
-                                </span>
+                                <AppIcon name={meta.icon} className="text-[22px]" />
                               </div>
                               <div className="flex-1 min-w-0 pr-8">
                                 <p className="text-[15px] font-bold text-[#111827] truncate">
@@ -748,9 +750,10 @@ export default function OnboardingPage() {
                                     : 'bg-slate-200/70 text-slate-400'
                                 }`}
                               >
-                                <span className="material-symbols-outlined text-[15px]">
-                                  {isSelected ? 'check' : 'add'}
-                                </span>
+                                <AppIcon
+                                  name={isSelected ? 'check' : 'add'}
+                                  className="text-[15px]"
+                                />
                               </div>
                             </button>
                           );
@@ -769,7 +772,7 @@ export default function OnboardingPage() {
                         </label>
                         <div className="relative rounded-xl shadow-xs">
                           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <span className="material-symbols-outlined text-[18px]">public</span>
+                            <AppIcon name="public" className="text-[18px]" />
                           </div>
                           <select
                             id="biz-country"
@@ -782,9 +785,7 @@ export default function OnboardingPage() {
                             <option value="Kenya (KE)">Kenya (KE)</option>
                           </select>
                           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                            <span className="material-symbols-outlined text-[18px]">
-                              expand_more
-                            </span>
+                            <AppIcon name="expand_more" className="text-[18px]" />
                           </div>
                         </div>
                       </div>
@@ -798,7 +799,7 @@ export default function OnboardingPage() {
                         </label>
                         <div className="relative rounded-xl shadow-xs">
                           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <span className="material-symbols-outlined text-[18px]">schedule</span>
+                            <AppIcon name="schedule" className="text-[18px]" />
                           </div>
                           <select
                             id="biz-timezone"
@@ -811,9 +812,7 @@ export default function OnboardingPage() {
                             <option value="Africa/Nairobi (GMT+3)">Africa/Nairobi (GMT+3)</option>
                           </select>
                           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                            <span className="material-symbols-outlined text-[18px]">
-                              expand_more
-                            </span>
+                            <AppIcon name="expand_more" className="text-[18px]" />
                           </div>
                         </div>
                       </div>
@@ -833,7 +832,7 @@ export default function OnboardingPage() {
                         </div>
                         <div className="relative rounded-xl shadow-xs">
                           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <span className="material-symbols-outlined text-[18px]">call</span>
+                            <AppIcon name="call" className="text-[18px]" />
                           </div>
                           <input
                             id="biz-phone"
@@ -848,7 +847,7 @@ export default function OnboardingPage() {
                             } focus:ring-2 focus:ring-[#6258E8] outline-none`}
                           />
                           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                            <span className="material-symbols-outlined text-[18px]">dialpad</span>
+                            <AppIcon name="dialpad" className="text-[18px]" />
                           </div>
                         </div>
                         {errors.phone && (
@@ -868,9 +867,7 @@ export default function OnboardingPage() {
                         </div>
                         <div className="relative rounded-xl shadow-xs">
                           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <span className="material-symbols-outlined text-[18px]">
-                              location_on
-                            </span>
+                            <AppIcon name="location_on" className="text-[18px]" />
                           </div>
                           <input
                             id="biz-location"
@@ -920,7 +917,7 @@ export default function OnboardingPage() {
                         }}
                         className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-[#6258E8] hover:bg-slate-50 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                       >
-                        <span className="material-symbols-outlined text-[16px]">add</span>
+                        <AppIcon name="add" className="text-[16px]" />
                         Add Service
                       </button>
                     </div>
@@ -937,9 +934,10 @@ export default function OnboardingPage() {
                           className="p-4 rounded-2xl border border-slate-200 bg-[#f2f3f6]/60 flex items-center gap-3.5 transition-all hover:border-[#6258E8]/40"
                         >
                           <div className="w-11 h-11 rounded-xl bg-white shadow-xs flex items-center justify-center text-[#6258E8] shrink-0">
-                            <span className="material-symbols-outlined text-[20px]">
-                              {CATEGORY_PRESETS[state.category].icon}
-                            </span>
+                            <AppIcon
+                              name={CATEGORY_PRESETS[state.category].icon}
+                              className="text-[20px]"
+                            />
                           </div>
 
                           <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
@@ -1020,7 +1018,7 @@ export default function OnboardingPage() {
                             className="w-7 h-7 rounded-full bg-white text-slate-400 hover:text-[#ba1a1a] flex items-center justify-center shrink-0 shadow-xs"
                             title="Remove Service"
                           >
-                            <span className="material-symbols-outlined text-[16px]">close</span>
+                            <AppIcon name="close" className="text-[16px]" />
                           </button>
                         </div>
                       ))}
@@ -1051,7 +1049,7 @@ export default function OnboardingPage() {
                           }}
                           className="text-xs font-bold text-[#6258E8] hover:underline flex items-center gap-1"
                         >
-                          <span className="material-symbols-outlined text-[16px]">person_add</span>
+                          <AppIcon name="person_add" className="text-[16px]" />
                           Add Staff
                         </button>
                       </div>
@@ -1082,7 +1080,7 @@ export default function OnboardingPage() {
                               <p className="text-xs text-slate-500">{member.role}</p>
                             </div>
                             <span className="w-6 h-6 rounded-full bg-[#6258E8] text-white flex items-center justify-center shrink-0">
-                              <span className="material-symbols-outlined text-[14px]">check</span>
+                              <AppIcon name="check" className="text-[14px]" />
                             </span>
                           </div>
                         ))}
@@ -1149,9 +1147,10 @@ export default function OnboardingPage() {
                                   : 'bg-slate-200 text-slate-400'
                               }`}
                             >
-                              <span className="material-symbols-outlined text-[14px]">
-                                {sched.open ? 'check' : 'close'}
-                              </span>
+                              <AppIcon
+                                name={sched.open ? 'check' : 'close'}
+                                className="text-[14px]"
+                              />
                             </span>
                             <span
                               className={`text-sm font-bold ${
@@ -1223,7 +1222,7 @@ export default function OnboardingPage() {
                       }`}
                     >
                       <div className="w-12 h-12 rounded-xl bg-white shadow-xs flex items-center justify-center text-[#6258E8] shrink-0">
-                        <span className="material-symbols-outlined text-[24px]">payments</span>
+                        <AppIcon name="payments" className="text-[24px]" />
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -1248,9 +1247,10 @@ export default function OnboardingPage() {
                             : 'bg-slate-200 text-slate-400'
                         }`}
                       >
-                        <span className="material-symbols-outlined text-[16px]">
-                          {state.depositRequired ? 'check' : 'add'}
-                        </span>
+                        <AppIcon
+                          name={state.depositRequired ? 'check' : 'add'}
+                          className="text-[16px]"
+                        />
                       </div>
                     </button>
 
@@ -1286,9 +1286,7 @@ export default function OnboardingPage() {
                           </span>
                           <div className="px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono font-bold text-[#111827] flex items-center justify-between">
                             <span>15 Minutes (Strict)</span>
-                            <span className="material-symbols-outlined text-[#6258E8] text-[18px]">
-                              timer
-                            </span>
+                            <AppIcon name="timer" className="text-[#6258E8] text-[18px]" />
                           </div>
                         </div>
                       </div>
@@ -1339,9 +1337,7 @@ export default function OnboardingPage() {
                                 : 'bg-slate-100 text-slate-500'
                             }`}
                           >
-                            <span className="material-symbols-outlined text-[22px]">
-                              {cap.icon}
-                            </span>
+                            <AppIcon name={cap.icon} className="text-[22px]" />
                           </div>
 
                           <div className="flex-1 min-w-0">
@@ -1367,9 +1363,7 @@ export default function OnboardingPage() {
                                 : 'bg-slate-200/80 text-slate-500'
                             }`}
                           >
-                            <span className="material-symbols-outlined text-[16px]">
-                              {cap.enabled ? 'check' : 'add'}
-                            </span>
+                            <AppIcon name={cap.enabled ? 'check' : 'add'} className="text-[16px]" />
                           </div>
                         </button>
                       ))}
@@ -1428,9 +1422,7 @@ export default function OnboardingPage() {
                           }}
                           className="text-xs font-bold text-[#6258E8] bg-white px-3 py-1 rounded-lg border border-[#6258E8]/30 hover:bg-[#6258E8]/10 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
                         >
-                          <span className="material-symbols-outlined text-[14px]">
-                            content_copy
-                          </span>
+                          <AppIcon name="content_copy" className="text-[14px]" />
                           {copiedLink ? 'Copied!' : 'Copy Link'}
                         </button>
                       </div>
@@ -1534,9 +1526,7 @@ export default function OnboardingPage() {
                       }}
                       className="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm font-bold text-[#111827] flex items-center justify-center gap-2 transition-colors cursor-pointer"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-[#6258E8]">
-                        play_circle
-                      </span>
+                      <AppIcon name="play_circle" className="text-[18px] text-[#6258E8]" />
                       Run Safe Test Booking Preview
                     </button>
                   </div>
@@ -1545,7 +1535,7 @@ export default function OnboardingPage() {
                 {/* Auto-Configured Capabilities Banner (Matches Mobile Mockup) */}
                 <div className="p-3.5 rounded-2xl bg-[#f2f3f6]/80 flex items-center gap-3.5">
                   <div className="w-10 h-10 rounded-full bg-[#e3dfff] text-[#493cce] flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-[20px]">bolt</span>
+                    <AppIcon name="bolt" className="text-[20px]" />
                   </div>
                   <div>
                     <div className="text-sm font-bold text-[#111827]">
@@ -1559,29 +1549,32 @@ export default function OnboardingPage() {
               </div>
 
               {/* ===============================================================
-                  MOBILE BOTTOM NAVIGATION (< lg) — Matches Mobile Mockup
+                  MOBILE BOTTOM NAVIGATION (< lg) — Shadcn Rounded Animated Buttons
               =============================================================== */}
               <div className="lg:hidden pt-6 space-y-3">
-                <button
+                <Button
                   type="button"
+                  variant="default"
+                  size="lg"
                   onClick={handleContinue}
-                  className="w-full py-4 px-6 rounded-xl bg-[#6258E8] hover:bg-[#5247d8] text-white font-semibold text-base flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                  className="w-full rounded-2xl py-4 text-base"
                 >
                   <span>
                     {currentStep < 6 ? `Continue to Step ${currentStep + 1}` : 'Activate Workspace'}
                   </span>
-                  <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-                </button>
+                  <AppIcon name="arrow_forward" className="text-[20px]" />
+                </Button>
 
                 {currentStep > 1 && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={handleBack}
-                    className="w-full py-2 text-center text-sm font-medium text-slate-500 hover:text-[#111827] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full rounded-xl text-sm font-medium text-slate-500"
                   >
-                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    <AppIcon name="arrow_back" className="text-[18px]" />
                     <span>Back to Step {currentStep - 1}</span>
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -1589,47 +1582,41 @@ export default function OnboardingPage() {
             {/* ===============================================================
                 DESKTOP PERSISTENT FOOTER (>= lg)
             =============================================================== */}
-            <footer className="hidden lg:flex px-9 py-5 border-t border-slate-200 bg-white items-center justify-between gap-4">
-              <button
+            <footer className="hidden lg:flex px-9 py-5 border-t border-slate-200/80 bg-white/90 items-center justify-between gap-4">
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleBack}
                 disabled={currentStep === 1}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-[#111827] hover:bg-slate-50 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                <AppIcon name="arrow_back" className="text-[18px]" />
                 Back
-              </button>
+              </Button>
 
               <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium">
-                <span className="material-symbols-outlined text-[18px] text-[#10B981]">
-                  check_circle
-                </span>
+                <AppIcon name="check_circle" className="text-[18px] text-[#10B981]" />
                 <span>All changes saved</span>
               </div>
 
               <div className="flex items-center gap-3">
                 {currentStep < 6 && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => setCurrentStep((prev) => prev + 1)}
-                    className="text-slate-500 hover:text-[#111827] text-sm font-semibold px-3 py-2 cursor-pointer"
                   >
                     Skip
-                  </button>
+                  </Button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleContinue}
-                  className="px-6 py-2.5 rounded-xl bg-[#6258E8] hover:bg-[#5247d8] text-white text-sm font-semibold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-                >
+                <Button type="button" variant="default" onClick={handleContinue}>
                   <span>
                     {currentStep === 6
                       ? 'Activate Workspace'
                       : `Continue to Step ${currentStep + 1}`}
                   </span>
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                </button>
+                  <AppIcon name="arrow_forward" className="text-[18px]" />
+                </Button>
               </div>
             </footer>
           </section>
@@ -1643,7 +1630,7 @@ export default function OnboardingPage() {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#6258E8] flex items-center justify-center text-white">
-                  <span className="material-symbols-outlined text-[20px]">science</span>
+                  <AppIcon name="science" className="text-[20px]" />
                 </div>
                 <div>
                   <h3 className="font-bold text-[#111827] text-base">Test Booking Preview</h3>
@@ -1655,7 +1642,7 @@ export default function OnboardingPage() {
                 onClick={() => setTestModalOpen(false)}
                 className="text-slate-400 hover:text-slate-700 p-1"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <AppIcon name="close" className="text-[20px]" />
               </button>
             </div>
 

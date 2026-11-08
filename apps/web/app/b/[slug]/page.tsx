@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { AppIcon } from '@/components/AppIcon';
+import { SwitchboardIconSvg } from '@/components/SwitchboardLogo';
 
 interface ServiceItem {
   id: string;
@@ -98,9 +100,7 @@ export default function PublicBookingPage() {
       <header className="w-full border-b border-[#E5E7EB] bg-white px-4 sm:px-6 py-4">
         <div className="max-w-[960px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#4F46E5] flex items-center justify-center text-white font-bold text-sm">
-              S
-            </div>
+            <SwitchboardIconSvg className="w-9 h-9" />
             <div>
               <span className="font-semibold text-[16px] text-[#111827] tracking-tight block leading-none">
                 {businessName}
@@ -115,7 +115,8 @@ export default function PublicBookingPage() {
             href="/dashboard"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[12px] font-medium text-[#111827] hover:bg-[#f8f9fc] transition-colors"
           >
-            ← Back to Dashboard
+            <AppIcon name="arrow_back" className="text-[14px]" />
+            <span>Back to Dashboard</span>
           </Link>
         </div>
       </header>
@@ -271,9 +272,10 @@ export default function PublicBookingPage() {
               </div>
               <button
                 type="submit"
-                className="w-full py-3 rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white font-medium text-[14px] transition-colors cursor-pointer"
+                className="w-full py-3 rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white font-medium text-[14px] transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
               >
-                Hold Slot for 15 Minutes & Proceed to Kora Deposit →
+                <span>Hold Slot for 15 Minutes & Proceed to Kora Deposit</span>
+                <AppIcon name="arrow_forward" className="text-[16px]" />
               </button>
             </form>
           </div>

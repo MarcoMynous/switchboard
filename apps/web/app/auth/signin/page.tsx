@@ -4,6 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
+import { AppIcon } from '@/components/AppIcon';
+import { SwitchboardLogo } from '@/components/SwitchboardLogo';
 import { authClient } from '@/lib/auth-client';
 
 export default function SignInPage() {
@@ -96,14 +98,7 @@ export default function SignInPage() {
 
           {/* Top Branding */}
           <div className="relative z-10 flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-3 group">
-              <div className="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center text-on-primary shadow-md group-hover:scale-105 transition-transform">
-                <span className="material-symbols-outlined text-[20px]">hub</span>
-              </div>
-              <span className="font-headline-sm text-headline-sm text-surface tracking-tight font-medium">
-                Switchboard
-              </span>
-            </Link>
+            <SwitchboardLogo href="/" size="md" theme="dark" />
             <div className="px-3 py-1 rounded-full bg-surface/10 backdrop-blur-md flex items-center space-x-1.5 border border-surface/10">
               <span className="w-1.5 h-1.5 rounded-full bg-iris-light animate-pulse" />
               <span className="font-metric-sm text-metric-sm text-iris-light tracking-wide">
@@ -115,7 +110,7 @@ export default function SignInPage() {
           {/* Hero Statement */}
           <div className="relative z-10 my-8 sm:my-10 max-w-xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 text-iris-light font-label-sm text-label-sm mb-4 border border-iris-light/20">
-              <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+              <AppIcon name="auto_awesome" className="text-[14px]" />
               <span>AUTONOMOUS WORKFORCE ENGINE</span>
             </div>
             <h1 className="font-headline-lg text-headline-lg text-surface tracking-tight leading-tight mb-4">
@@ -193,16 +188,14 @@ export default function SignInPage() {
             {/* Transcript Preview */}
             <div className="bg-surface/5 rounded-lg p-3 flex flex-col gap-2 border border-surface/5">
               <div className="flex items-start gap-2">
-                <span className="material-symbols-outlined text-[16px] text-iris-light mt-0.5">
-                  record_voice_over
-                </span>
+                <AppIcon name="record_voice_over" className="text-[16px] text-iris-light mt-0.5" />
                 <p className="font-body-sm text-body-sm text-surface/90 leading-snug">
                   “Checking Dr. Reynolds’ schedule for 2:30 PM tomorrow...”
                 </p>
               </div>
               <div className="flex items-center justify-between pt-1">
                 <span className="px-2 py-0.5 rounded-full bg-success/15 text-success font-metric-sm text-[11px] inline-flex items-center gap-1 border border-success/20">
-                  <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                  <AppIcon name="check_circle" className="text-[12px]" />
                   Verified Action • Slot Held
                 </span>
                 <span className="font-metric-sm text-[10px] text-text-secondary">Sync 0.14s</span>
@@ -213,9 +206,7 @@ export default function SignInPage() {
           {/* Trust Badges Footer */}
           <div className="relative z-10 pt-4 flex items-center justify-between text-text-secondary border-t border-surface/10">
             <div className="flex items-center space-x-2">
-              <span className="material-symbols-outlined text-[18px] text-success">
-                verified_user
-              </span>
+              <AppIcon name="verified_user" className="text-[18px] text-success" />
               <span className="font-label-md text-label-md text-surface/70">
                 99.99% Availability • SOC 2 Type II Certified
               </span>
@@ -232,7 +223,7 @@ export default function SignInPage() {
               href="/"
               className="inline-flex items-center gap-1.5 font-label-md text-label-md text-text-secondary hover:text-text-primary transition-colors"
             >
-              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              <AppIcon name="arrow_back" className="text-[16px]" />
               <span>Back to website</span>
             </Link>
             <span className="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider font-medium">
@@ -245,7 +236,7 @@ export default function SignInPage() {
             {/* Emblem & Header */}
             <div className="text-left mb-6">
               <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary-container mb-3 shadow-sm border border-border/50">
-                <span className="material-symbols-outlined text-[24px]">dataset</span>
+                <AppIcon name="dataset" className="text-[24px]" />
               </div>
               <h2 className="font-headline-md text-headline-md text-text-primary tracking-tight font-semibold">
                 Welcome to Switchboard
@@ -258,9 +249,7 @@ export default function SignInPage() {
             {/* Server Error Notification Banner */}
             {serverError && (
               <div className="mb-4 p-3.5 rounded-lg bg-error-container text-on-error-container text-body-sm font-body-sm flex items-start gap-2.5 border border-error/30 animate-in fade-in duration-200">
-                <span className="material-symbols-outlined text-[18px] text-error mt-0.5 shrink-0">
-                  error
-                </span>
+                <AppIcon name="error" className="text-[18px] text-error mt-0.5 shrink-0" />
                 <div>
                   <p className="font-medium text-error">Authentication failed</p>
                   <p className="text-on-error-container text-body-sm mt-0.5">{serverError}</p>
@@ -314,20 +303,18 @@ export default function SignInPage() {
               >
                 {isLoading ? (
                   <>
-                    <span className="material-symbols-outlined animate-spin text-[18px]">
-                      progress_activity
-                    </span>
+                    <AppIcon name="progress_activity" className="animate-spin text-[18px]" />
                     <span>Sending Magic Link...</span>
                   </>
                 ) : isSuccess ? (
                   <>
-                    <span className="material-symbols-outlined text-[18px]">mark_email_read</span>
+                    <AppIcon name="mark_email_read" className="text-[18px]" />
                     <span>Check Your Inbox</span>
                   </>
                 ) : (
                   <>
                     <span>Continue with email</span>
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    <AppIcon name="arrow_forward" className="text-[18px]" />
                   </>
                 )}
               </button>
@@ -373,7 +360,7 @@ export default function SignInPage() {
             {isSuccess && (
               <div className="mt-4 p-3 rounded-lg bg-surface-container text-success font-body-sm text-body-sm flex items-center justify-between shadow-sm border border-success/30 animate-in fade-in duration-200">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px]">mark_email_read</span>
+                  <AppIcon name="mark_email_read" className="text-[18px]" />
                   <span>Link sent! Navigating to check inbox...</span>
                 </div>
                 <span className="font-metric-sm text-metric-sm text-text-secondary">

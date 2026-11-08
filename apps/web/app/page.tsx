@@ -1,50 +1,40 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { AppIcon } from '@/components/AppIcon';
 import { ScrollFloat } from '@/components/ScrollFloat';
 import { ScrollReveal } from '@/components/ScrollReveal';
+import { SwitchboardLogo } from '@/components/SwitchboardLogo';
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-background font-body-md text-body-md text-on-surface antialiased">
       {/* HEADER */}
-      <header className="fixed top-0 z-50 w-full bg-midnight-hero/90 shadow-[0_1px_8px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+      <header className="fixed top-0 z-50 w-full bg-midnight-hero/90 shadow-[0_1px_12px_rgba(0,0,0,0.28)] backdrop-blur-xl border-b border-white/10">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-6 lg:px-12">
-          <div className="flex items-center gap-3">
-            <Image
-              alt="Switchboard Logo"
-              className="h-8 w-8 object-contain"
-              width={32}
-              height={32}
-              unoptimized
-              src="https://lh3.googleusercontent.com/aida/AEtjO1V1YL3cp_F1jHl2iiaqoekotIVka3SYuHmVpHFAC-wvBCoStbI1YiMBgST1iesmb-0OL9gbt5jKfWY2BqWZ7rxl2n2F06tvhVkxbE0j7Fb2QIpxzAMA-RhuW6SBeseyWDS4svJD1c5aHOaHqKJn0chFmxESzwl0W0cJk2IK5y4YLe7vZXaaGtn2a4cCT_aN82x66fHq5MCYE3waA2mWCtpmTKkrx94D9GLdQ6yRLXMk"
-            />
-            <span className="font-headline-sm text-headline-sm tracking-tight text-on-primary">
-              Switchboard
-            </span>
-          </div>
+          <SwitchboardLogo href="/" size="md" theme="dark" />
 
-          <nav aria-label="Main Navigation" className="hidden items-center gap-6 md:flex">
+          <nav aria-label="Main Navigation" className="hidden items-center gap-2 md:flex">
             <a
               href="#product"
-              className="rounded bg-primary-container px-3 py-1.5 font-label-md text-label-md text-on-primary-container transition-colors"
+              className="rounded-xl bg-primary-container/90 px-3.5 py-1.5 font-label-md text-label-md text-on-primary-container transition-all duration-150 active:scale-95"
             >
               Product
             </a>
             <a
               href="#solutions"
-              className="px-3 py-1.5 font-label-md text-label-md text-secondary-fixed-dim transition-colors hover:text-on-primary"
+              className="rounded-xl px-3.5 py-1.5 font-label-md text-label-md text-secondary-fixed-dim transition-all duration-150 hover:bg-white/5 hover:text-on-primary active:scale-95"
             >
               Solutions
             </a>
             <a
               href="#how-it-works"
-              className="px-3 py-1.5 font-label-md text-label-md text-secondary-fixed-dim transition-colors hover:text-on-primary"
+              className="rounded-xl px-3.5 py-1.5 font-label-md text-label-md text-secondary-fixed-dim transition-all duration-150 hover:bg-white/5 hover:text-on-primary active:scale-95"
             >
               How It Works
             </a>
             <a
               href="#pricing"
-              className="px-3 py-1.5 font-label-md text-label-md text-secondary-fixed-dim transition-colors hover:text-on-primary"
+              className="rounded-xl px-3.5 py-1.5 font-label-md text-label-md text-secondary-fixed-dim transition-all duration-150 hover:bg-white/5 hover:text-on-primary active:scale-95"
             >
               Pricing
             </a>
@@ -53,22 +43,16 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <Link
               href="/auth/signin"
-              className="hidden px-3 py-2 font-label-md text-label-md text-secondary-fixed-dim transition-colors hover:text-on-primary sm:inline-flex"
+              className="hidden rounded-xl px-3.5 py-2 font-label-md text-label-md text-secondary-fixed-dim transition-all duration-150 hover:bg-white/5 hover:text-on-primary active:scale-95 sm:inline-flex"
             >
               Sign In
             </Link>
             <Link
               href="/auth/signup"
-              className="inline-flex items-center justify-center rounded bg-primary-container px-4 py-2 font-label-md text-label-md text-on-primary shadow-sm transition-all hover:bg-primary"
+              className="inline-flex items-center justify-center rounded-xl bg-linear-to-r from-[#564CE6] to-[#6258E8] px-4 py-2 font-label-md text-label-md text-on-primary shadow-md transition-all duration-200 hover:brightness-110 active:scale-95"
             >
               Get Started
             </Link>
-            <div
-              className="ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary"
-              aria-hidden="true"
-            >
-              <span className="material-symbols-outlined text-[18px] text-on-primary">person</span>
-            </div>
           </div>
         </div>
       </header>
@@ -135,13 +119,13 @@ export default function Home() {
                     className="inline-flex w-full items-center justify-center gap-2 rounded bg-primary-container px-6 py-3.5 font-label-md text-label-md text-on-primary shadow-lg shadow-primary-container/20 transition-all hover:bg-primary sm:w-auto"
                   >
                     <span>Get started</span>
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    <AppIcon name="arrow_forward" className="text-[18px]" />
                   </Link>
                   <a
                     href="#how-it-works"
                     className="inline-flex w-full items-center justify-center gap-2 rounded border border-surface/10 bg-surface/5 px-6 py-3.5 font-label-md text-label-md text-on-primary backdrop-blur-sm transition-all hover:bg-surface/10 sm:w-auto"
                   >
-                    <span className="material-symbols-outlined text-[18px]">play_circle</span>
+                    <AppIcon name="play_circle" className="text-[18px]" />
                     <span>See how it works</span>
                   </a>
                 </div>
@@ -160,9 +144,7 @@ export default function Home() {
                       </div>
                       <div className="mx-1 h-4 w-[1px] bg-surface/10" />
                       <span className="flex items-center gap-1.5 font-label-sm text-label-sm text-secondary-fixed-dim">
-                        <span className="material-symbols-outlined text-[14px] text-iris-light">
-                          graphic_eq
-                        </span>
+                        <AppIcon name="graphic_eq" className="text-[14px] text-iris-light" />
                         Voice Line #4 — Incoming Dispatch Node (SIP TLS Secured)
                       </span>
                     </div>
@@ -208,9 +190,7 @@ export default function Home() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 rounded border border-surface/10 bg-surface/5 px-2.5 py-1">
-                            <span className="material-symbols-outlined text-[16px] text-iris-light">
-                              volume_up
-                            </span>
+                            <AppIcon name="volume_up" className="text-[16px] text-iris-light" />
                             <span className="font-metric-sm text-metric-sm text-secondary-fixed-dim">
                               Neural Voice (ElevenLabs Ultra)
                             </span>
@@ -245,7 +225,7 @@ export default function Home() {
                       <div className="space-y-3 font-body-sm text-body-sm">
                         <div className="flex items-start gap-3">
                           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface/10 text-secondary-fixed-dim">
-                            <span className="material-symbols-outlined text-[16px]">person</span>
+                            <AppIcon name="person" className="text-[16px]" />
                           </div>
                           <div className="max-w-[85%] rounded-lg border border-surface/10 bg-surface/10 p-3 text-on-primary">
                             <p className="mb-1 font-label-sm text-label-sm text-secondary-fixed-dim">
@@ -258,7 +238,7 @@ export default function Home() {
 
                         <div className="flex items-start gap-3">
                           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary">
-                            <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+                            <AppIcon name="smart_toy" className="text-[16px]" />
                           </div>
                           <div className="max-w-[85%] rounded-lg border border-primary-container/30 bg-primary-container/15 p-3 text-on-primary">
                             <p className="mb-1 font-label-sm text-label-sm text-iris-light">
@@ -281,17 +261,16 @@ export default function Home() {
                             <span className="font-label-md text-label-md uppercase tracking-wider text-iris-light">
                               Deterministic Action Chain
                             </span>
-                            <span className="material-symbols-outlined text-[16px] text-success">
-                              verified_user
-                            </span>
+                            <AppIcon name="verified_user" className="text-[16px] text-success" />
                           </div>
 
                           {/* Verified Step Logs */}
                           <div className="space-y-2.5">
                             <div className="flex items-start gap-2.5 rounded border border-surface/5 bg-surface/5 p-2">
-                              <span className="material-symbols-outlined mt-0.5 text-[18px] text-success">
-                                check_circle
-                              </span>
+                              <AppIcon
+                                name="check_circle"
+                                className="mt-0.5 text-[18px] text-success"
+                              />
                               <div>
                                 <div className="font-label-sm text-label-sm text-on-primary">
                                   Calendar Availability Verified
@@ -302,9 +281,10 @@ export default function Home() {
                               </div>
                             </div>
                             <div className="flex items-start gap-2.5 rounded border border-surface/5 bg-surface/5 p-2">
-                              <span className="material-symbols-outlined mt-0.5 text-[18px] text-success">
-                                credit_card
-                              </span>
+                              <AppIcon
+                                name="credit_card"
+                                className="mt-0.5 text-[18px] text-success"
+                              />
                               <div>
                                 <div className="font-label-sm text-label-sm text-on-primary">
                                   Kora Checkout Generated
@@ -315,9 +295,7 @@ export default function Home() {
                               </div>
                             </div>
                             <div className="flex items-start gap-2.5 rounded border border-primary-container/40 bg-primary-container/10 p-2">
-                              <span className="material-symbols-outlined mt-0.5 text-[18px] text-iris-light">
-                                sms
-                              </span>
+                              <AppIcon name="sms" className="mt-0.5 text-[18px] text-iris-light" />
                               <div>
                                 <div className="font-label-sm text-label-sm text-on-primary">
                                   Instant WhatsApp & SMS Push Dispatch
@@ -333,9 +311,7 @@ export default function Home() {
                           <div className="mt-4 rounded-md border border-success/20 bg-success/10 p-3">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 font-label-sm text-label-sm font-semibold text-success">
-                                <span className="material-symbols-outlined text-[16px]">
-                                  task_alt
-                                </span>
+                                <AppIcon name="task_alt" className="text-[16px]" />
                                 Booking Confirmed via Kora (#BK-8821)
                               </span>
                               <span className="font-metric-sm text-metric-sm text-success">
@@ -417,9 +393,7 @@ export default function Home() {
                   <div className="flex flex-col justify-between rounded-lg border border-border bg-surface p-8 transition-all hover:-translate-y-1 hover:shadow-xl">
                     <div>
                       <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-lg bg-surface-container-low text-primary">
-                        <span className="material-symbols-outlined text-[28px]">
-                          record_voice_over
-                        </span>
+                        <AppIcon name="record_voice_over" className="text-[28px]" />
                       </div>
                       <h3 className="mb-3 font-headline-sm text-headline-sm text-text-primary">
                         Understand customer requests
@@ -431,7 +405,7 @@ export default function Home() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 border-t border-border pt-4 font-label-sm text-label-sm font-medium text-primary">
-                      <span className="material-symbols-outlined text-[16px]">translate</span>
+                      <AppIcon name="translate" className="text-[16px]" />
                       <span>English, Pidgin & Native Cadence Supported</span>
                     </div>
                   </div>
@@ -439,9 +413,7 @@ export default function Home() {
                   <div className="flex flex-col justify-between rounded-lg border border-border bg-surface p-8 transition-all hover:-translate-y-1 hover:shadow-xl">
                     <div>
                       <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-lg bg-surface-container-low text-primary">
-                        <span className="material-symbols-outlined text-[28px]">
-                          sync_saved_locally
-                        </span>
+                        <AppIcon name="sync_saved_locally" className="text-[28px]" />
                       </div>
                       <h3 className="mb-3 font-headline-sm text-headline-sm text-text-primary">
                         Execute approved business actions
@@ -453,7 +425,7 @@ export default function Home() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 border-t border-border pt-4 font-label-sm text-label-sm font-medium text-success">
-                      <span className="material-symbols-outlined text-[16px]">lock_clock</span>
+                      <AppIcon name="lock_clock" className="text-[16px]" />
                       <span>Deterministic Guardrails & Payment Locks</span>
                     </div>
                   </div>
@@ -461,9 +433,7 @@ export default function Home() {
                   <div className="flex flex-col justify-between rounded-lg border border-border bg-surface p-8 transition-all hover:-translate-y-1 hover:shadow-xl">
                     <div>
                       <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-lg bg-surface-container-low text-primary">
-                        <span className="material-symbols-outlined text-[28px]">
-                          notifications_active
-                        </span>
+                        <AppIcon name="notifications_active" className="text-[28px]" />
                       </div>
                       <h3 className="mb-3 font-headline-sm text-headline-sm text-text-primary">
                         Keep your team informed
@@ -475,7 +445,7 @@ export default function Home() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 border-t border-border pt-4 font-label-sm text-label-sm font-medium text-text-secondary">
-                      <span className="material-symbols-outlined text-[16px]">alt_route</span>
+                      <AppIcon name="alt_route" className="text-[16px]" />
                       <span>Live WhatsApp Handoff & Customer Briefings</span>
                     </div>
                   </div>
@@ -534,8 +504,7 @@ export default function Home() {
                         type="button"
                         className="flex items-center gap-1 rounded bg-surface-container px-3 py-1.5 font-label-sm text-label-sm text-text-primary transition-colors hover:bg-surface-container-high"
                       >
-                        <span className="material-symbols-outlined text-[16px]">tune</span>{' '}
-                        Configure Fleet
+                        <AppIcon name="tune" className="text-[16px]" /> Configure Fleet
                       </button>
                     </div>
                   </div>
@@ -547,8 +516,7 @@ export default function Home() {
                       <div className="space-y-1">
                         <div className="flex items-center justify-between rounded bg-primary-fixed/30 px-3 py-2 font-label-md text-label-md text-primary">
                           <span className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-[18px]">smart_toy</span>{' '}
-                            AI Assistants
+                            <AppIcon name="smart_toy" className="text-[18px]" /> AI Assistants
                           </span>
                           <span className="rounded bg-primary px-1.5 py-0.2 font-metric-sm text-metric-sm text-on-primary">
                             3
@@ -556,8 +524,7 @@ export default function Home() {
                         </div>
                         <div className="flex cursor-pointer items-center justify-between rounded px-3 py-2 font-label-md text-label-md text-text-secondary transition-colors hover:bg-surface hover:text-text-primary">
                           <span className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-[18px]">forum</span>{' '}
-                            Conversations
+                            <AppIcon name="forum" className="text-[18px]" /> Conversations
                           </span>
                           <span className="font-metric-sm text-metric-sm text-text-secondary">
                             142
@@ -565,16 +532,12 @@ export default function Home() {
                         </div>
                         <div className="flex cursor-pointer items-center justify-between rounded px-3 py-2 font-label-md text-label-md text-text-secondary transition-colors hover:bg-surface hover:text-text-primary">
                           <span className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-[18px]">groups</span>{' '}
-                            Customers
+                            <AppIcon name="groups" className="text-[18px]" /> Customers
                           </span>
                         </div>
                         <div className="flex cursor-pointer items-center justify-between rounded px-3 py-2 font-label-md text-label-md text-text-secondary transition-colors hover:bg-surface hover:text-text-primary">
                           <span className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-[18px]">
-                              calendar_month
-                            </span>{' '}
-                            Bookings
+                            <AppIcon name="calendar_month" className="text-[18px]" /> Bookings
                           </span>
                           <span className="font-metric-sm text-metric-sm text-success">
                             28 Today
@@ -582,8 +545,7 @@ export default function Home() {
                         </div>
                         <div className="flex cursor-pointer items-center justify-between rounded px-3 py-2 font-label-md text-label-md text-tertiary-container transition-colors hover:bg-tertiary-fixed/20">
                           <span className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-[18px]">error</span>{' '}
-                            Needs Attention
+                            <AppIcon name="error" className="text-[18px]" /> Needs Attention
                           </span>
                           <span className="rounded-full bg-tertiary-container px-1.5 font-metric-sm text-metric-sm text-on-tertiary">
                             2
@@ -591,10 +553,7 @@ export default function Home() {
                         </div>
                         <div className="flex cursor-pointer items-center justify-between rounded px-3 py-2 font-label-md text-label-md text-text-secondary transition-colors hover:bg-surface hover:text-text-primary">
                           <span className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-[18px]">
-                              query_stats
-                            </span>{' '}
-                            Activity Overview
+                            <AppIcon name="query_stats" className="text-[18px]" /> Activity Overview
                           </span>
                         </div>
                       </div>
@@ -838,7 +797,7 @@ export default function Home() {
                   <div className="flex flex-col justify-between rounded-xl border border-border bg-surface p-8 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl md:col-span-7">
                     <div>
                       <div className="mb-6 flex h-10 w-10 items-center justify-center rounded bg-primary-fixed text-primary">
-                        <span className="material-symbols-outlined text-[24px]">speed</span>
+                        <AppIcon name="speed" className="text-[24px]" />
                       </div>
                       <h3 className="mb-3 font-headline-md text-headline-md text-text-primary">
                         Sub-Second Autonomous Reception
@@ -862,9 +821,7 @@ export default function Home() {
                   <div className="flex flex-col justify-between rounded-xl border border-border bg-surface p-8 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl md:col-span-5">
                     <div>
                       <div className="mb-6 flex h-10 w-10 items-center justify-center rounded bg-primary-fixed text-primary">
-                        <span className="material-symbols-outlined text-[24px]">
-                          event_available
-                        </span>
+                        <AppIcon name="event_available" className="text-[24px]" />
                       </div>
                       <h3 className="mb-3 font-headline-md text-headline-md text-text-primary">
                         Conflict-Free Scheduling
@@ -880,7 +837,7 @@ export default function Home() {
                     </div>
                     <div className="rounded-lg border border-border bg-surface-container-low p-4">
                       <div className="flex items-center gap-2 font-label-sm text-label-sm text-primary">
-                        <span className="material-symbols-outlined text-[16px]">lock</span>
+                        <AppIcon name="lock" className="text-[16px]" />
                         <span>100% Invariant-Backed Slot Verification</span>
                       </div>
                     </div>
@@ -888,7 +845,7 @@ export default function Home() {
 
                   <div className="rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg md:col-span-4">
                     <div className="mb-4 flex h-10 w-10 items-center justify-center rounded bg-surface-container-high text-text-primary">
-                      <span className="material-symbols-outlined text-[22px]">contacts</span>
+                      <AppIcon name="contacts" className="text-[22px]" />
                     </div>
                     <h4 className="mb-2 font-headline-sm text-headline-sm text-text-primary">
                       High-Intent Client Capture
@@ -901,7 +858,7 @@ export default function Home() {
 
                   <div className="rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg md:col-span-4">
                     <div className="mb-4 flex h-10 w-10 items-center justify-center rounded bg-surface-container-high text-text-primary">
-                      <span className="material-symbols-outlined text-[22px]">history_edu</span>
+                      <AppIcon name="history_edu" className="text-[22px]" />
                     </div>
                     <h4 className="mb-2 font-headline-sm text-headline-sm text-text-primary">
                       Cross-Channel Memory
@@ -915,7 +872,7 @@ export default function Home() {
 
                   <div className="rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg md:col-span-4">
                     <div className="mb-4 flex h-10 w-10 items-center justify-center rounded bg-surface-container-high text-text-primary">
-                      <span className="material-symbols-outlined text-[22px]">phone_forwarded</span>
+                      <AppIcon name="phone_forwarded" className="text-[22px]" />
                     </div>
                     <h4 className="mb-2 font-headline-sm text-headline-sm text-text-primary">
                       Seamless Human Escalation
@@ -1067,7 +1024,7 @@ export default function Home() {
                   <div className="flex flex-col justify-between rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
                     <div>
                       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded bg-primary-fixed/50 text-primary">
-                        <span className="material-symbols-outlined text-[24px]">content_cut</span>
+                        <AppIcon name="content_cut" className="text-[24px]" />
                       </div>
                       <h3 className="mb-2 font-headline-sm text-headline-sm text-text-primary">
                         Barbershops & Grooming Lounges
@@ -1099,7 +1056,7 @@ export default function Home() {
                   <div className="flex flex-col justify-between rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
                     <div>
                       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded bg-primary-fixed/50 text-primary">
-                        <span className="material-symbols-outlined text-[24px]">spa</span>
+                        <AppIcon name="spa" className="text-[24px]" />
                       </div>
                       <h3 className="mb-2 font-headline-sm text-headline-sm text-text-primary">
                         Hair Salons & Braiding Studios
@@ -1131,9 +1088,7 @@ export default function Home() {
                   <div className="flex flex-col justify-between rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
                     <div>
                       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded bg-primary-fixed/50 text-primary">
-                        <span className="material-symbols-outlined text-[24px]">
-                          face_retouching_natural
-                        </span>
+                        <AppIcon name="face_retouching_natural" className="text-[24px]" />
                       </div>
                       <h3 className="mb-2 font-headline-sm text-headline-sm text-text-primary">
                         Beauty Clinics & Aesthetics Spas
@@ -1203,9 +1158,7 @@ export default function Home() {
                         <span className="rounded bg-surface-container px-2 py-0.5 font-metric-sm text-metric-sm text-text-secondary">
                           Stage 01
                         </span>
-                        <span className="material-symbols-outlined text-[18px] text-primary">
-                          chat
-                        </span>
+                        <AppIcon name="chat" className="text-[18px] text-primary" />
                       </div>
                       <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Customer Request
@@ -1226,9 +1179,7 @@ export default function Home() {
                         <span className="rounded bg-surface-container px-2 py-0.5 font-metric-sm text-metric-sm text-text-secondary">
                           Stage 02
                         </span>
-                        <span className="material-symbols-outlined text-[18px] text-primary">
-                          event
-                        </span>
+                        <AppIcon name="event" className="text-[18px] text-primary" />
                       </div>
                       <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Live Availability Check
@@ -1249,9 +1200,7 @@ export default function Home() {
                         <span className="rounded bg-primary-fixed/40 px-2 py-0.5 font-metric-sm text-metric-sm font-semibold text-primary">
                           Stage 03
                         </span>
-                        <span className="material-symbols-outlined text-[18px] text-primary">
-                          account_balance
-                        </span>
+                        <AppIcon name="account_balance" className="text-[18px] text-primary" />
                       </div>
                       <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Kora Dynamic Account
@@ -1272,9 +1221,7 @@ export default function Home() {
                         <span className="rounded bg-surface-container px-2 py-0.5 font-metric-sm text-metric-sm text-text-secondary">
                           Stage 04
                         </span>
-                        <span className="material-symbols-outlined text-[18px] text-success">
-                          verified
-                        </span>
+                        <AppIcon name="verified" className="text-[18px] text-success" />
                       </div>
                       <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Dual-Verification
@@ -1295,9 +1242,7 @@ export default function Home() {
                         <span className="rounded bg-success/20 px-2 py-0.5 font-metric-sm text-metric-sm font-semibold text-success">
                           Stage 05
                         </span>
-                        <span className="material-symbols-outlined text-[18px] text-success">
-                          check_circle
-                        </span>
+                        <AppIcon name="check_circle" className="text-[18px] text-success" />
                       </div>
                       <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Confirmed Booking
@@ -1376,9 +1321,7 @@ export default function Home() {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                   <div className="rounded-lg border border-surface/10 bg-surface/5 p-6 transition-all hover:-translate-y-1 hover:border-iris-light/30">
                     <div className="mb-4 flex items-center gap-3">
-                      <span className="material-symbols-outlined text-[24px] text-iris-light">
-                        policy
-                      </span>
+                      <AppIcon name="policy" className="text-[24px] text-iris-light" />
                       <h3 className="font-headline-sm text-headline-sm text-on-primary">
                         Postgres GIST Invariant
                       </h3>
@@ -1390,9 +1333,7 @@ export default function Home() {
                   </div>
                   <div className="rounded-lg border border-surface/10 bg-surface/5 p-6 transition-all hover:-translate-y-1 hover:border-iris-light/30">
                     <div className="mb-4 flex items-center gap-3">
-                      <span className="material-symbols-outlined text-[24px] text-iris-light">
-                        verified_user
-                      </span>
+                      <AppIcon name="verified_user" className="text-[24px] text-iris-light" />
                       <h3 className="font-headline-sm text-headline-sm text-on-primary">
                         Idempotent Payment Events
                       </h3>
@@ -1404,9 +1345,7 @@ export default function Home() {
                   </div>
                   <div className="rounded-lg border border-surface/10 bg-surface/5 p-6 transition-all hover:-translate-y-1 hover:border-iris-light/30">
                     <div className="mb-4 flex items-center gap-3">
-                      <span className="material-symbols-outlined text-[24px] text-iris-light">
-                        support_agent
-                      </span>
+                      <AppIcon name="support_agent" className="text-[24px] text-iris-light" />
                       <h3 className="font-headline-sm text-headline-sm text-on-primary">
                         Human Takeover Guarantee
                       </h3>
@@ -1473,34 +1412,24 @@ export default function Home() {
                       </div>
                       <ul className="mb-8 space-y-3 font-body-sm text-body-sm text-text-secondary">
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          1 Dedicated WhatsApp Agent (Maya)
+                          <AppIcon name="check" className="text-[18px] text-success" /> 1 Dedicated
+                          WhatsApp Agent (Maya)
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Up to 200 completed bookings/mo
+                          <AppIcon name="check" className="text-[18px] text-success" /> Up to 200
+                          completed bookings/mo
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Kora Bank Transfer Deposits
+                          <AppIcon name="check" className="text-[18px] text-success" /> Kora Bank
+                          Transfer Deposits
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Postgres conflict-free hold engine
+                          <AppIcon name="check" className="text-[18px] text-success" /> Postgres
+                          conflict-free hold engine
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Mobile dashboard access
+                          <AppIcon name="check" className="text-[18px] text-success" /> Mobile
+                          dashboard access
                         </li>
                       </ul>
                     </div>
@@ -1533,34 +1462,24 @@ export default function Home() {
                       </div>
                       <ul className="mb-8 space-y-3 font-body-sm text-body-sm text-text-secondary">
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Multi-Staff Roster & Chair Management
+                          <AppIcon name="check" className="text-[18px] text-success" /> Multi-Staff
+                          Roster & Chair Management
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Unlimited WhatsApp & Web Conversations
+                          <AppIcon name="check" className="text-[18px] text-success" /> Unlimited
+                          WhatsApp & Web Conversations
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Live Human Staff Takeover Inbox
+                          <AppIcon name="check" className="text-[18px] text-success" /> Live Human
+                          Staff Takeover Inbox
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Automated No-Show Deposit Collection
+                          <AppIcon name="check" className="text-[18px] text-success" /> Automated
+                          No-Show Deposit Collection
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Full Analytics & Daily Revenue Reports
+                          <AppIcon name="check" className="text-[18px] text-success" /> Full
+                          Analytics & Daily Revenue Reports
                         </li>
                       </ul>
                     </div>
@@ -1590,34 +1509,24 @@ export default function Home() {
                       </div>
                       <ul className="mb-8 space-y-3 font-body-sm text-body-sm text-text-secondary">
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Unlimited branches and chairs
+                          <AppIcon name="check" className="text-[18px] text-success" /> Unlimited
+                          branches and chairs
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Custom Kora Sub-Account Split Payments
+                          <AppIcon name="check" className="text-[18px] text-success" /> Custom Kora
+                          Sub-Account Split Payments
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Centralized Chain Admin Dashboard
+                          <AppIcon name="check" className="text-[18px] text-success" /> Centralized
+                          Chain Admin Dashboard
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          Dedicated WhatsApp Verified Business Onboarding
+                          <AppIcon name="check" className="text-[18px] text-success" /> Dedicated
+                          WhatsApp Verified Business Onboarding
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-success">
-                            check
-                          </span>{' '}
-                          24/7 SLA & Direct Account Manager
+                          <AppIcon name="check" className="text-[18px] text-success" /> 24/7 SLA &
+                          Direct Account Manager
                         </li>
                       </ul>
                     </div>
@@ -1668,9 +1577,10 @@ export default function Home() {
                         How does Switchboard prevent double-booking when multiple customers book at
                         once?
                       </span>
-                      <span className="material-symbols-outlined text-text-secondary transition-transform group-open:rotate-180">
-                        expand_more
-                      </span>
+                      <AppIcon
+                        name="expand_more"
+                        className="text-text-secondary transition-transform group-open:rotate-180"
+                      />
                     </summary>
                     <p className="mt-4 border-t border-border pt-4 font-body-md text-body-md text-text-secondary">
                       Unlike standard booking apps that check availability in application code,
@@ -1689,9 +1599,10 @@ export default function Home() {
                   <details className="group rounded-lg border border-border bg-surface p-5 transition-all hover:shadow-md [&_summary::-webkit-details-marker]:hidden">
                     <summary className="flex cursor-pointer items-center justify-between font-headline-sm text-headline-sm text-text-primary">
                       <span>How do Kora deposits work, and how does that stop no-shows?</span>
-                      <span className="material-symbols-outlined text-text-secondary transition-transform group-open:rotate-180">
-                        expand_more
-                      </span>
+                      <AppIcon
+                        name="expand_more"
+                        className="text-text-secondary transition-transform group-open:rotate-180"
+                      />
                     </summary>
                     <p className="mt-4 border-t border-border pt-4 font-body-md text-body-md text-text-secondary">
                       When a customer selects a slot on WhatsApp or web, Switchboard generates a
@@ -1708,9 +1619,10 @@ export default function Home() {
                       <span>
                         Can my staff or I take over a chat if a customer has a unique question?
                       </span>
-                      <span className="material-symbols-outlined text-text-secondary transition-transform group-open:rotate-180">
-                        expand_more
-                      </span>
+                      <AppIcon
+                        name="expand_more"
+                        className="text-text-secondary transition-transform group-open:rotate-180"
+                      />
                     </summary>
                     <p className="mt-4 border-t border-border pt-4 font-body-md text-body-md text-text-secondary">
                       Yes. The Switchboard business dashboard has a live inbox. At any moment, you
@@ -1726,9 +1638,10 @@ export default function Home() {
                         Does Switchboard work with Nigerian WhatsApp numbers and local bank
                         transfers?
                       </span>
-                      <span className="material-symbols-outlined text-text-secondary transition-transform group-open:rotate-180">
-                        expand_more
-                      </span>
+                      <AppIcon
+                        name="expand_more"
+                        className="text-text-secondary transition-transform group-open:rotate-180"
+                      />
                     </summary>
                     <p className="mt-4 border-t border-border pt-4 font-body-md text-body-md text-text-secondary">
                       Yes, Switchboard is purpose-built for Nigeria. It connects to the official
@@ -1741,9 +1654,10 @@ export default function Home() {
                   <details className="group rounded-lg border border-border bg-surface p-5 transition-all hover:shadow-md [&_summary::-webkit-details-marker]:hidden">
                     <summary className="flex cursor-pointer items-center justify-between font-headline-sm text-headline-sm text-text-primary">
                       <span>What happens if the customer cancels or reschedules?</span>
-                      <span className="material-symbols-outlined text-text-secondary transition-transform group-open:rotate-180">
-                        expand_more
-                      </span>
+                      <AppIcon
+                        name="expand_more"
+                        className="text-text-secondary transition-transform group-open:rotate-180"
+                      />
                     </summary>
                     <p className="mt-4 border-t border-border pt-4 font-body-md text-body-md text-text-secondary">
                       Depending on your cancellation policy (e.g. at least 2 hours in advance), the
@@ -1756,9 +1670,10 @@ export default function Home() {
                   <details className="group rounded-lg border border-border bg-surface p-5 transition-all hover:shadow-md [&_summary::-webkit-details-marker]:hidden">
                     <summary className="flex cursor-pointer items-center justify-between font-headline-sm text-headline-sm text-text-primary">
                       <span>How fast can our barbershop or salon get set up?</span>
-                      <span className="material-symbols-outlined text-text-secondary transition-transform group-open:rotate-180">
-                        expand_more
-                      </span>
+                      <AppIcon
+                        name="expand_more"
+                        className="text-text-secondary transition-transform group-open:rotate-180"
+                      />
                     </summary>
                     <p className="mt-4 border-t border-border pt-4 font-body-md text-body-md text-text-secondary">
                       Setup takes less than 15 minutes. Enter your business name, operating hours,
@@ -1817,13 +1732,13 @@ export default function Home() {
                     className="inline-flex w-full items-center justify-center gap-2 rounded bg-primary-container px-8 py-4 font-headline-sm text-[16px] text-on-primary shadow-xl shadow-primary-container/25 transition-all hover:bg-primary sm:w-auto"
                   >
                     <span>Build your AI front desk</span>
-                    <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                    <AppIcon name="arrow_forward" className="text-[20px]" />
                   </Link>
                   <Link
                     href="/b/fade-republic"
                     className="inline-flex w-full items-center justify-center gap-2 rounded border border-surface/10 bg-surface/10 px-8 py-4 font-headline-sm text-[16px] text-on-primary backdrop-blur-md transition-all hover:bg-surface/15 sm:w-auto"
                   >
-                    <span className="material-symbols-outlined text-[20px]">calendar_today</span>
+                    <AppIcon name="calendar_today" className="text-[20px]" />
                     <span>View live booking demo</span>
                   </Link>
                 </div>
@@ -1833,23 +1748,19 @@ export default function Home() {
               <ScrollReveal delay={0.4} duration={0.8} yOffset={20}>
                 <div className="mt-16 flex w-full flex-wrap items-center justify-center gap-8 border-t border-surface/10 pt-10 font-metric-sm text-metric-sm text-secondary-fixed-dim">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-success">
-                      verified
-                    </span>
+                    <AppIcon name="verified" className="text-[18px] text-success" />
                     <span>Postgres GIST Invariant Enforced</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-success">
-                      shield
-                    </span>
+                    <AppIcon name="shield" className="text-[18px] text-success" />
                     <span>Kora Re-Verified Webhooks</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-success">bolt</span>
+                    <AppIcon name="bolt" className="text-[18px] text-success" />
                     <span>99.99% Uptime Engine</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-success">lock</span>
+                    <AppIcon name="lock" className="text-[18px] text-success" />
                     <span>Zero Hallucination Protocol</span>
                   </div>
                 </div>
@@ -1864,18 +1775,8 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-6 pb-12 pt-16 lg:px-12">
           <div className="mb-12 grid grid-cols-2 gap-8 md:grid-cols-5">
             <div className="col-span-2">
-              <div className="mb-4 flex items-center gap-3">
-                <Image
-                  alt="Switchboard Logo"
-                  className="h-7 w-7 object-contain"
-                  width={28}
-                  height={28}
-                  unoptimized
-                  src="https://lh3.googleusercontent.com/aida/AEtjO1V1YL3cp_F1jHl2iiaqoekotIVka3SYuHmVpHFAC-wvBCoStbI1YiMBgST1iesmb-0OL9gbt5jKfWY2BqWZ7rxl2n2F06tvhVkxbE0j7Fb2QIpxzAMA-RhuW6SBeseyWDS4svJD1c5aHOaHqKJn0chFmxESzwl0W0cJk2IK5y4YLe7vZXaaGtn2a4cCT_aN82x66fHq5MCYE3waA2mWCtpmTKkrx94D9GLdQ6yRLXMk"
-                />
-                <span className="font-headline-sm text-headline-sm tracking-tight text-on-primary">
-                  Switchboard
-                </span>
+              <div className="mb-4">
+                <SwitchboardLogo href="/" size="sm" theme="dark" />
               </div>
               <p className="mb-6 max-w-sm font-body-sm text-body-sm text-secondary-fixed-dim">
                 The autonomous booking orchestration fabric for salons and barbers. Precision slot

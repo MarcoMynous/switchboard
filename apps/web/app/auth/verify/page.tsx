@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { AppIcon } from '@/components/AppIcon';
+import { SwitchboardLogo } from '@/components/SwitchboardLogo';
 import { authClient } from '@/lib/auth-client';
 
 type VerificationState = 'validating' | 'decrypting' | 'success' | 'error';
@@ -97,24 +99,19 @@ function VerifyLinkContent() {
         <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-32 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
 
         {/* Brand Header */}
-        <Link href="/" className="flex items-center gap-2.5 mb-8 group">
-          <div className="w-9 h-9 rounded-lg bg-midnight-hero text-surface flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-            <span className="material-symbols-outlined text-[20px]">hub</span>
-          </div>
-          <span className="font-headline-sm text-headline-sm text-text-primary font-semibold tracking-tight text-[22px]">
-            Switchboard
-          </span>
-        </Link>
+        <div className="mb-8">
+          <SwitchboardLogo href="/" size="md" theme="light" />
+        </div>
 
         {/* Dynamic Center Lock / Spinner Animation */}
         <div className="relative flex items-center justify-center my-3 w-16 h-16">
           {state === 'error' ? (
             <div className="w-14 h-14 rounded-full bg-error-container/40 flex items-center justify-center text-error border border-error/30 animate-in zoom-in-90 duration-300">
-              <span className="material-symbols-outlined text-2xl">error_outline</span>
+              <AppIcon name="error_outline" className="text-2xl" />
             </div>
           ) : state === 'success' ? (
             <div className="w-14 h-14 rounded-full bg-success/15 flex items-center justify-center text-success border border-success/30 animate-in zoom-in-90 duration-300">
-              <span className="material-symbols-outlined text-2xl">check_circle</span>
+              <AppIcon name="check_circle" className="text-2xl" />
             </div>
           ) : (
             <>
@@ -123,7 +120,7 @@ function VerifyLinkContent() {
               {/* Spinning animated arc */}
               <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
               {/* Center Lock Icon */}
-              <span className="material-symbols-outlined text-primary text-[22px]">lock</span>
+              <AppIcon name="lock" className="text-primary text-[22px]" />
             </>
           )}
         </div>
@@ -178,7 +175,7 @@ function VerifyLinkContent() {
                 {state === 'decrypting' && 'Decrypting Credentials...'}
                 {state === 'success' && (
                   <>
-                    <span className="material-symbols-outlined text-[14px]">check</span>
+                    <AppIcon name="check" className="text-[14px]" />
                     <span>Session Established</span>
                   </>
                 )}
@@ -192,7 +189,7 @@ function VerifyLinkContent() {
               className="w-full h-11 px-4 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold flex items-center justify-center gap-2 hover:bg-primary-container transition-all active:scale-[0.99] shadow-sm"
             >
               <span>Request a new link</span>
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
+              <AppIcon name="arrow_forward" className="text-base" />
             </Link>
           </div>
         )}
@@ -202,14 +199,12 @@ function VerifyLinkContent() {
       <div className="mt-8 flex flex-col items-center gap-2 text-text-secondary font-label-sm text-label-sm">
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           <span className="inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-success text-[16px]">
-              verified_user
-            </span>
+            <AppIcon name="verified_user" className="text-success text-[16px]" />
             <span>SOC 2 Type II Certified</span>
           </span>
           <span className="text-border">•</span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-primary text-[16px]">shield</span>
+            <AppIcon name="shield" className="text-primary text-[16px]" />
             <span>HIPAA Compliant</span>
           </span>
           <span className="text-border">•</span>
@@ -232,9 +227,7 @@ export default function VerifyLinkPage() {
       <Suspense
         fallback={
           <div className="w-full max-w-[500px] bg-surface rounded-2xl p-10 border border-border/80 flex items-center justify-center min-h-[360px]">
-            <span className="material-symbols-outlined animate-spin text-3xl text-primary">
-              progress_activity
-            </span>
+            <AppIcon name="progress_activity" className="animate-spin text-3xl text-primary" />
           </div>
         }
       >
