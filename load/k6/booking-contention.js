@@ -29,8 +29,7 @@ export function setup() {
   });
   const res = http.get(`${API}/public/${SLUG}/slots?service=low-cut&limit=10`);
   const slots = res.json('slots');
-  if (!slots || slots.length !== 10)
-    throw new Error(`expected 10 seeded slots, got ${slots && slots.length}`);
+  if (slots?.length !== 10) throw new Error(`expected 10 seeded slots, got ${slots?.length}`);
   return { slots };
 }
 

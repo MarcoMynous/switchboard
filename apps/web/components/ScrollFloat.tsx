@@ -365,5 +365,3 @@ export const ScrollFloat: React.FC<ScrollFloatProps> = ({
     </h2>
   );
 };
-
-export default ScrollFloat;

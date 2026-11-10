@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["fra1"],
+  "git": { "deploymentEnabled": false },
   "services": {
     "web": {
       "root": "apps/web",
@@ -41,15 +42,9 @@
       }
     },
     {
-      "source": "/api/workspace",
+      "source": "/health",
       "destination": {
-        "service": "web"
-      }
-    },
-    {
-      "source": "/api/workspace/(.*)",
-      "destination": {
-        "service": "web"
+        "service": "api"
       }
     },
     {

@@ -70,7 +70,7 @@ export function SwitchboardIconSvg({ className = 'w-9 h-9' }: { className?: stri
   );
 }
 
-export function SwitchboardWordmarkSvg({
+function SwitchboardWordmarkSvg({
   theme = 'light',
   className = 'h-6 w-auto',
 }: {

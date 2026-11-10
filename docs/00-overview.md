@@ -37,7 +37,7 @@ The promise is not "a chatbot". It's **a verified business outcome**: a confirme
 | Deposit policy | Configurable per service: fixed ₦ or %, free-cancel window, deposit counts toward bill |
 | Backend | TypeScript only. Hono API + Next.js web in a Turborepo monorepo |
 | LLM | Provider-agnostic via Vercel AI SDK |
-| Hosting | Both apps on Vercel (two projects, one repo). Neon Postgres. Inngest Cloud |
+| Hosting | Both apps on Vercel (one project, `services` for web + api). Neon Postgres. Inngest Cloud |
 | Deploy control | GitHub Actions gates everything: CI → migrate → deploy → Lighthouse |
 | Preview DB | Neon branch per PR, deleted on close |
 | Local | Docker for everything, including a mock Kora server |

@@ -25,8 +25,9 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     outputs:
-      web_url: ${{ steps.web.outputs.url }}
-      api_url: ${{ steps.api.outputs.url }}
+      # One project: web and api share the preview domain.
+      web_url: ${{ steps.deploy.outputs.url }}
+      api_url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -42,7 +43,8 @@ jobs:
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch_name: pr-${{ github.event.pull_request.number }}
-          parent: main
+          # No `parent`: branch from the project's default branch (named `main` or `production`
+          # depending on how the Neon project was created).
           api_key: ${{ secrets.NEON_API_KEY }}
 
       # 2. Migrate + seed the branch
@@ -51,28 +53,23 @@ jobs:
       - run: pnpm db:seed
         env: { DATABASE_URL: "${{ steps.neon.outputs.db_url }}" }
 
-      # 3. Deploy API (preview) with the branch DB
-      - name: Deploy api
-        id: api
-        env: { VERCEL_PROJECT_ID: "${{ secrets.VERCEL_PROJECT_ID_API }}" }
+      # 3. Deploy the single Vercel project (web + api + mock-kora services, see root vercel.json)
+      #    with the branch DB. API lives on the same domain under /api/*, /health, /webhooks/*.
+      - name: Deploy preview
+        id: deploy
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ] || [ -z "$VERCEL_ORG_ID" ]; then
+            echo "::error::VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets are required (docs/09-ci-cd.md)."
+            exit 1
+          fi
           rm -rf .vercel
-          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --token=${{ secrets.VERCEL_TOKEN }}
-          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} \
+          vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          vercel build --token="$VERCEL_TOKEN"
+          url=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN" \
             --env DATABASE_URL="${{ steps.neon.outputs.db_url_with_pooler }}")
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-
-      # 4. Deploy web (preview) pointing at that API (rewrites are build-time)
-      - name: Deploy web
-        id: web
-        env: { VERCEL_PROJECT_ID: "${{ secrets.VERCEL_PROJECT_ID_WEB }}" }
-        run: |
-          rm -rf .vercel
-          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-          echo "API_ORIGIN=${{ steps.api.outputs.url }}" >> .vercel/.env.preview.local
-          vercel build --token=${{ secrets.VERCEL_TOKEN }}
-          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
   lighthouse:
