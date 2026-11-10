@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   title: 'Switchboard — AI Front Desk for Modern Businesses',
   description:
     'Switchboard gives your business AI assistants that answer customers, manage bookings, capture leads, and complete approved tasks—without losing the human touch.',
-  metadataBase: new URL('https://switchboard.ng'),
+  metadataBase: new URL('https://switchboard-bm.vercel.app'),
   openGraph: {
     title: 'Switchboard — AI Front Desk for Modern Businesses',
     description:

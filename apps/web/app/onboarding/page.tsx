@@ -460,7 +460,7 @@ export default function OnboardingPage() {
   };
 
   const activeStepMeta = STEPS[currentStep - 1] ?? STEPS[0];
-  const bookingUrl = `https://switchboard.ng/b/${state.slug}`;
+  const bookingUrl = `https://switchboard-bm.vercel.app/b/${state.slug}`;
 
   return (
     <div className="relative min-h-screen bg-linear-to-br from-[#F7F8FE] via-[#F2F4FC] to-[#FFFDF8] font-sans text-[#0C1233] antialiased flex flex-col justify-between selection:bg-[#6258E8] selection:text-white overflow-x-hidden">
