@@ -341,8 +341,8 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [state, setState] = useState<OnboardingState>(INITIAL_STATE);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [testModalOpen, setTestModalOpen] = useState(false);
@@ -430,7 +430,7 @@ export default function OnboardingPage() {
     payload: OnboardingState,
     onboardingCompleted: boolean,
   ): Promise<boolean> => {
-    setSaveStatus('saving');
+    setSubmitError(null);
     try {
       const res = await fetch('/api/workspace', {
         method: 'POST',
@@ -466,22 +466,20 @@ export default function OnboardingPage() {
         }),
       });
       if (!res.ok) {
-        setSaveStatus('error');
+        setSubmitError('Could not save to database. Please try again.');
         return false;
       }
-      setSaveStatus('saved');
       return true;
     } catch {
-      setSaveStatus('error');
+      setSubmitError('Network error while saving workspace. Please try again.');
       return false;
     }
   };
 
-  // Autosave
+  // Silent local draft persistence while filling the form
   const updateState = (
     updater: Partial<OnboardingState> | ((prev: OnboardingState) => OnboardingState),
   ) => {
-    setSaveStatus('saving');
     setState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
       try {
@@ -491,9 +489,6 @@ export default function OnboardingPage() {
       }
       return next;
     });
-    setTimeout(() => {
-      setSaveStatus('saved');
-    }, 300);
   };
 
   // Test countdown timer
@@ -542,14 +537,16 @@ export default function OnboardingPage() {
 
   const handleContinue = async () => {
     if (!validateStep(currentStep) || isSubmitting) return;
+    if (currentStep < 6) {
+      setCurrentStep((prev) => prev + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      if (currentStep < 6) {
-        await persistToDatabase(state, false);
-        setCurrentStep((prev) => prev + 1);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        await persistToDatabase(state, true);
+      const savedOk = await persistToDatabase(state, true);
+      if (savedOk) {
         router.push('/dashboard');
       }
     } finally {
@@ -714,21 +711,9 @@ export default function OnboardingPage() {
                     </span>
 
                     <div className="flex items-center gap-1.5 lg:bg-[#f2f3f6] lg:px-3 lg:py-1 lg:rounded-full">
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          saveStatus === 'saved'
-                            ? 'bg-[#10B981]'
-                            : saveStatus === 'error'
-                              ? 'bg-[#ba1a1a]'
-                              : 'bg-[#6258E8] animate-pulse'
-                        }`}
-                      />
-                      <span className="text-xs font-mono text-slate-500">
-                        {saveStatus === 'saved'
-                          ? 'Saved to DB'
-                          : saveStatus === 'error'
-                            ? 'Draft saved locally'
-                            : 'Saving...'}
+                      <span className="w-2 h-2 rounded-full bg-[#6258E8]" />
+                      <span className="text-xs font-mono text-slate-600">
+                        {activeStepMeta.desc}
                       </span>
                     </div>
                   </div>
@@ -1820,6 +1805,9 @@ export default function OnboardingPage() {
                   MOBILE BOTTOM NAVIGATION (< lg) — Shadcn Rounded Animated Buttons
               =============================================================== */}
               <div className="lg:hidden pt-6 space-y-3">
+                {submitError && (
+                  <p className="text-xs text-[#ba1a1a] font-medium text-center">{submitError}</p>
+                )}
                 <Button
                   type="button"
                   variant="default"
@@ -1830,7 +1818,7 @@ export default function OnboardingPage() {
                 >
                   <span>
                     {isSubmitting
-                      ? 'Saving to Database...'
+                      ? 'Activating Workspace...'
                       : currentStep < 6
                         ? `Continue to Step ${currentStep + 1}`
                         : 'Activate Workspace'}
@@ -1867,8 +1855,18 @@ export default function OnboardingPage() {
               </Button>
 
               <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium">
-                <AppIcon name="check_circle" className="text-[18px] text-[#10B981]" />
-                <span>All changes saved</span>
+                {submitError ? (
+                  <span className="text-[#ba1a1a] font-semibold">{submitError}</span>
+                ) : (
+                  <>
+                    <AppIcon name="check_circle" className="text-[18px] text-[#10B981]" />
+                    <span>
+                      {currentStep < 6
+                        ? `Step 0${currentStep} of 06 • Ready to continue`
+                        : 'Step 06 of 06 • Ready to launch workspace'}
+                    </span>
+                  </>
+                )}
               </div>
 
               <div className="flex items-center gap-3">
@@ -1890,7 +1888,7 @@ export default function OnboardingPage() {
                 >
                   <span>
                     {isSubmitting
-                      ? 'Saving to Database...'
+                      ? 'Activating Workspace...'
                       : currentStep === 6
                         ? 'Activate Workspace'
                         : `Continue to Step ${currentStep + 1}`}
