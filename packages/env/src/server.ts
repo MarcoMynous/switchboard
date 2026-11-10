@@ -129,6 +129,11 @@ export const webSchema = z.object({
   BETTER_AUTH_URL: z.url().default(resolveDefaultAppUrl),
   API_ORIGIN: z.url().default('http://localhost:4000'),
   PUBLIC_APP_URL: z.url().default(resolveDefaultAppUrl),
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: intFromString(465),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
 });
 export type WebEnv = z.infer<typeof webSchema>;
 

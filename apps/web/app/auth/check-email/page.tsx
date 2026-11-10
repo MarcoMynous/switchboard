@@ -34,7 +34,7 @@ function CheckEmailContent() {
     try {
       const res = await authClient.signIn.magicLink({
         email,
-        callbackURL: '/',
+        callbackURL: '/onboarding',
       });
 
       if (res?.error) {
