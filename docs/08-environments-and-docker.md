@@ -23,7 +23,7 @@ All validated in `packages/env` (Zod). App crashes at boot with a clear message 
 | `DATABASE_URL` | `postgres://switchboard:switchboard@postgres:5432/switchboard` | prod: Vercel Production env (Neon pooled URL). preview: injected by CI from Neon branch |
 | `POSTGRES_HOST_PORT` | `5432` (compose host port only; change if taken) | not used |
 | `DATABASE_URL_UNPOOLED` | same as above | GitHub secret (migrations need direct connection) |
-| `API_ORIGIN` | `http://api:4000` | Vercel env (web project) |
+| `API_ORIGIN` | `http://api:4000` | Vercel service binding (`web` → `api`), see root `vercel.json` |
 | `PUBLIC_APP_URL` | `http://localhost:3000` | Vercel env |
 | `BETTER_AUTH_SECRET` | any 32+ chars | Vercel env |
 | `BETTER_AUTH_URL` | `http://localhost:3000` | Vercel env |
@@ -64,7 +64,7 @@ docker compose exec api pnpm test:int
 
 ## Regions
 
-No Vercel or Neon region in Africa. Use **Neon `aws-eu-central-1` (Frankfurt)** + **Vercel `fra1`** so functions and DB sit together (~1ms apart; Lagos → Frankfurt ≈ 90–120ms). `infra/vercel/*.vercel.json` are copied to `apps/web/vercel.json` and `apps/api/vercel.json` during P0 scaffolding.
+No Vercel or Neon region in Africa. Use **Neon `aws-eu-central-1` (Frankfurt)** + **Vercel `fra1`** so functions and DB sit together (~1ms apart; Lagos → Frankfurt ≈ 90–120ms). Region is set in the root `vercel.json` (one project, `services` for web/api/mock-kora; see `09-ci-cd.md`).
 
 ## Production-like local check
 

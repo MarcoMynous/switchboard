@@ -1,6 +1,22 @@
 # 09 — CI/CD
 
-GitHub Actions is the only thing that deploys. Vercel Git auto-deploy is **disabled** (`vercel.json → "git": { "deploymentEnabled": false }` in both apps).
+GitHub Actions is the only thing that deploys. Vercel Git auto-deploy is **disabled** (root `vercel.json → "git": { "deploymentEnabled": false }`).
+
+## One Vercel project, three services
+
+We deploy **one** Vercel project from the repo root. Root `vercel.json` declares Vercel `services`:
+
+| Service | Root | Reached at |
+|---------|------|-----------|
+| `web` | `apps/web` (Next.js) | everything not matched below |
+| `api` | `apps/api` (Hono, entry `src/index.ts`) | `/api/*` (except `/api/auth/*` → web), `/health`, `/webhooks/*` |
+| `mock-kora` | `apps/mock-kora` (Hono) | internal only, bound into `api` as `MOCK_KORA_URL` |
+
+`API_ORIGIN` (web) and `MOCK_KORA_URL` (api) come from service bindings, not hand-set env vars. Because web and api share a domain, a preview or prod deployment has **one URL**; the API is that URL + `/api/...`.
+
+`apps/web/vercel.json` and `apps/api/vercel.json` are leftovers from the earlier two-project plan. Remove them only after confirming a services build doesn't read them.
+
+> mock-kora is deployed today only because the services config includes it. Before P2, decide whether to drop it from prod: production `KORA_BASE_URL` must point at real Kora, never at mock-kora (I2).
 
 ## Pipeline
 
@@ -10,17 +26,16 @@ PR opened / pushed                                        merge to main
 ci.yml                                                    production.yml
  ├─ install (pnpm, turbo cache)                            ├─ same quality gates (fast, cached)
  ├─ lint (biome) · typecheck · knip                        ├─ drizzle migrate → Neon main (unpooled URL)
- ├─ unit tests (vitest + coverage)                         ├─ vercel deploy --prod  api
- ├─ integration tests (service: postgres:17 + mock-kora)   ├─ vercel deploy --prod  web
- ├─ build all apps                                         ├─ smoke tests against prod URLs
- └─ e2e (playwright vs docker compose stack)               └─ lighthouse (prod) → summary
+ ├─ unit tests (vitest + coverage)                         ├─ vercel deploy --prod  (one project: web + api)
+ ├─ integration tests (service: postgres:17 + mock-kora)   └─ smoke: /, /health, /api/health (db ok)
+ ├─ build all apps
+ └─ e2e (playwright vs docker compose stack)
         │
 preview.yml (needs ci)
  ├─ create Neon branch  pr-<n>   (neondatabase/create-branch-action)
  ├─ drizzle migrate → branch
  ├─ seed demo business
- ├─ vercel pull/build/deploy  api (preview, DATABASE_URL=branch)
- ├─ vercel pull/build/deploy  web (preview, API_ORIGIN=api preview url)
+ ├─ vercel pull/build/deploy  (one project, DATABASE_URL=branch; API_ORIGIN via service binding)
  ├─ lighthouse CI against preview URLs (fails PR under budget)
  ├─ k6 smoke (light, 1 min) against preview
  └─ PR comment: preview links + Lighthouse scores + k6 p95
@@ -35,12 +50,15 @@ load.yml  (manual workflow_dispatch + nightly) → full k6 + chaos suite against
 | Secret | Use |
 |--------|-----|
 | `VERCEL_TOKEN`, `VERCEL_ORG_ID` | Vercel CLI |
-| `VERCEL_PROJECT_ID_WEB`, `VERCEL_PROJECT_ID_API` | Two projects, one repo |
+| `VERCEL_PROJECT_ID` | The single services project (web + api + mock-kora) |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | Lets Lighthouse/k6 reach protected preview URLs (`x-vercel-protection-bypass` header) |
 | `NEON_API_KEY`, `NEON_PROJECT_ID` (var) | Branch create/delete |
 | `DATABASE_URL_PROD_UNPOOLED` | Prod migrations only |
 | `TURBO_TOKEN`, `TURBO_TEAM` (var) | Remote cache |
 | `LHCI_GITHUB_APP_TOKEN` (optional) | Lighthouse status checks |
+| `PROD_URL` (var, optional) | Smoke-test target; defaults to `https://switchboard-bm.vercel.app` |
+
+Deploy jobs fail with a clear error if `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` are missing, so add them **before** merging the change that turns off git auto-deploy.
 
 Production runtime secrets (Kora, WhatsApp, LLM, Better Auth) live **only in Vercel** env, not GitHub.
 

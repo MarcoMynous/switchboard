@@ -36,3 +36,51 @@ jobs:
           else
             pnpm db:migrate
           fi
+
+  # Runs only after migrate, so new code never meets an old schema (docs/09-ci-cd.md).
+  # Vercel git auto-deploy is off (root vercel.json), so this is the only path to prod.
+  deploy:
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: npm i -g vercel@latest
+      - name: Deploy to Vercel production (web + api + mock-kora services)
+        id: deploy
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ] || [ -z "$VERCEL_ORG_ID" ]; then
+            echo "::error::VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets are required (docs/09-ci-cd.md)."
+            exit 1
+          fi
+          rm -rf .vercel
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    env:
+      PROD_URL: ${{ vars.PROD_URL || 'https://switchboard-bm.vercel.app' }}
+    steps:
+      - name: Smoke test production
+        run: |
+          set -euo pipefail
+          for path in / /health /api/health; do
+            code=$(curl -s -o body.txt -w '%{http_code}' --retry 5 --retry-delay 3 --retry-all-errors "$PROD_URL$path")
+            echo "$path -> $code"
+            [ "$code" = "200" ] || { cat body.txt; exit 1; }
+          done
+          grep -q '"db":"ok"' body.txt || { echo "::error::/api/health did not report db ok"; cat body.txt; exit 1; }

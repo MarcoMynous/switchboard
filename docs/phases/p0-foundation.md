@@ -10,12 +10,12 @@
 - [x] A: `apps/api` Hono hello + `/health` (checks DB) + Inngest handler mounted
 - [x] A: `packages/db` Drizzle setup, first migration (`btree_gist` extension, businesses table)
 - [x] A: `apps/mock-kora` skeleton with `/_control/reset` and health
-- [ ] A: GitHub Actions: `ci.yml`, `preview.yml`, `production.yml`, `pr-cleanup.yml`; secrets set; branch protection on — workflows written; needs GitHub remote, secrets, branch protection
-- [ ] A: Two Vercel projects (root dirs `apps/web`, `apps/api`), git auto-deploy disabled — `vercel.json` copied into both apps; projects not created yet. Verify Vercel picks up `apps/api/src/index.ts` as the Hono entry on first deploy
+- [ ] A: GitHub Actions: `ci.yml`, `preview.yml`, `production.yml`, `pr-cleanup.yml`; secrets set; branch protection on — workflows written and updated for the single Vercel project (production now deploys + smoke-tests). **Remaining (manual, GitHub settings):** add secrets from `09-ci-cd.md` (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `NEON_API_KEY`, `DATABASE_URL_PROD_UNPOOLED`, var `NEON_PROJECT_ID`) and turn on branch protection
+- [x] A: Vercel deploy — **changed to one project with `services`** (web, api, mock-kora; root `vercel.json`) instead of two projects. Git auto-deploy disabled in root `vercel.json`. Hono entry verified live: `/api/health` → `{"status":"ok","db":"ok"}`. `/health` rewrite to api added (was 404 from web)
 - [x] B: `apps/web` Next.js (bare placeholder exists so Docker boots), Tailwind v4, shadcn init, tokens from `11-frontend-design.md`, fonts
 - [x] B: `/api/*` rewrite to `API_ORIGIN`
 - [x] B: Landing page placeholder scoring 100/100/100/100 in LHCI
-- [x] B: Playwright + axe setup, one smoke test
+- [ ] B: Playwright + axe setup, one smoke test — **not in repo yet**: no `apps/web/playwright.config.ts`, no root `test:e2e` script (CI e2e job skips until it exists)
 - [ ] Both: day-1 external tasks from `12-team-and-timeline.md`
 
 ## Exit criteria

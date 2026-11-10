@@ -1,8 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "workspaces": {
-    "apps/web": { "entry": ["lib/auth-client.ts"] }
+    ".": { "entry": ["neon.ts"] },
+    "apps/web": {
+      "entry": ["lib/auth-client.ts"],
+      "ignore": ["components/ui/**"]
+    }
   },
   "ignoreFiles": ["load/**", "lighthouserc.cjs"],
-  "ignoreBinaries": ["playwright"]
+  "ignoreBinaries": ["playwright"],
+  "ignoreDependencies": ["@neon/env"]
 }
