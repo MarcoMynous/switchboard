@@ -61,6 +61,8 @@ export default function PublicBookingPage() {
 
   const [businessName, setBusinessName] = useState('Fade Republic');
   const [address, setAddress] = useState('KM 10 Idiroko Road, Ota, Ogun State');
+  const [servicesList, setServicesList] = useState<ServiceItem[]>(DEFAULT_SERVICES);
+  const [staffList, setStaffList] = useState<StaffItem[]>(DEFAULT_STAFF);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('svc_1');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('stf_1');
   const [selectedSlot, setSelectedSlot] = useState<string>('14:00 WAT');
@@ -71,23 +73,68 @@ export default function PublicBookingPage() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('switchboard_onboarding_draft_v3');
+      const raw =
+        localStorage.getItem('switchboard_onboarding_draft') ||
+        localStorage.getItem('switchboard_onboarding_draft_v3');
       if (raw) {
         const parsed = JSON.parse(raw) as {
           businessName?: string;
+          location?: string;
           address?: string;
         };
         if (parsed.businessName) setBusinessName(parsed.businessName);
-        if (parsed.address) setAddress(parsed.address);
+        if (parsed.location || parsed.address) setAddress(parsed.location || parsed.address || '');
       }
     } catch {
       // Ignore storage error
     }
-  }, []);
+
+    fetch(`/api/workspace?slug=${encodeURIComponent(slug)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data?.ok || !data.business) return;
+        setBusinessName(data.business.name || 'Fade Republic');
+        if (data.business.location) setAddress(data.business.location);
+        if (Array.isArray(data.services) && data.services.length > 0) {
+          const mappedServices: ServiceItem[] = data.services.map(
+            (s: {
+              id: string;
+              name: string;
+              durationMin?: number;
+              duration?: number;
+              priceKobo?: number;
+              price?: number;
+              depositValue?: number;
+              depositAmount?: number;
+              depositRequired?: boolean;
+            }) => ({
+              id: s.id,
+              name: s.name,
+              durationMinutes: s.durationMin ?? s.duration ?? 45,
+              priceKobo: s.priceKobo ?? Math.round((s.price ?? 5000) * 100),
+              depositKobo:
+                s.depositRequired === false
+                  ? 0
+                  : (s.depositValue ?? Math.round((s.depositAmount ?? 1500) * 100)),
+            }),
+          );
+          setServicesList(mappedServices);
+          if (mappedServices[0]) setSelectedServiceId(mappedServices[0].id);
+        }
+        if (Array.isArray(data.staff) && data.staff.length > 0) {
+          setStaffList(data.staff);
+          if (data.staff[0]) setSelectedStaffId(data.staff[0].id);
+        }
+      })
+      .catch(() => {
+        // Keep defaults
+      });
+  }, [slug]);
 
   const selectedService =
-    DEFAULT_SERVICES.find((s) => s.id === selectedServiceId) ?? DEFAULT_SERVICES[0];
-  const selectedStaff = DEFAULT_STAFF.find((s) => s.id === selectedStaffId) ?? DEFAULT_STAFF[0];
+    servicesList.find((s) => s.id === selectedServiceId) ?? servicesList[0] ?? DEFAULT_SERVICES[0];
+  const selectedStaff =
+    staffList.find((s) => s.id === selectedStaffId) ?? staffList[0] ?? DEFAULT_STAFF[0];
 
   const handleHoldSlot = (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,7 +186,7 @@ export default function PublicBookingPage() {
                 1. Choose Service
               </p>
               <div className="space-y-2.5">
-                {DEFAULT_SERVICES.map((svc) => {
+                {servicesList.map((svc) => {
                   const active = svc.id === selectedServiceId;
                   return (
                     <button
@@ -178,7 +225,7 @@ export default function PublicBookingPage() {
                 2. Select Staff Member
               </p>
               <div className="grid grid-cols-2 gap-3">
-                {DEFAULT_STAFF.map((stf) => {
+                {staffList.map((stf) => {
                   const active = stf.id === selectedStaffId;
                   return (
                     <button
