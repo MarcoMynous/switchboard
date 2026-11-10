@@ -11,8 +11,15 @@ import { buildMagicLinkEmail } from './magic-link-email';
 
 const env = parseEnv(webSchema);
 
+const normalizedDatabaseUrl = env.DATABASE_URL.includes('uselibpqcompat=')
+  ? env.DATABASE_URL
+  : env.DATABASE_URL.replace(
+      /([?&])sslmode=(?:require|prefer|verify-ca)\b/g,
+      '$1sslmode=verify-full',
+    );
+
 const pool = new Pool({
-  connectionString: env.DATABASE_URL,
+  connectionString: normalizedDatabaseUrl,
   max: 5,
   idleTimeoutMillis: 10_000,
   connectionTimeoutMillis: 30_000,

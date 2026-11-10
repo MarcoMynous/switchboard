@@ -41,6 +41,18 @@
       }
     },
     {
+      "source": "/api/workspace",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/workspace/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
       "source": "/webhooks/(.*)",
       "destination": {
         "service": "api"
