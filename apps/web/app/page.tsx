@@ -57,12 +57,12 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="min-h-screen w-full bg-background pt-16">
+      <main className="min-h-screen w-full bg-background pt-16 overflow-x-hidden">
         <div className="flex w-full flex-col">
           {/* HERO SECTION (Midnight #101827 surface) */}
           <section
             id="product"
-            className="relative w-full overflow-hidden bg-midnight-hero px-6 pb-24 pt-16 text-on-primary lg:px-12"
+            className="scroll-mt-16 relative w-full overflow-hidden bg-midnight-hero px-5 sm:px-8 pb-20 pt-14 sm:pt-18 lg:px-12 lg:pb-24 lg:pt-20 text-on-primary"
           >
             {/* Restrained Iris Ambient Radiance */}
             <div className="pointer-events-none absolute -top-40 left-1/2 h-[500px] w-[850px] -translate-x-1/2 rounded-full bg-primary-container/15 blur-[140px]" />
@@ -70,8 +70,8 @@ export default function Home() {
 
             <div className="relative mx-auto flex max-w-7xl flex-col items-center text-center">
               {/* Eyebrow Badge */}
-              <ScrollReveal yOffset={20} duration={0.8} delay={0.15}>
-                <div className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-surface/10 bg-surface/5 px-3.5 py-1.5 backdrop-blur-md">
+              <ScrollReveal yOffset={16} duration={0.7} delay={0.1}>
+                <div className="mb-6 sm:mb-8 inline-flex items-center gap-2.5 rounded-full border border-surface/10 bg-surface/5 px-3.5 py-1.5 backdrop-blur-md">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-iris-light opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-primary-container" />
@@ -83,20 +83,20 @@ export default function Home() {
               </ScrollReveal>
 
               {/* Hero Headline with ScrollFloat */}
-              <div className="mb-6 max-w-5xl">
+              <div className="mb-6 max-w-4xl xl:max-w-5xl px-2">
                 <ScrollFloat
                   as="h1"
                   effect="float"
                   splitBy="words"
-                  distance={45}
-                  stretch={1.12}
-                  animationDuration={1.1}
+                  distance={28}
+                  stretch={1.06}
+                  animationDuration={0.75}
                   ease="power2.out"
-                  scrollStart="top 92%"
+                  scrollStart="top 95%"
                   scrollEnd="center 50%"
-                  smoothing={0.5}
+                  smoothing={0}
                   containerClassName="my-0"
-                  textClassName="font-display-hero text-display-hero-mobile tracking-tight text-on-primary lg:text-display-hero inline-block leading-tight"
+                  textClassName="font-display-hero text-display-hero-mobile tracking-tight text-on-primary lg:text-display-hero inline-block leading-[1.14] pb-1"
                 >
                   Your business never stops. Neither should your front desk.
                 </ScrollFloat>
@@ -762,7 +762,7 @@ export default function Home() {
           {/* SECTION 4: CORE FEATURES (Asymmetric Feature Grid) */}
           <section
             id="solutions"
-            className="w-full bg-background px-6 py-24 text-on-surface lg:px-12"
+            className="scroll-mt-16 w-full bg-background px-5 sm:px-8 py-16 sm:py-20 lg:py-24 text-on-surface lg:px-12"
           >
             <div className="mx-auto max-w-7xl">
               <ScrollReveal yOffset={30}>
@@ -891,7 +891,7 @@ export default function Home() {
           {/* SECTION 5: HOW IT WORKS (4-Step Workflow) */}
           <section
             id="how-it-works"
-            className="w-full border-t border-border bg-surface-container-low px-6 py-24 lg:px-12"
+            className="scroll-mt-16 w-full border-t border-border bg-surface-container-low px-5 sm:px-8 py-16 sm:py-20 lg:py-24 lg:px-12"
           >
             <div className="mx-auto max-w-7xl">
               <ScrollReveal yOffset={30}>
@@ -1264,7 +1264,7 @@ export default function Home() {
           {/* SECTION 8: RELIABILITY AND TRUST (Dark Midnight #101827 Surface) */}
           <section
             id="safety"
-            className="w-full bg-midnight-hero px-6 py-24 text-on-primary lg:px-12"
+            className="scroll-mt-16 w-full bg-midnight-hero px-5 sm:px-8 py-16 sm:py-20 lg:py-24 text-on-primary lg:px-12"
           >
             <div className="mx-auto max-w-7xl">
               <ScrollReveal yOffset={30}>
@@ -1363,7 +1363,7 @@ export default function Home() {
           {/* SECTION 9: PRICING PREVIEW */}
           <section
             id="pricing"
-            className="w-full bg-background px-6 py-24 text-on-surface lg:px-12"
+            className="scroll-mt-16 w-full bg-background px-5 sm:px-8 py-16 sm:py-20 lg:py-24 text-on-surface lg:px-12"
           >
             <div className="mx-auto max-w-7xl">
               <ScrollReveal yOffset={30}>
@@ -1689,7 +1689,7 @@ export default function Home() {
           {/* SECTION 11: FINAL CTA */}
           <section
             id="demo"
-            className="relative w-full overflow-hidden border-t border-surface/10 bg-midnight-hero px-6 py-28 text-on-primary lg:px-12"
+            className="scroll-mt-16 relative w-full overflow-hidden border-t border-surface/10 bg-midnight-hero px-5 sm:px-8 py-20 sm:py-24 lg:py-28 text-on-primary lg:px-12"
           >
             <div className="pointer-events-none absolute bottom-0 left-1/2 h-[350px] w-[700px] -translate-x-1/2 rounded-full bg-primary-container/20 blur-[140px]" />
             <div className="relative mx-auto flex max-w-5xl flex-col items-center text-center">

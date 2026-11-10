@@ -12,7 +12,7 @@
 - [ ] A: API routes: `GET /public/:slug`, `GET /public/:slug/slots`, `POST /public/:slug/holds`
 - [ ] B: Public booking page: business header, services, day strip, time chips (with no-deposit services confirming directly)
 - [ ] B: Hold band component (Storybook-free: a `/dev/components` page excluded from prod)
-- [ ] B: Better Auth sign-up/login, business onboarding wizard (name, services, staff, hours)
+- [x] B: Better Auth sign-up/login, business onboarding wizard (name, services, staff, hours)
 
 ## Exit criteria
 
