@@ -50,9 +50,10 @@ colors:
   surface-variant: '#e1e2e5'
   iris-light: '#A5B4FC'
   text-primary: '#111827'
-  text-secondary: '#64748B'
+  text-secondary: '#5B6577'
   border: '#E5E7EB'
   success: '#10B981'
+  success-strong: '#047857'
   midnight-hero: '#101827'
 typography:
   display-hero:
@@ -166,7 +167,7 @@ Avoid generic chatbot branding, excessive gradients, neon overload, futuristic c
 2. Visual Strategy
 Use the Premium Hybrid visual approach.
 Public Website: Dark cinematic hero and premium editorial typography, deep midnight surfaces (#101827) with restrained iris lighting, product-focused visuals, alternating light and dark sections.
-Canvas: #F7F8FB, Surface: #FFFFFF, Primary Iris: #6258E8, Iris Light: #A5B4FC, Success: #10B981, Primary text: #111827, Secondary text: #64748B, Border: #E5E7EB.
+Canvas: #F7F8FB, Surface: #FFFFFF, Primary Iris: #6258E8, Iris Light: #A5B4FC, Success: #10B981 (fills only; text uses #047857 on light, #34D399 on dark), Primary text: #111827, Secondary text: #5B6577, Border: #E5E7EB.
 Typography: Geist Sans / Inter, Geist Mono for metrics.
 Desktop hero headline: 68-76px, Mobile hero headline: 38-44px.
 

@@ -988,7 +988,10 @@ export default function DashboardPage() {
                       <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/60">
                         <div className="flex items-center justify-between text-text-secondary mb-2">
                           <span className="font-label-md text-label-md">Confirmed Bookings</span>
-                          <AppIcon name="event_available" className="text-[18px] text-success" />
+                          <AppIcon
+                            name="event_available"
+                            className="text-[18px] text-success-strong"
+                          />
                         </div>
                         <div className="font-metric-lg text-metric-lg text-text-primary font-bold">
                           {metrics.confirmedCount}
@@ -1011,7 +1014,7 @@ export default function DashboardPage() {
                           </span>
                           <AppIcon name="payments" className="text-[18px] text-primary" />
                         </div>
-                        <div className="font-metric-lg text-metric-lg text-success font-bold">
+                        <div className="font-metric-lg text-metric-lg text-success-strong font-bold">
                           {formatNairaFromKobo(metrics.verifiedDepositKobo)}
                         </div>
                         <div className="font-body-sm text-body-sm text-text-secondary mt-1">
@@ -1117,7 +1120,7 @@ export default function DashboardPage() {
                                     <span
                                       className={`px-2 py-0.5 rounded-full font-metric-sm text-metric-sm font-medium ${
                                         bk.status === 'confirmed'
-                                          ? 'bg-success/15 text-success'
+                                          ? 'bg-success/15 text-success-strong'
                                           : bk.status === 'held'
                                             ? 'bg-amber-500/15 text-amber-700'
                                             : 'bg-slate-200 text-slate-600'
@@ -1162,7 +1165,7 @@ export default function DashboardPage() {
                                     </>
                                   )}
                                   {bk.status === 'confirmed' && (
-                                    <span className="font-metric-sm text-metric-sm text-success flex items-center gap-1">
+                                    <span className="font-metric-sm text-metric-sm text-success-strong flex items-center gap-1">
                                       <AppIcon name="verified" className="text-[16px]" />
                                       Kora Verified
                                     </span>
@@ -1213,7 +1216,7 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Dynamic Progress Track */}
-                      <Progress value={checklist.percent} />
+                      <Progress value={checklist.percent} aria-label="Setup checklist progress" />
                     </div>
 
                     {/* Checklist Items */}
@@ -1260,7 +1263,7 @@ export default function DashboardPage() {
                                   <span
                                     className={`font-metric-sm text-metric-sm px-2 py-0.5 rounded-full ${
                                       isDone
-                                        ? 'text-success bg-success/10'
+                                        ? 'text-success-strong bg-success/10'
                                         : 'bg-secondary-container text-on-secondary-container'
                                     }`}
                                   >
@@ -1490,7 +1493,7 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </div>
-                        <span className="font-metric-sm text-metric-sm px-2 py-0.5 rounded-full bg-surface text-success shadow-2xs">
+                        <span className="font-metric-sm text-metric-sm px-2 py-0.5 rounded-full bg-surface text-success-strong shadow-2xs">
                           Live
                         </span>
                       </div>
@@ -1520,7 +1523,7 @@ export default function DashboardPage() {
                         <h4 className="font-headline-sm text-headline-sm text-text-primary font-medium">
                           Kora Deposits
                         </h4>
-                        <span className="font-metric-sm text-metric-sm px-2 py-0.5 rounded bg-surface-container-low text-success font-medium">
+                        <span className="font-metric-sm text-metric-sm px-2 py-0.5 rounded bg-surface-container-low text-success-strong font-medium">
                           {formatNairaFromKobo(metrics.verifiedDepositKobo)} Verified
                         </span>
                       </div>
@@ -1530,7 +1533,7 @@ export default function DashboardPage() {
                         Inngest.
                       </p>
                       <div className="mt-4 p-3 rounded-lg bg-surface-container-low flex items-center gap-3">
-                        <AppIcon name="verified" className="text-[18px] text-success" />
+                        <AppIcon name="verified" className="text-[18px] text-success-strong" />
                         <span className="font-label-sm text-label-sm text-text-secondary">
                           Kora webhook signature + query verification active
                         </span>
@@ -1752,7 +1755,7 @@ export default function DashboardPage() {
                             <span
                               className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                 bk.status === 'confirmed'
-                                  ? 'bg-success/15 text-success'
+                                  ? 'bg-success/15 text-success-strong'
                                   : 'bg-amber-500/15 text-amber-700'
                               }`}
                             >
@@ -1851,7 +1854,7 @@ export default function DashboardPage() {
                                     ? 'bg-error-container text-on-error-container'
                                     : conv.status === 'staff_takeover'
                                       ? 'bg-amber-500/15 text-amber-800'
-                                      : 'bg-success/15 text-success'
+                                      : 'bg-success/15 text-success-strong'
                                 }`}
                               >
                                 {conv.status === 'needs_human'
@@ -2001,7 +2004,7 @@ export default function DashboardPage() {
                               </div>
                               <div className="text-xs text-text-secondary">{st.role}</div>
                             </div>
-                            <span className="text-xs font-mono text-success">Active</span>
+                            <span className="text-xs font-mono text-success-strong">Active</span>
                           </div>
                         ))}
                       </div>
@@ -2099,7 +2102,7 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-text-primary text-sm">
                     {workspace.assistantName} — {workspace.businessName}
                   </h3>
-                  <p className="text-xs text-success">
+                  <p className="text-xs text-success-strong">
                     Web Chat Active • Reads live services & staff
                   </p>
                 </div>

@@ -69,20 +69,23 @@ Use the **Premium Hybrid** visual approach.
 | Surface | `#FFFFFF` | Cards, dialogs, forms, slot tiles |
 | Iris | `#6258E8` | Brand primary, CTA buttons, and **confirmed** slot state |
 | Iris Light | `#A5B4FC` | Dark-surface accents and waveform/activity highlights |
-| Success | `#10B981` | Confirmed positive states, paid toasts, money dashboard positives |
+| Success | `#10B981` | Confirmed positive states, paid toasts, money dashboard positives. **Fills, dots and tints only**: 2.5:1 on white, never text |
+| Success strong | `#047857` (light) / `#34D399` (dark) | Success-coloured **text** (`text-success-strong`) |
 | Warning | `#F59E0B` | **Held** slot state, countdown hold band, and non-blocking warnings |
 | Danger | `#EF4444` | Errors, no-shows, and destructive operations |
-| Slate | `#64748B` | Secondary information and free slot outlines |
+| Slate | `#5B6577` | Secondary information and free slot outlines (was `#64748B`: 4.1:1 on surface-container, failed AA) |
 | Border | `#E5E7EB` | Light-surface borders |
 
 ### Typography Colors
 
 - Primary on light: `#111827`
-- Secondary on light: `#64748B`
+- Secondary on light: `#5B6577` (`text-text-secondary`)
 - Primary on dark: `#F8FAFC`
-- Secondary on dark: `#CBD5E1`
+- Secondary on dark: `#B4BCCB` (automatic, see below) or `#CBD5E1`
 
-Every color pairing must meet accessible contrast requirements.
+Every color pairing must meet accessible contrast requirements (WCAG AA, 4.5:1 for body text). The Playwright axe smoke test (`apps/web/e2e/smoke.spec.ts`) enforces this on public pages.
+
+**Dark sections switch text tokens automatically.** `globals.css` overrides `--color-success-strong` and `--color-text-secondary` inside any element with `bg-midnight-hero` or `bg-[#181F63]`, so `text-success-strong` and `text-text-secondary` stay readable on both light and dark. Add a new dark background class to that selector. Prefer these tokens over raw Tailwind greys like `text-slate-500` (4.3:1 on surface-container, fails).
 
 The primary indigo may need a darker hover or text variant to maintain sufficient contrast.
 

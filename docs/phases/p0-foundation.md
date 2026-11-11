@@ -15,7 +15,7 @@
 - [x] B: `apps/web` Next.js (bare placeholder exists so Docker boots), Tailwind v4, shadcn init, tokens from `11-frontend-design.md`, fonts
 - [x] B: `/api/*` rewrite to `API_ORIGIN`
 - [x] B: Landing page placeholder scoring 100/100/100/100 in LHCI
-- [ ] B: Playwright + axe setup, one smoke test — **not in repo yet**: no `apps/web/playwright.config.ts`, no root `test:e2e` script (CI e2e job skips until it exists)
+- [x] B (done by A): Playwright + axe setup, one smoke test — `apps/web/playwright.config.ts` (mobile + desktop), `apps/web/e2e/smoke.spec.ts` (landing renders, zero WCAG 2.1 AA axe violations), root `pnpm test:e2e`; CI e2e gate removed. Fixed the contrast failures axe found (success text, secondary grey, dark-section tokens) on `/`, `/auth/*`, `/onboarding`, `/dashboard`
 - [ ] Both: day-1 external tasks from `12-team-and-timeline.md`
 
 ## Exit criteria

@@ -135,7 +135,7 @@ function CheckEmailContent() {
       <div className="w-full mb-4">
         {resendStatus === 'resent' ? (
           <div className="bg-surface-container-low rounded-lg p-3 flex items-start gap-2.5 border border-success/30 animate-in fade-in duration-200">
-            <AppIcon name="task_alt" className="text-success text-lg mt-0.5 shrink-0" />
+            <AppIcon name="task_alt" className="text-success-strong text-lg mt-0.5 shrink-0" />
             <div className="flex-1">
               <p className="font-body-sm text-body-sm text-text-primary font-medium">
                 New sign-in link dispatched

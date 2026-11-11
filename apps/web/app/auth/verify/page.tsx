@@ -110,7 +110,7 @@ function VerifyLinkContent() {
               <AppIcon name="error_outline" className="text-2xl" />
             </div>
           ) : state === 'success' ? (
-            <div className="w-14 h-14 rounded-full bg-success/15 flex items-center justify-center text-success border border-success/30 animate-in zoom-in-90 duration-300">
+            <div className="w-14 h-14 rounded-full bg-success/15 flex items-center justify-center text-success-strong border border-success/30 animate-in zoom-in-90 duration-300">
               <AppIcon name="check_circle" className="text-2xl" />
             </div>
           ) : (
@@ -167,7 +167,7 @@ function VerifyLinkContent() {
               <span
                 className={`font-label-sm font-medium transition-colors ${
                   state === 'success'
-                    ? 'text-success font-semibold flex items-center gap-1'
+                    ? 'text-success-strong font-semibold flex items-center gap-1'
                     : 'text-primary'
                 }`}
               >
@@ -199,7 +199,7 @@ function VerifyLinkContent() {
       <div className="mt-8 flex flex-col items-center gap-2 text-text-secondary font-label-sm text-label-sm">
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           <span className="inline-flex items-center gap-1.5">
-            <AppIcon name="verified_user" className="text-success text-[16px]" />
+            <AppIcon name="verified_user" className="text-success-strong text-[16px]" />
             <span>SOC 2 Type II Certified</span>
           </span>
           <span className="text-border">•</span>
@@ -213,7 +213,7 @@ function VerifyLinkContent() {
             <span>99.99% Uptime</span>
           </span>
         </div>
-        <p className="text-[12px] text-text-secondary/70 tracking-wide font-sans">
+        <p className="text-[12px] text-text-secondary tracking-wide font-sans">
           Switchboard Identity Gateway • Build 24.11-rc4
         </p>
       </div>

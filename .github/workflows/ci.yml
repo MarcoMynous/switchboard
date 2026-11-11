@@ -70,36 +70,22 @@ jobs:
     needs: quality
     steps:
       - uses: actions/checkout@v4
-      # Skips (green) until B lands Playwright in apps/web. The job itself stays, because
-      # `ci / e2e` is a required check. Remove this gate once playwright.config.ts exists.
-      - name: Gate on Playwright setup
-        id: gate
-        run: |
-          if [ -f apps/web/playwright.config.ts ]; then echo "on=true" >> "$GITHUB_OUTPUT"
-          else echo "on=false" >> "$GITHUB_OUTPUT"; echo "::notice::e2e skipped: apps/web/playwright.config.ts not found"; fi
       # Host install must come before compose: compose mounts named volumes at */node_modules
       # inside the checkout, and Docker creates those mount points root-owned, so a later
       # host `pnpm install` gets EACCES.
-      - if: steps.gate.outputs.on == 'true'
-        uses: pnpm/action-setup@v4
-      - if: steps.gate.outputs.on == 'true'
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
-      - if: steps.gate.outputs.on == 'true'
-        run: pnpm install --frozen-lockfile
-      - if: steps.gate.outputs.on == 'true'
-        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @switchboard/web exec playwright install --with-deps chromium
       - name: Boot full stack (production build) in Docker
-        if: steps.gate.outputs.on == 'true'
         run: |
           cp .env.example .env
           docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
           docker compose exec -T api pnpm db:seed
-      - if: steps.gate.outputs.on == 'true'
-        run: pnpm test:e2e
+      - run: pnpm test:e2e
         env: { E2E_BASE_URL: http://localhost:3000 }
       - name: Lighthouse on local prod build (early signal; preview run is the gate)
-        if: steps.gate.outputs.on == 'true'
         run: pnpm dlx @lhci/cli autorun --config=./lighthouserc.cjs
         env: { LHCI_BASE_URL: http://localhost:3000 }
       - if: failure()
