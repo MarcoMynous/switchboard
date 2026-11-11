@@ -99,14 +99,14 @@
   font-family: var(--font-sans);
 }
 @utility text-display-hero {
-  font-size: 72px;
-  line-height: 76px;
+  font-size: clamp(2.5rem, 4.5vw, 4.25rem);
+  line-height: 1.14;
   letter-spacing: -0.03em;
   font-weight: 600;
 }
 @utility text-display-hero-mobile {
-  font-size: 40px;
-  line-height: 44px;
+  font-size: clamp(2.15rem, 5.5vw, 2.75rem);
+  line-height: 1.16;
   letter-spacing: -0.02em;
   font-weight: 600;
 }
@@ -114,8 +114,8 @@
   font-family: var(--font-sans);
 }
 @utility text-headline-lg {
-  font-size: 36px;
-  line-height: 44px;
+  font-size: clamp(1.85rem, 3vw, 2.25rem);
+  line-height: 1.22;
   letter-spacing: -0.02em;
   font-weight: 600;
 }

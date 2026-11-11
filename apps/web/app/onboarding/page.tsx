@@ -341,13 +341,15 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [state, setState] = useState<OnboardingState>(INITIAL_STATE);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [testTimer, setTestTimer] = useState(900);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Restore draft from localStorage
+  // Restore draft from localStorage & hydrate from database (/api/workspace)
   useEffect(() => {
     try {
       const saved = localStorage.getItem('switchboard_onboarding_draft');
@@ -362,7 +364,118 @@ export default function OnboardingPage() {
     } catch {
       // ignore
     }
+
+    let active = true;
+    fetch('/api/workspace')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!active || !data?.ok) return;
+        if (data.user?.email) {
+          setVerifiedEmail(data.user.email);
+        }
+        if (data.business) {
+          const b = data.business;
+          setState((prev) => {
+            const next: OnboardingState = {
+              ...prev,
+              businessName: b.businessName || b.name || prev.businessName,
+              slug: b.slug || prev.slug,
+              category: b.category || prev.category,
+              phone: b.phone || prev.phone,
+              location: b.location || prev.location,
+              country: b.country || prev.country,
+              timezone: b.timezoneLabel || prev.timezone,
+              instagramOrWeb: b.instagramOrWeb ?? prev.instagramOrWeb,
+              selfProvided: b.selfProvided ?? prev.selfProvided,
+              schedule: b.schedule || prev.schedule,
+              advanceDays: b.advanceDays ?? prev.advanceDays,
+              allowSameDay: b.allowSameDay ?? prev.allowSameDay,
+              depositRequired: b.depositRequired ?? prev.depositRequired,
+              depositType: b.depositType || prev.depositType,
+              depositAmount: b.depositAmount ?? prev.depositAmount,
+              cancellationPolicy: b.cancellationPolicy || prev.cancellationPolicy,
+              koraStatus: b.koraStatus || prev.koraStatus,
+              assistantName: b.assistantName || prev.assistantName,
+              greeting: b.greeting || prev.greeting,
+              tone: b.tone || prev.tone,
+              capabilities:
+                Array.isArray(b.capabilities) && b.capabilities.length > 0
+                  ? b.capabilities
+                  : prev.capabilities,
+              services:
+                Array.isArray(data.services) && data.services.length > 0
+                  ? data.services
+                  : prev.services,
+              staff: Array.isArray(data.staff) && data.staff.length > 0 ? data.staff : prev.staff,
+            };
+            try {
+              localStorage.setItem('switchboard_onboarding_draft', JSON.stringify(next));
+            } catch {
+              // ignore
+            }
+            return next;
+          });
+        }
+      })
+      .catch(() => {
+        // Keep local draft when offline
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const persistToDatabase = async (
+    payload: OnboardingState,
+    onboardingCompleted: boolean,
+  ): Promise<boolean> => {
+    setSaveStatus('saving');
+    try {
+      const res = await fetch('/api/workspace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: payload.businessName,
+          name: payload.businessName,
+          slug: payload.slug,
+          category: payload.category,
+          vertical: payload.category === 'beauty' ? 'salon' : payload.category,
+          phone: payload.phone,
+          location: payload.location,
+          country: payload.country,
+          timezone: payload.timezone,
+          instagramOrWeb: payload.instagramOrWeb,
+          services: payload.services,
+          staff: payload.staff,
+          selfProvided: payload.selfProvided,
+          schedule: payload.schedule,
+          advanceDays: payload.advanceDays,
+          allowSameDay: payload.allowSameDay,
+          depositRequired: payload.depositRequired,
+          depositType: payload.depositType,
+          depositAmount: payload.depositAmount,
+          cancellationPolicy: payload.cancellationPolicy,
+          koraStatus: payload.koraStatus,
+          assistantName: payload.assistantName,
+          greeting: payload.greeting,
+          tone: payload.tone,
+          capabilities: payload.capabilities,
+          agentEnabled: true,
+          onboardingCompleted,
+        }),
+      });
+      if (!res.ok) {
+        setSaveStatus('error');
+        return false;
+      }
+      setSaveStatus('saved');
+      return true;
+    } catch {
+      setSaveStatus('error');
+      return false;
+    }
+  };
 
   // Autosave
   const updateState = (
@@ -428,27 +541,19 @@ export default function OnboardingPage() {
   };
 
   const handleContinue = async () => {
-    if (!validateStep(currentStep)) return;
-    if (currentStep < 6) {
-      setCurrentStep((prev) => prev + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      try {
-        await fetch('/api/workspace', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: state.businessName,
-            slug: state.slug,
-            vertical: state.category === 'beauty' ? 'salon' : state.category,
-            timezone: state.timezone,
-            agentEnabled: true,
-          }),
-        });
-      } catch {
-        // Proceed with local persisted draft if offline
+    if (!validateStep(currentStep) || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      if (currentStep < 6) {
+        await persistToDatabase(state, false);
+        setCurrentStep((prev) => prev + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        await persistToDatabase(state, true);
+        router.push('/dashboard');
       }
-      router.push('/dashboard');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -476,6 +581,15 @@ export default function OnboardingPage() {
           <SwitchboardLogo href="/" size="md" theme="light" />
 
           <div className="flex items-center gap-2.5">
+            {verifiedEmail && (
+              <Badge
+                variant="secondary"
+                className="px-3 py-1 rounded-full font-mono text-xs text-emerald-700 bg-emerald-50 border border-emerald-200"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                Verified · {verifiedEmail}
+              </Badge>
+            )}
             <Badge variant="default" className="px-3.5 py-1 rounded-full font-mono text-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
               Workspace Setup · Step 0{currentStep}/06
@@ -602,11 +716,19 @@ export default function OnboardingPage() {
                     <div className="flex items-center gap-1.5 lg:bg-[#f2f3f6] lg:px-3 lg:py-1 lg:rounded-full">
                       <span
                         className={`w-2 h-2 rounded-full ${
-                          saveStatus === 'saved' ? 'bg-[#10B981]' : 'bg-[#6258E8] animate-pulse'
+                          saveStatus === 'saved'
+                            ? 'bg-[#10B981]'
+                            : saveStatus === 'error'
+                              ? 'bg-[#ba1a1a]'
+                              : 'bg-[#6258E8] animate-pulse'
                         }`}
                       />
                       <span className="text-xs font-mono text-text-secondary">
-                        {saveStatus === 'saved' ? 'Autosaved' : 'Saving...'}
+                        {saveStatus === 'saved'
+                          ? 'Saved to DB'
+                          : saveStatus === 'error'
+                            ? 'Draft saved locally'
+                            : 'Saving...'}
                       </span>
                     </div>
                   </div>
@@ -880,6 +1002,32 @@ export default function OnboardingPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Instagram / Website Row */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label
+                          htmlFor="biz-website"
+                          className="text-sm font-semibold text-[#111827]"
+                        >
+                          Instagram or Website Link
+                        </label>
+                        <span className="text-xs text-text-secondary">Optional</span>
+                      </div>
+                      <div className="relative rounded-xl shadow-xs">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <AppIcon name="link" className="text-[18px]" />
+                        </div>
+                        <input
+                          id="biz-website"
+                          type="text"
+                          value={state.instagramOrWeb}
+                          onChange={(e) => updateState({ instagramOrWeb: e.target.value })}
+                          placeholder="e.g. https://instagram.com/faderepublic or https://faderepublic.ng"
+                          className="w-full pl-10 pr-3 py-2.5 bg-white text-[#111827] text-sm rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#6258E8] outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1077,14 +1225,67 @@ export default function OnboardingPage() {
                                 }}
                                 className="w-full text-sm font-bold text-[#111827] outline-none truncate"
                               />
-                              <p className="text-xs text-text-secondary">{member.role}</p>
+                              <input
+                                type="text"
+                                value={member.role}
+                                aria-label="Staff Role Title"
+                                onChange={(e) => {
+                                  const updated = [...state.staff];
+                                  if (updated[idx]) {
+                                    updated[idx] = { ...updated[idx], role: e.target.value };
+                                    updateState({ staff: updated });
+                                  }
+                                }}
+                                className="w-full text-xs text-text-secondary outline-none truncate"
+                              />
                             </div>
-                            <span className="w-6 h-6 rounded-full bg-[#6258E8] text-white flex items-center justify-center shrink-0">
-                              <AppIcon name="check" className="text-[14px]" />
-                            </span>
+                            {state.staff.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateState((prev) => ({
+                                    ...prev,
+                                    staff: prev.staff.filter((_, i) => i !== idx),
+                                  }));
+                                }}
+                                className="w-6 h-6 rounded-full bg-slate-100 text-slate-400 hover:text-[#ba1a1a] flex items-center justify-center shrink-0"
+                                title="Remove Staff"
+                              >
+                                <AppIcon name="close" className="text-[14px]" />
+                              </button>
+                            ) : (
+                              <span className="w-6 h-6 rounded-full bg-[#6258E8] text-white flex items-center justify-center shrink-0">
+                                <AppIcon name="check" className="text-[14px]" />
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => updateState({ selfProvided: !state.selfProvided })}
+                        className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100/70 flex items-center justify-between text-left transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <AppIcon name="person" className="text-[18px] text-[#6258E8]" />
+                          <span className="text-xs font-semibold text-[#111827]">
+                            I also personally take customer appointments as the owner
+                          </span>
+                        </div>
+                        <span
+                          className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                            state.selfProvided
+                              ? 'bg-[#6258E8] text-white'
+                              : 'bg-slate-200 text-slate-400'
+                          }`}
+                        >
+                          <AppIcon
+                            name={state.selfProvided ? 'check' : 'add'}
+                            className="text-[13px]"
+                          />
+                        </span>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1202,6 +1403,56 @@ export default function OnboardingPage() {
                           )}
                         </div>
                       ))}
+                    </div>
+
+                    {/* Booking Window Settings (advanceDays & allowSameDay) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-bold text-[#111827]">
+                            Advance Booking Window
+                          </div>
+                          <div className="text-[11px] text-text-secondary">
+                            How far ahead customers can book
+                          </div>
+                        </div>
+                        <select
+                          value={state.advanceDays}
+                          aria-label="Advance Booking Window in Days"
+                          onChange={(e) => updateState({ advanceDays: Number(e.target.value) })}
+                          className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-[#111827] outline-none cursor-pointer"
+                        >
+                          <option value={7}>7 days</option>
+                          <option value={14}>14 days</option>
+                          <option value={30}>30 days</option>
+                          <option value={60}>60 days</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => updateState({ allowSameDay: !state.allowSameDay })}
+                        className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-left cursor-pointer"
+                      >
+                        <div>
+                          <div className="text-xs font-bold text-[#111827]">Same-Day Bookings</div>
+                          <div className="text-[11px] text-text-secondary">
+                            Allow booking open slots for today
+                          </div>
+                        </div>
+                        <span
+                          className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                            state.allowSameDay
+                              ? 'bg-[#6258E8] text-white'
+                              : 'bg-slate-200 text-slate-400'
+                          }`}
+                        >
+                          <AppIcon
+                            name={state.allowSameDay ? 'check' : 'close'}
+                            className="text-[14px]"
+                          />
+                        </span>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1401,6 +1652,23 @@ export default function OnboardingPage() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Welcome Greeting Input */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="assistant-greeting"
+                        className="text-xs font-bold text-text-secondary uppercase tracking-wider block"
+                      >
+                        Opening Greeting Message
+                      </label>
+                      <input
+                        id="assistant-greeting"
+                        type="text"
+                        value={state.greeting}
+                        onChange={(e) => updateState({ greeting: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-[#111827] focus:ring-2 focus:ring-[#6258E8] outline-none"
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1558,11 +1826,16 @@ export default function OnboardingPage() {
                   type="button"
                   variant="default"
                   size="lg"
+                  disabled={isSubmitting}
                   onClick={handleContinue}
                   className="w-full rounded-2xl py-4 text-base"
                 >
                   <span>
-                    {currentStep < 6 ? `Continue to Step ${currentStep + 1}` : 'Activate Workspace'}
+                    {isSubmitting
+                      ? 'Saving to Database...'
+                      : currentStep < 6
+                        ? `Continue to Step ${currentStep + 1}`
+                        : 'Activate Workspace'}
                   </span>
                   <AppIcon name="arrow_forward" className="text-[20px]" />
                 </Button>
@@ -1611,11 +1884,18 @@ export default function OnboardingPage() {
                   </Button>
                 )}
 
-                <Button type="button" variant="default" onClick={handleContinue}>
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={isSubmitting}
+                  onClick={handleContinue}
+                >
                   <span>
-                    {currentStep === 6
-                      ? 'Activate Workspace'
-                      : `Continue to Step ${currentStep + 1}`}
+                    {isSubmitting
+                      ? 'Saving to Database...'
+                      : currentStep === 6
+                        ? 'Activate Workspace'
+                        : `Continue to Step ${currentStep + 1}`}
                   </span>
                   <AppIcon name="arrow_forward" className="text-[18px]" />
                 </Button>

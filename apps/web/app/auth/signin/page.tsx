@@ -38,7 +38,7 @@ export default function SignInPage() {
     try {
       const res = await authClient.signIn.magicLink({
         email: trimmed,
-        callbackURL: '/',
+        callbackURL: '/onboarding',
       });
 
       if (res?.error) {

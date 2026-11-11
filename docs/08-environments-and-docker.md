@@ -29,6 +29,7 @@ All validated in `packages/env` (Zod). App crashes at boot with a clear message 
 | `NEXT_PUBLIC_APP_URL` | unset (optional) | Vercel env, only if a client component needs the app URL. The only client-side var (I8) |
 | `BETTER_AUTH_SECRET` | any 32+ chars | Vercel env |
 | `BETTER_AUTH_URL` | `http://localhost:3000` | Vercel env |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Gmail SMTP credentials for Better Auth magic links | Vercel env |
 | `KORA_BASE_URL` | `http://mock-kora:4010/merchant` | `https://api.korapay.com/merchant` |
 | `KORA_SECRET_KEY` | `sk_test_local_mock` | Vercel env (sandbox key) |
 | `KORA_PUBLIC_KEY` | `pk_test_local_mock` | Vercel env |

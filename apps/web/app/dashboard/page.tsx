@@ -74,14 +74,36 @@ interface WorkspaceApiData {
   business: {
     id: string;
     name: string;
+    businessName?: string;
     slug: string;
     vertical: string;
+    category?: OnboardingState['category'];
+    phone?: string;
+    location?: string;
+    country?: string;
     timezone: string;
+    timezoneLabel?: string;
+    instagramOrWeb?: string;
+    selfProvided?: boolean;
+    schedule?: OnboardingState['schedule'] | null;
+    advanceDays?: number;
+    allowSameDay?: boolean;
+    depositRequired?: boolean;
+    depositType?: OnboardingState['depositType'];
+    depositAmount?: number;
+    cancellationPolicy?: string;
+    koraStatus?: OnboardingState['koraStatus'];
+    assistantName?: string;
+    greeting?: string;
+    tone?: OnboardingState['tone'];
+    capabilities?: OnboardingState['capabilities'] | null;
     whatsappPhoneNumberId: string | null;
     plan: string;
     koraConfigured: boolean;
     agentEnabled: boolean;
   } | null;
+  services?: OnboardingState['services'];
+  staff?: OnboardingState['staff'];
   error?: string;
 }
 
@@ -261,10 +283,38 @@ export default function DashboardPage() {
         }));
 
         if (data.business) {
+          const b = data.business;
           setWorkspace((prev) => ({
             ...prev,
-            businessName: prev.businessName || data.business?.name || 'Fade Republic',
-            slug: prev.slug || data.business?.slug || 'fade-republic',
+            businessName: b.businessName || b.name || prev.businessName,
+            slug: b.slug || prev.slug,
+            category: b.category || prev.category,
+            phone: b.phone || prev.phone,
+            location: b.location || prev.location,
+            country: b.country || prev.country,
+            timezone: b.timezoneLabel || prev.timezone,
+            instagramOrWeb: b.instagramOrWeb ?? prev.instagramOrWeb,
+            selfProvided: b.selfProvided ?? prev.selfProvided,
+            schedule: b.schedule || prev.schedule,
+            advanceDays: b.advanceDays ?? prev.advanceDays,
+            allowSameDay: b.allowSameDay ?? prev.allowSameDay,
+            depositRequired: b.depositRequired ?? prev.depositRequired,
+            depositType: b.depositType || prev.depositType,
+            depositAmount: b.depositAmount ?? prev.depositAmount,
+            cancellationPolicy: b.cancellationPolicy || prev.cancellationPolicy,
+            koraStatus: b.koraStatus || prev.koraStatus,
+            assistantName: b.assistantName || prev.assistantName,
+            greeting: b.greeting || prev.greeting,
+            tone: b.tone || prev.tone,
+            capabilities:
+              Array.isArray(b.capabilities) && b.capabilities.length > 0
+                ? b.capabilities
+                : prev.capabilities,
+            services:
+              Array.isArray(data.services) && data.services.length > 0
+                ? data.services
+                : prev.services,
+            staff: Array.isArray(data.staff) && data.staff.length > 0 ? data.staff : prev.staff,
           }));
         }
       })

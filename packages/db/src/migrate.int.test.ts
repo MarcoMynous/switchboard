@@ -1,6 +1,16 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { migrateSchema, parseEnv } from '@switchboard/env';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createPool } from './client.ts';
+
+if (!process.env.DATABASE_URL_UNPOOLED && typeof process.loadEnvFile === 'function') {
+  const rootEnv = resolve(fileURLToPath(import.meta.url), '../../../../.env');
+  if (existsSync(rootEnv)) {
+    process.loadEnvFile(rootEnv);
+  }
+}
 
 // Runs after `pnpm db:migrate` (CI integration job, or `docker compose exec api pnpm test:int`).
 const pool = createPool(parseEnv(migrateSchema).DATABASE_URL_UNPOOLED, { max: 1 });
@@ -42,6 +52,32 @@ describe('migrations', () => {
       'account_userId_idx',
       'session_userId_idx',
       'verification_identifier_idx',
+    ]);
+  });
+
+  it('creates onboarding tables (services, staff, staff_services, working_hours) and business columns', async () => {
+    const { rows: tables } = await pool.query<{ tablename: string }>(
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('services', 'staff', 'staff_services', 'working_hours') ORDER BY tablename`,
+    );
+    expect(tables.map((r) => r.tablename)).toEqual([
+      'services',
+      'staff',
+      'staff_services',
+      'working_hours',
+    ]);
+
+    const { rows: cols } = await pool.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'businesses' AND column_name IN ('owner_user_id', 'phone', 'location', 'schedule', 'default_deposit_kobo', 'assistant_name', 'capabilities', 'onboarding_completed') ORDER BY column_name`,
+    );
+    expect(cols.map((r) => r.column_name)).toEqual([
+      'assistant_name',
+      'capabilities',
+      'default_deposit_kobo',
+      'location',
+      'onboarding_completed',
+      'owner_user_id',
+      'phone',
+      'schedule',
     ]);
   });
 });

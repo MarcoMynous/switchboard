@@ -46,9 +46,6 @@ export interface ScrollFloatProps {
   as?: 'h1' | 'h2' | 'h3' | 'span' | 'div';
 }
 
-const clampToScroll = (position: string) =>
-  typeof position === 'string' && !position.startsWith('clamp(') ? `clamp(${position})` : position;
-
 const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
 
 const smoothstep = (from: number, to: number, value: number) => {
@@ -200,9 +197,8 @@ export const ScrollFloat: React.FC<ScrollFloatProps> = ({
           trigger: el,
           scroller,
           start: scrollStart,
-          end: clampToScroll(scrollEnd),
-          scrub: smoothing > 0 ? smoothing : true,
-          invalidateOnRefresh: true,
+          toggleActions: 'play none none none',
+          once: true,
         },
       });
       const add = (fromVars: gsap.TweenVars, toVars: gsap.TweenVars) => {
@@ -325,7 +321,7 @@ export const ScrollFloat: React.FC<ScrollFloatProps> = ({
     </>
   );
 
-  const containerClasses = `${effect === 'float' ? 'overflow-hidden' : 'overflow-x-clip overflow-y-visible'} ${containerClassName}`;
+  const containerClasses = `overflow-visible pb-1 ${containerClassName}`.trim();
 
   if (Component === 'h1') {
     return (
