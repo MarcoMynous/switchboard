@@ -10,8 +10,8 @@
 - [ ] A: Seed script (Fade Republic, Ota)
 - [ ] A: Tests: property test, 100-parallel-hold test, idempotency race test, stale-hold reclaim test
 - [ ] A: API routes: `GET /public/:slug`, `GET /public/:slug/slots`, `POST /public/:slug/holds`
-- [ ] B: Public booking page: business header, services, day strip, time chips (with no-deposit services confirming directly)
-- [ ] B: Hold band component (Storybook-free: a `/dev/components` page excluded from prod)
+- [x] B: Public booking page: business header, services, day strip, time chips (with no-deposit services confirming directly)
+- [x] B: Hold band component (Storybook-free: a `/dev/components` page excluded from prod)
 - [x] B: Better Auth sign-up/login, business onboarding wizard (name, services, staff, hours)
 
 ## Exit criteria
