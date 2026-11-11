@@ -57,11 +57,16 @@ See `docker-compose.yml`. Services:
 | `web` | 3000 | `next dev`, source bind-mounted |
 | `inngest` | 8288 | `inngest/inngest` dev server pointed at `http://api:4000/api/inngest` |
 | `mock-kora` | 4010 | Fake Kora + WhatsApp stub + chaos controls |
+| `deps` | — | One-shot: `pnpm install --frozen-lockfile --prefer-offline` into the shared `node_modules` volumes; `migrate` and `mock-kora` wait for it |
 | `migrate` | — | One-shot: runs `db:migrate` then exits; `api` waits for it |
 | `k6` | — | profile `load` only |
 | `lhci` | — | profile `quality` only |
 
-Hot reload: source is bind-mounted; `node_modules` lives in a named volume per app so host and container don't fight.
+Hot reload: source is bind-mounted; `node_modules` lives in a named volume per package so host and container don't fight.
+
+Those volumes are seeded from the image only the first time they're created, so after a dependency change they go stale. The `deps` service brings them up to date once before anything else starts (it needs the network only for packages that changed). If they ever get into a bad state: `docker compose down && docker volume rm $(docker volume ls -q | grep '^switchboard_.*node_modules')`.
+
+Port 5432 taken by another project? Set `POSTGRES_HOST_PORT=5433` in `.env`. Containers still talk to `postgres:5432`; only host tools use the new port.
 
 ```bash
 pnpm docker:up                          # docker compose up -d --build
