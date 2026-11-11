@@ -40,6 +40,8 @@ export function createApp({ pool, logger }: AppDeps) {
       return c.json({ status: 'error', db: 'down' }, 503);
     }
   };
+  // Hello: proves the Hono app is up without touching the DB (on Vercel, `/` belongs to web).
+  app.get('/', (c) => c.json({ service: 'switchboard-api', status: 'ok' }));
   app.get('/health', handleHealth);
   app.get('/api/health', handleHealth);
 

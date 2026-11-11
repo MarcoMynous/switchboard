@@ -16,6 +16,7 @@
     "test": "turbo run test",
     "test:int": "turbo run test:int --concurrency=1",
     "test:e2e": "pnpm --filter @switchboard/web test:e2e",
+    "lhci": "pnpm dlx @lhci/cli@0.15.1 autorun --config=./lighthouserc.cjs --upload.target=filesystem --upload.outputDir=.lighthouseci",
     "coverage:check": "turbo run coverage:check",
     "knip": "knip",
     "db:migrate": "pnpm --filter @switchboard/db migrate",

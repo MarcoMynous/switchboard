@@ -1171,9 +1171,9 @@ export default function Home() {
                         </span>
                         <AppIcon name="chat" className="text-[18px] text-primary" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Customer Request
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Customer messages on WhatsApp asking for a haircut or styling at a preferred
                         time.
@@ -1192,9 +1192,9 @@ export default function Home() {
                         </span>
                         <AppIcon name="event" className="text-[18px] text-primary" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Live Availability Check
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Postgres exclusion check queries barber schedules and places a 15-minute
                         hold band.
@@ -1213,9 +1213,9 @@ export default function Home() {
                         </span>
                         <AppIcon name="account_balance" className="text-[18px] text-primary" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Kora Dynamic Account
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Generates a dedicated Kora bank transfer account number with integer kobo
                         deposit amount.
@@ -1234,9 +1234,9 @@ export default function Home() {
                         </span>
                         <AppIcon name="verified" className="text-[18px] text-success-strong" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Dual-Verification
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Webhook arrives, signature verified, and Kora query re-checks transaction
                         status directly.
@@ -1255,9 +1255,9 @@ export default function Home() {
                         </span>
                         <AppIcon name="check_circle" className="text-[18px] text-success-strong" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Confirmed Booking
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Slot transitions to confirmed, calendar updates, and WhatsApp confirmation
                         is dispatched.
@@ -1802,9 +1802,9 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
+              <h3 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
                 Product
-              </h4>
+              </h3>
               <ul className="space-y-2.5 font-body-sm text-body-sm">
                 <li>
                   <a href="#product" className="transition-colors hover:text-on-primary">
@@ -1830,9 +1830,9 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
+              <h3 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
                 Solutions
-              </h4>
+              </h3>
               <ul className="space-y-2.5 font-body-sm text-body-sm">
                 <li>
                   <a href="#solutions" className="transition-colors hover:text-on-primary">
@@ -1858,9 +1858,9 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
+              <h3 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
                 Company
-              </h4>
+              </h3>
               <ul className="space-y-2.5 font-body-sm text-body-sm">
                 <li>
                   <a href="#how-it-works" className="transition-colors hover:text-on-primary">
