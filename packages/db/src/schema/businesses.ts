@@ -57,6 +57,8 @@ export const businesses = pgTable(
     depositRequired: boolean().notNull().default(true),
     depositType: text().notNull().default('fixed'),
     defaultDepositKobo: bigint({ mode: 'number' }).notNull().default(150_000),
+    freeCancelHours: integer().notNull().default(4),
+    merchantBearsCost: boolean().notNull().default(false),
     cancellationPolicy: text(),
     koraStatus: text().notNull().default('ready'),
     /** Step 5: AI receptionist persona & capabilities */

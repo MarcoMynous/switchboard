@@ -42,6 +42,24 @@
       }
     },
     {
+      "source": "/api/workspace",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/workspace/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/booking-status",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
       "source": "/health",
       "destination": {
         "service": "api"

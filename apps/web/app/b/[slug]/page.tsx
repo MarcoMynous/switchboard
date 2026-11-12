@@ -4,8 +4,15 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
-import { HoldBand, type HoldBandStatus } from '@/components/HoldBand';
+import {
+  computeKoraFeeKobo,
+  DepositCard,
+  type DepositCardStatus,
+  formatNairaFromKobo,
+} from '@/components/DepositCard';
 import { SwitchboardIconSvg } from '@/components/SwitchboardLogo';
+
+type ServiceDepositRule = 'fixed' | 'percent' | 'none' | 'full';
 
 interface ServiceItem {
   id: string;
@@ -13,7 +20,10 @@ interface ServiceItem {
   description?: string;
   durationMinutes: number;
   priceKobo: number;
-  depositKobo: number;
+  depositType: ServiceDepositRule;
+  /** Kobo when depositType='fixed', percentage (0-100) when 'percent', priceKobo when 'full', 0 when 'none' */
+  depositValue: number;
+  freeCancelHours: number;
 }
 
 interface StaffItem {
@@ -45,7 +55,9 @@ const DEFAULT_SERVICES: ServiceItem[] = [
     description: 'Detailed razor fade, hot towel prep & beard oil.',
     durationMinutes: 45,
     priceKobo: 500_000,
-    depositKobo: 150_000,
+    depositType: 'fixed',
+    depositValue: 150_000,
+    freeCancelHours: 4,
   },
   {
     id: 'svc_2',
@@ -53,7 +65,9 @@ const DEFAULT_SERVICES: ServiceItem[] = [
     description: 'Clean clipper cut and sharp perimeter line-up.',
     durationMinutes: 30,
     priceKobo: 350_000,
-    depositKobo: 100_000,
+    depositType: 'percent',
+    depositValue: 30,
+    freeCancelHours: 4,
   },
   {
     id: 'svc_3',
@@ -61,7 +75,9 @@ const DEFAULT_SERVICES: ServiceItem[] = [
     description: 'Organic shampoo wash & deep palm-roll retwist.',
     durationMinutes: 90,
     priceKobo: 1_500_000,
-    depositKobo: 500_000,
+    depositType: 'fixed',
+    depositValue: 500_000,
+    freeCancelHours: 12,
   },
   {
     id: 'svc_free',
@@ -69,7 +85,9 @@ const DEFAULT_SERVICES: ServiceItem[] = [
     description: 'Perimeter touch-up — no upfront deposit required.',
     durationMinutes: 15,
     priceKobo: 150_000,
-    depositKobo: 0,
+    depositType: 'none',
+    depositValue: 0,
+    freeCancelHours: 4,
   },
 ];
 
@@ -78,8 +96,14 @@ const DEFAULT_STAFF: StaffItem[] = [
   { id: 'stf_2', name: 'Emeka Okafor', role: 'Fade Specialist' },
 ];
 
-function formatNairaFromKobo(kobo: number): string {
-  return `₦${Math.round(kobo / 100).toLocaleString('en-NG')}`;
+function resolveServiceDepositKobo(service: ServiceItem): number {
+  if (service.depositType === 'none') return 0;
+  if (service.depositType === 'full') return service.priceKobo;
+  if (service.depositType === 'percent') {
+    const pct = Math.max(0, Math.min(100, service.depositValue));
+    return Math.round((service.priceKobo * pct) / 100);
+  }
+  return Math.max(0, service.depositValue);
 }
 
 interface DayOption {
@@ -163,6 +187,8 @@ export default function PublicBookingPage() {
   const [businessName, setBusinessName] = useState('Fade Republic');
   const [address, setAddress] = useState('KM 10 Idiroko Road, Ota, Ogun State');
   const [phone, setPhone] = useState('+234 803 123 4567');
+  const [merchantBearsCost, setMerchantBearsCost] = useState(false);
+  const [defaultFreeCancelHours, setDefaultFreeCancelHours] = useState(4);
   const [cancellationPolicy, setCancellationPolicy] = useState(
     'Full refund if cancelled at least 4 hours before your scheduled slot.',
   );
@@ -176,9 +202,9 @@ export default function PublicBookingPage() {
   const [selectedSlot, setSelectedSlot] = useState<string>('10:00 WAT');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [bookingStatus, setBookingStatus] = useState<HoldBandStatus | null>(null);
+  const [bookingStatus, setBookingStatus] = useState<DepositCardStatus | null>(null);
   const [reference, setReference] = useState('sb_dep_01JFADEREP98K2');
-  const [copiedAccount, setCopiedAccount] = useState(false);
+  const [amountPaidKobo, setAmountPaidKobo] = useState(0);
 
   useEffect(() => {
     try {
@@ -193,12 +219,20 @@ export default function PublicBookingPage() {
           phone?: string;
           cancellationPolicy?: string;
           schedule?: Record<string, DaySchedule>;
+          merchantBearsCost?: boolean;
+          freeCancelHours?: number;
         };
         if (parsed.businessName) setBusinessName(parsed.businessName);
         if (parsed.location || parsed.address) setAddress(parsed.location || parsed.address || '');
         if (parsed.phone) setPhone(parsed.phone);
         if (parsed.cancellationPolicy) setCancellationPolicy(parsed.cancellationPolicy);
         if (parsed.schedule) setSchedule(parsed.schedule);
+        if (typeof parsed.merchantBearsCost === 'boolean') {
+          setMerchantBearsCost(parsed.merchantBearsCost);
+        }
+        if (typeof parsed.freeCancelHours === 'number') {
+          setDefaultFreeCancelHours(parsed.freeCancelHours);
+        }
       }
     } catch {
       // Ignore storage error
@@ -211,6 +245,12 @@ export default function PublicBookingPage() {
         setBusinessName(data.business.name || 'Fade Republic');
         if (data.business.location) setAddress(data.business.location);
         if (data.business.phone) setPhone(data.business.phone);
+        if (typeof data.business.merchantBearsCost === 'boolean') {
+          setMerchantBearsCost(data.business.merchantBearsCost);
+        }
+        if (typeof data.business.freeCancelHours === 'number') {
+          setDefaultFreeCancelHours(data.business.freeCancelHours);
+        }
         if (data.business.cancellationPolicy) {
           setCancellationPolicy(data.business.cancellationPolicy);
         }
@@ -231,23 +271,37 @@ export default function PublicBookingPage() {
               depositValue?: number;
               depositAmount?: number;
               depositRequired?: boolean;
-              depositType?: string;
-            }) => ({
-              id: s.id,
-              name: s.name,
-              description: s.description || 'Bookable appointment service.',
-              durationMinutes: s.durationMin ?? s.duration ?? 45,
-              priceKobo: s.priceKobo ?? Math.round((s.price ?? 5000) * 100),
-              depositKobo:
+              depositType?: ServiceDepositRule;
+              freeCancelHours?: number;
+            }) => {
+              const priceKobo = s.priceKobo ?? Math.round((s.price ?? 5000) * 100);
+              const depositType: ServiceDepositRule =
                 s.depositRequired === false || s.depositType === 'none'
+                  ? 'none'
+                  : s.depositType && ['fixed', 'percent', 'full', 'none'].includes(s.depositType)
+                    ? s.depositType
+                    : 'fixed';
+              const depositValue =
+                depositType === 'none'
                   ? 0
-                  : (s.depositValue ?? Math.round((s.depositAmount ?? 1500) * 100)),
-            }),
+                  : depositType === 'full'
+                    ? priceKobo
+                    : (s.depositValue ?? Math.round((s.depositAmount ?? 1500) * 100));
+
+              return {
+                id: s.id,
+                name: s.name,
+                description: s.description || 'Bookable appointment service.',
+                durationMinutes: s.durationMin ?? s.duration ?? 45,
+                priceKobo,
+                depositType,
+                depositValue,
+                freeCancelHours: s.freeCancelHours ?? data.business.freeCancelHours ?? 4,
+              };
+            },
           );
 
-          // Ensure there is always at least one no-deposit service option so customers/testers
-          // can exercise direct no-deposit confirmation alongside Kora deposit holds.
-          const hasNoDepositService = mappedServices.some((s) => s.depositKobo === 0);
+          const hasNoDepositService = mappedServices.some((s) => s.depositType === 'none');
           const finalServices = hasNoDepositService
             ? mappedServices
             : [
@@ -258,7 +312,9 @@ export default function PublicBookingPage() {
                   description: 'Fast perimeter check — confirms directly with no deposit.',
                   durationMinutes: 15,
                   priceKobo: 150_000,
-                  depositKobo: 0,
+                  depositType: 'none' as const,
+                  depositValue: 0,
+                  freeCancelHours: data.business.freeCancelHours ?? 4,
                 },
               ];
 
@@ -306,64 +362,100 @@ export default function PublicBookingPage() {
   const selectedStaff =
     staffList.find((s) => s.id === selectedStaffId) ?? staffList[0] ?? DEFAULT_STAFF[0];
 
-  const isNoDepositService = (selectedService?.depositKobo ?? 0) === 0;
+  const baseDepositKobo = selectedService ? resolveServiceDepositKobo(selectedService) : 0;
+  const isNoDepositService = baseDepositKobo === 0;
+  const koraFeeKobo =
+    isNoDepositService || merchantBearsCost ? 0 : computeKoraFeeKobo(baseDepositKobo);
+  const amountExpectedKobo = baseDepositKobo + koraFeeKobo;
+  const serviceFreeCancelHours = selectedService?.freeCancelHours ?? defaultFreeCancelHours;
 
-  const handleHoldOrConfirmSlot = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newRef = `sb_dep_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-    setReference(newRef);
-
-    // Per docs/03-data-model.md:
-    // service with deposit_type='none': hold_slot → confirmed directly
-    const nextStatus: HoldBandStatus = isNoDepositService ? 'confirmed' : 'held';
-    setBookingStatus(nextStatus);
-
-    // Sync to local dashboard bookings so owner dashboard reflects this booking immediately
+  const syncDashboardBooking = (
+    ref: string,
+    nextStatus: DepositCardStatus,
+    expectedKobo: number,
+  ) => {
     try {
       const existingRaw = localStorage.getItem('switchboard_dashboard_bookings');
-      const existing = existingRaw ? JSON.parse(existingRaw) : [];
-      const newRecord = {
-        id: `bk_${Date.now()}`,
-        reference: newRef,
-        customerName: customerName.trim() || 'Walk-in Customer',
-        customerPhone: customerPhone.trim() || '+234 803 000 0000',
-        serviceName: selectedService?.name || 'Service',
-        staffName: selectedStaff?.name || 'Staff',
-        slotTime: `${selectedDay?.shortDay ?? 'Today'} · ${selectedSlot}`,
-        priceKobo: selectedService?.priceKobo ?? 500_000,
-        depositKobo: selectedService?.depositKobo ?? 0,
-        status: nextStatus,
-        paymentStatus: isNoDepositService ? 'not_required' : 'awaiting_payment',
-        holdSecondsRemaining: isNoDepositService ? undefined : 900,
-        source: 'booking_page',
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem(
-        'switchboard_dashboard_bookings',
-        JSON.stringify([newRecord, ...existing]),
-      );
+      const existing = existingRaw
+        ? (JSON.parse(existingRaw) as Array<{
+            id: string;
+            reference: string;
+            status: string;
+            paymentStatus: string;
+          }>)
+        : [];
+      const found = existing.some((b) => b.reference === ref);
+      const paymentStatus =
+        expectedKobo === 0
+          ? 'not_required'
+          : nextStatus === 'confirmed'
+            ? 'verified'
+            : nextStatus === 'pending_verification'
+              ? 'pending_verification'
+              : 'awaiting_payment';
+
+      const dashboardStatus =
+        nextStatus === 'underpaid' || nextStatus === 'pending_verification' ? 'held' : nextStatus;
+
+      if (found) {
+        const updated = existing.map((b) =>
+          b.reference === ref ? { ...b, status: dashboardStatus, paymentStatus } : b,
+        );
+        localStorage.setItem('switchboard_dashboard_bookings', JSON.stringify(updated));
+      } else {
+        const newRecord = {
+          id: `bk_${Date.now()}`,
+          reference: ref,
+          customerName: customerName.trim() || 'Walk-in Customer',
+          customerPhone: customerPhone.trim() || '+234 803 000 0000',
+          serviceName: selectedService?.name || 'Service',
+          staffName: selectedStaff?.name || 'Staff',
+          slotTime: `${selectedDay?.shortDay ?? 'Today'} · ${selectedSlot}`,
+          priceKobo: selectedService?.priceKobo ?? 500_000,
+          depositKobo: expectedKobo,
+          status: dashboardStatus,
+          paymentStatus,
+          holdSecondsRemaining: isNoDepositService ? undefined : 900,
+          source: 'booking_page',
+          createdAt: new Date().toISOString(),
+        };
+        localStorage.setItem(
+          'switchboard_dashboard_bookings',
+          JSON.stringify([newRecord, ...existing]),
+        );
+      }
     } catch {
       // Ignore storage error
     }
   };
 
-  const handleSimulateKoraWebhook = () => {
-    setBookingStatus('confirmed');
+  const handleHoldOrConfirmSlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const newRef = `sb_dep_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+    setReference(newRef);
+    setAmountPaidKobo(0);
+
+    const nextStatus: DepositCardStatus = isNoDepositService ? 'confirmed' : 'held';
+    setBookingStatus(nextStatus);
+    syncDashboardBooking(newRef, nextStatus, amountExpectedKobo);
+
     try {
-      const existingRaw = localStorage.getItem('switchboard_dashboard_bookings');
-      if (existingRaw) {
-        const existing = JSON.parse(existingRaw) as Array<{
-          reference: string;
-          status: string;
-          paymentStatus: string;
-        }>;
-        const updated = existing.map((b) =>
-          b.reference === reference ? { ...b, status: 'confirmed', paymentStatus: 'verified' } : b,
-        );
-        localStorage.setItem('switchboard_dashboard_bookings', JSON.stringify(updated));
-      }
+      await fetch('/api/booking-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reference: newRef,
+          status: nextStatus,
+          amountExpectedKobo,
+          amountPaidKobo: isNoDepositService ? 0 : 0,
+          bankName: 'Wema Bank',
+          accountNumber: '7829104482',
+          accountName: `${businessName} via Switchboard`,
+          ttlSeconds: 900,
+        }),
+      });
     } catch {
-      // Ignore storage error
+      // Offline fallback works with local state
     }
   };
 
@@ -427,7 +519,8 @@ export default function PublicBookingPage() {
               <div className="space-y-2.5">
                 {servicesList.map((svc) => {
                   const active = svc.id === selectedServiceId;
-                  const noDeposit = svc.depositKobo === 0;
+                  const svcDepositKobo = resolveServiceDepositKobo(svc);
+                  const noDeposit = svcDepositKobo === 0;
                   return (
                     <button
                       key={svc.id}
@@ -451,7 +544,11 @@ export default function PublicBookingPage() {
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded-md bg-[#F59E0B]/15 text-[#B45309] text-[10px] font-mono font-semibold">
-                              {formatNairaFromKobo(svc.depositKobo)} deposit
+                              {svc.depositType === 'percent'
+                                ? `${svc.depositValue}% deposit (${formatNairaFromKobo(svcDepositKobo)})`
+                                : svc.depositType === 'full'
+                                  ? `Full upfront (${formatNairaFromKobo(svcDepositKobo)})`
+                                  : `${formatNairaFromKobo(svcDepositKobo)} deposit`}
                             </span>
                           )}
                         </div>
@@ -461,7 +558,7 @@ export default function PublicBookingPage() {
                           </p>
                         )}
                         <p className="text-[11px] font-mono text-[#64748B]">
-                          {svc.durationMinutes} mins
+                          {svc.durationMinutes} mins · Free cancel {svc.freeCancelHours}h before
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -604,7 +701,7 @@ export default function PublicBookingPage() {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Hold Band & Deposit / Direct Confirmation Card */}
+          {/* RIGHT COLUMN: Hold Band & Kora DepositCard / Direct Confirmation */}
           <div className="lg:col-span-5 bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-xs space-y-5 sticky top-6">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-4">
               <div>
@@ -638,18 +735,26 @@ export default function PublicBookingPage() {
                   {formatNairaFromKobo(selectedService?.priceKobo ?? 0)}
                 </span>
               </div>
+
+              {!isNoDepositService && koraFeeKobo > 0 && (
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-[#64748B]">Kora processing fee</span>
+                  <span className="font-mono text-[#111827]">
+                    {formatNairaFromKobo(koraFeeKobo)}
+                  </span>
+                </div>
+              )}
+
               <div className="flex justify-between pt-2 border-t border-slate-100">
                 <span className="font-semibold text-[#111827]">
-                  {isNoDepositService ? 'Upfront deposit' : 'Required Kora deposit'}
+                  {isNoDepositService ? 'Upfront deposit' : 'Exact amount to transfer'}
                 </span>
                 <span
                   className={`font-mono font-bold ${
                     isNoDepositService ? 'text-[#10B981]' : 'text-[#6258E8]'
                   }`}
                 >
-                  {isNoDepositService
-                    ? '₦0 (No deposit)'
-                    : formatNairaFromKobo(selectedService?.depositKobo ?? 0)}
+                  {isNoDepositService ? '₦0 (No deposit)' : formatNairaFromKobo(amountExpectedKobo)}
                 </span>
               </div>
             </div>
@@ -697,87 +802,33 @@ export default function PublicBookingPage() {
                 >
                   {isNoDepositService
                     ? 'Hold this time (confirms directly)'
-                    : `Hold this time · Pay ${formatNairaFromKobo(selectedService?.depositKobo ?? 0)} deposit`}
+                    : `Hold this time · Pay ${formatNairaFromKobo(amountExpectedKobo)} deposit`}
                 </button>
               </form>
             ) : (
               <div className="space-y-4 pt-1">
-                {/* Reusable HoldBand Component */}
-                <HoldBand
-                  status={bookingStatus}
-                  remainingSeconds={900}
-                  totalSeconds={900}
-                  autoTick={bookingStatus === 'held'}
+                <DepositCard
                   reference={reference}
-                  onExpire={() => setBookingStatus('expired')}
+                  businessName={businessName}
+                  customerName={customerName}
+                  customerPhone={customerPhone}
+                  baseDepositKobo={baseDepositKobo}
+                  koraFeeKobo={koraFeeKobo}
+                  amountExpectedKobo={amountExpectedKobo}
+                  amountPaidKobo={amountPaidKobo}
+                  merchantBearsCost={merchantBearsCost}
+                  initialStatus={bookingStatus}
+                  remainingSeconds={900}
+                  freeCancelHours={serviceFreeCancelHours}
+                  pollIntervalMs={3000}
+                  enablePolling={!isNoDepositService}
+                  onStatusChange={(next, paid) => {
+                    setBookingStatus(next);
+                    if (typeof paid === 'number') setAmountPaidKobo(paid);
+                    syncDashboardBooking(reference, next, amountExpectedKobo);
+                  }}
+                  onPickDifferentSlot={() => setBookingStatus(null)}
                 />
-
-                {bookingStatus === 'held' && (
-                  <div className="p-4 rounded-xl bg-[#F7F8FB] border border-[#E5E7EB] space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-[#64748B] font-semibold">
-                        Kora virtual bank transfer
-                      </span>
-                      <span className="text-[11px] font-mono font-bold text-[#111827]">
-                        Wema Bank
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-[#E5E7EB]">
-                      <div>
-                        <p className="text-[10px] text-[#64748B] uppercase font-mono">
-                          Account number
-                        </p>
-                        <p className="text-[15px] font-mono font-bold text-[#111827] tracking-wider">
-                          7829104482
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText('7829104482');
-                          setCopiedAccount(true);
-                          setTimeout(() => setCopiedAccount(false), 2000);
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] text-xs font-semibold text-[#6258E8] hover:bg-slate-50 cursor-pointer"
-                      >
-                        {copiedAccount ? 'Copied!' : 'Copy account number'}
-                      </button>
-                    </div>
-
-                    <p className="text-[12px] text-[#64748B] leading-relaxed">
-                      Transfer{' '}
-                      <strong className="text-[#111827]">
-                        {formatNairaFromKobo(selectedService?.depositKobo ?? 0)}
-                      </strong>
-                      . This slot confirms only after Kora <code>charge.success</code> webhook +
-                      transaction verification (Invariant I2).
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={handleSimulateKoraWebhook}
-                      className="w-full py-2.5 rounded-lg bg-[#101827] hover:bg-slate-800 text-white text-xs font-mono font-semibold transition-colors cursor-pointer"
-                    >
-                      Simulate Kora charge.success webhook → Confirm
-                    </button>
-                  </div>
-                )}
-
-                {bookingStatus === 'confirmed' && (
-                  <div className="p-4 rounded-xl bg-[#10B981]/10 border border-[#10B981]/30 space-y-1.5">
-                    <p className="text-[13px] font-bold text-[#047857]">
-                      Appointment confirmed for {customerName || 'you'}
-                    </p>
-                    <p className="text-[12px] text-[#065F46] leading-relaxed">
-                      {isNoDepositService
-                        ? 'This service requires no upfront deposit, so your slot was confirmed directly.'
-                        : 'Your Kora deposit has been verified and your slot is locked.'}{' '}
-                      A WhatsApp confirmation has been queued for{' '}
-                      <span className="font-mono font-semibold">{customerPhone}</span>.
-                    </p>
-                  </div>
-                )}
 
                 <button
                   type="button"

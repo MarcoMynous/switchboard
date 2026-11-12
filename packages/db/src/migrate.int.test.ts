@@ -67,13 +67,15 @@ describe('migrations', () => {
     ]);
 
     const { rows: cols } = await pool.query<{ column_name: string }>(
-      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'businesses' AND column_name IN ('owner_user_id', 'phone', 'location', 'schedule', 'default_deposit_kobo', 'assistant_name', 'capabilities', 'onboarding_completed') ORDER BY column_name`,
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'businesses' AND column_name IN ('owner_user_id', 'phone', 'location', 'schedule', 'default_deposit_kobo', 'free_cancel_hours', 'merchant_bears_cost', 'assistant_name', 'capabilities', 'onboarding_completed') ORDER BY column_name`,
     );
     expect(cols.map((r) => r.column_name)).toEqual([
       'assistant_name',
       'capabilities',
       'default_deposit_kobo',
+      'free_cancel_hours',
       'location',
+      'merchant_bears_cost',
       'onboarding_completed',
       'owner_user_id',
       'phone',

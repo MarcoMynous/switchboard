@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
+import { computeKoraFeeKobo, DepositCard, type DepositCardStatus } from '@/components/DepositCard';
 import { HoldBand, type HoldBandStatus } from '@/components/HoldBand';
 import { SwitchboardLogo } from '@/components/SwitchboardLogo';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,12 @@ export function HoldBandWorkbench() {
   const [status, setStatus] = useState<HoldBandStatus>('held');
   const [remainingSeconds, setRemainingSeconds] = useState<number>(840);
   const [autoTick, setAutoTick] = useState<boolean>(true);
+  const [depositCardStatus, setDepositCardStatus] = useState<DepositCardStatus>('held');
+  const [merchantBearsCost, setMerchantBearsCost] = useState<boolean>(false);
+
+  const baseDepositKobo = 150_000;
+  const koraFeeKobo = merchantBearsCost ? 0 : computeKoraFeeKobo(baseDepositKobo);
+  const expectedKobo = baseDepositKobo + koraFeeKobo;
 
   return (
     <div className="min-h-screen bg-[#F7F8FB] text-[#111827] font-sans">
@@ -234,6 +241,65 @@ export function HoldBandWorkbench() {
                 reference="sb_dep_01JFADE004"
               />
             </div>
+          </div>
+        </section>
+
+        {/* Phase 2: Kora Deposit Card Harness */}
+        <section className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-xs space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-[#111827]">
+                Phase 2 · Kora Bank-Transfer Deposit Card
+              </h2>
+              <p className="text-xs text-[#64748B]">
+                Exercises bank details, Copy account number, exact amount, 3s polling, and Confirmed
+                / Underpaid / Expired states.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                type="button"
+                size="sm"
+                variant={merchantBearsCost ? 'default' : 'outline'}
+                onClick={() => setMerchantBearsCost((prev) => !prev)}
+              >
+                {merchantBearsCost ? 'Merchant bears fee' : 'Customer pays Kora fee'}
+              </Button>
+              {(['held', 'underpaid', 'pending_verification', 'confirmed', 'expired'] as const).map(
+                (st) => (
+                  <Button
+                    key={st}
+                    type="button"
+                    size="sm"
+                    variant={depositCardStatus === st ? 'default' : 'outline'}
+                    onClick={() => setDepositCardStatus(st)}
+                  >
+                    {st}
+                  </Button>
+                ),
+              )}
+            </div>
+          </div>
+
+          <div className="max-w-lg">
+            <DepositCard
+              reference="sb_dep_01JFADEREP98K2"
+              businessName="Fade Republic"
+              customerName="Tobi A."
+              customerPhone="+234 803 123 4567"
+              baseDepositKobo={baseDepositKobo}
+              koraFeeKobo={koraFeeKobo}
+              amountExpectedKobo={expectedKobo}
+              amountPaidKobo={depositCardStatus === 'underpaid' ? 90_000 : 0}
+              merchantBearsCost={merchantBearsCost}
+              initialStatus={depositCardStatus}
+              remainingSeconds={depositCardStatus === 'expired' ? 0 : 840}
+              freeCancelHours={4}
+              enablePolling={false}
+              onStatusChange={(next) => setDepositCardStatus(next)}
+              onPickDifferentSlot={() => setDepositCardStatus('held')}
+            />
           </div>
         </section>
       </main>

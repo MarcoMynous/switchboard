@@ -15,7 +15,10 @@ export interface ServiceItem {
   duration: number; // minutes
   price: number; // in Naira
   depositRequired: boolean;
-  depositAmount: number; // in Naira
+  depositType?: 'fixed' | 'percent' | 'none' | 'full';
+  depositAmount: number; // in Naira (when fixed) or % (when percent)
+  depositValue?: number;
+  freeCancelHours?: number;
   description: string;
 }
 
@@ -64,6 +67,8 @@ export interface OnboardingState {
   depositRequired: boolean;
   depositType: 'fixed' | 'percentage';
   depositAmount: number;
+  freeCancelHours?: number;
+  merchantBearsCost?: boolean;
   cancellationPolicy: string;
   koraStatus: 'ready' | 'pending';
 
@@ -270,6 +275,8 @@ const INITIAL_STATE: OnboardingState = {
   depositRequired: true,
   depositType: 'fixed',
   depositAmount: 1500,
+  freeCancelHours: 4,
+  merchantBearsCost: false,
   cancellationPolicy: 'Full refund if cancelled at least 4 hours before your scheduled slot.',
   koraStatus: 'ready',
   assistantName: 'Maya',

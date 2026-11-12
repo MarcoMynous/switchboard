@@ -164,23 +164,30 @@ export async function GET(request: Request) {
       schedule = builtSchedule;
     }
 
-    const formattedServices = serviceRows.map((s) => ({
-      id: s.id,
-      name: s.name,
-      description: s.description || '',
-      duration: s.durationMin,
-      durationMin: s.durationMin,
-      price: Math.round(Number(s.priceKobo) / 100),
-      priceKobo: Number(s.priceKobo),
-      depositRequired: s.depositType !== 'none',
-      depositType: s.depositType,
-      depositAmount:
-        s.depositType === 'fixed'
-          ? Math.round(Number(s.depositValue) / 100)
-          : Number(s.depositValue),
-      depositValue: Number(s.depositValue),
-      freeCancelHours: s.freeCancelHours,
-    }));
+    const formattedServices = serviceRows.map((s) => {
+      const priceNaira = Math.round(Number(s.priceKobo) / 100);
+      return {
+        id: s.id,
+        name: s.name,
+        description: s.description || '',
+        duration: s.durationMin,
+        durationMin: s.durationMin,
+        price: priceNaira,
+        priceKobo: Number(s.priceKobo),
+        depositRequired: s.depositType !== 'none',
+        depositType: s.depositType,
+        depositAmount:
+          s.depositType === 'fixed'
+            ? Math.round(Number(s.depositValue) / 100)
+            : s.depositType === 'full'
+              ? priceNaira
+              : s.depositType === 'percent'
+                ? Number(s.depositValue)
+                : 0,
+        depositValue: Number(s.depositValue),
+        freeCancelHours: s.freeCancelHours,
+      };
+    });
 
     const formattedStaff = staffRows.map((member) => ({
       id: member.id,
@@ -226,6 +233,8 @@ export async function GET(request: Request) {
           | 'percentage',
         depositAmount: defaultDepositNaira,
         defaultDepositKobo: Number(businessRow.defaultDepositKobo ?? 150_000),
+        freeCancelHours: businessRow.freeCancelHours ?? 4,
+        merchantBearsCost: businessRow.merchantBearsCost ?? false,
         cancellationPolicy:
           businessRow.cancellationPolicy ||
           'Full refund if cancelled at least 4 hours before your scheduled slot.',
@@ -271,7 +280,10 @@ interface IncomingServiceItem {
   duration: number;
   price: number;
   depositRequired?: boolean;
+  depositType?: 'fixed' | 'percent' | 'none' | 'full';
   depositAmount?: number;
+  depositValue?: number;
+  freeCancelHours?: number;
   description?: string;
 }
 
@@ -305,10 +317,12 @@ interface IncomingWorkspaceBody {
   advanceDays?: number;
   allowSameDay?: boolean;
 
-  // Step 4
+  // Step 4 & P2 Payment Settings
   depositRequired?: boolean;
   depositType?: 'fixed' | 'percentage';
   depositAmount?: number;
+  freeCancelHours?: number;
+  merchantBearsCost?: boolean;
   cancellationPolicy?: string;
   koraStatus?: 'ready' | 'pending';
 
@@ -361,9 +375,13 @@ export async function POST(request: Request) {
       ? Math.max(0, Number(body.depositAmount))
       : 1500;
     const defaultDepositKobo = Math.round(depositAmountNaira * 100);
+    const freeCancelHours = Number.isFinite(body.freeCancelHours)
+      ? Math.max(0, Math.min(72, Math.round(Number(body.freeCancelHours))))
+      : 4;
+    const merchantBearsCost = Boolean(body.merchantBearsCost);
     const cancellationPolicy =
       body.cancellationPolicy?.trim() ||
-      'Full refund if cancelled at least 4 hours before your scheduled slot.';
+      `Full refund if cancelled at least ${freeCancelHours} hours before your scheduled slot.`;
     const koraStatus = body.koraStatus === 'pending' ? 'pending' : 'ready';
     const assistantName = body.assistantName?.trim() || 'Maya';
     const greeting =
@@ -398,6 +416,8 @@ export async function POST(request: Request) {
           depositRequired,
           depositType,
           defaultDepositKobo,
+          freeCancelHours,
+          merchantBearsCost,
           cancellationPolicy,
           koraStatus,
           assistantName,
@@ -426,6 +446,8 @@ export async function POST(request: Request) {
             depositRequired,
             depositType,
             defaultDepositKobo,
+            freeCancelHours,
+            merchantBearsCost,
             cancellationPolicy,
             koraStatus,
             assistantName,
@@ -454,18 +476,26 @@ export async function POST(request: Request) {
           .filter((s) => s.name?.trim())
           .map((s) => {
             const priceKobo = Math.max(0, Math.round(Number(s.price || 0) * 100));
-            const svcDepositRequired = s.depositRequired ?? depositRequired;
-            const svcDepositType: 'fixed' | 'percent' | 'none' = !svcDepositRequired
+            const requestedType = s.depositType;
+            const svcDepositRequired =
+              requestedType === 'none' ? false : (s.depositRequired ?? depositRequired);
+            const svcDepositType: 'fixed' | 'percent' | 'none' | 'full' = !svcDepositRequired
               ? 'none'
-              : depositType === 'percentage'
-                ? 'percent'
-                : 'fixed';
+              : requestedType && ['fixed', 'percent', 'none', 'full'].includes(requestedType)
+                ? requestedType
+                : depositType === 'percentage'
+                  ? 'percent'
+                  : 'fixed';
+
             const rawDepAmt = Number(s.depositAmount ?? depositAmountNaira);
-            const depositValue = !svcDepositRequired
-              ? 0
-              : svcDepositType === 'fixed'
-                ? Math.max(0, Math.round(rawDepAmt * 100))
-                : Math.min(100, Math.max(0, Math.round(rawDepAmt)));
+            const depositValue =
+              svcDepositType === 'none'
+                ? 0
+                : svcDepositType === 'full'
+                  ? priceKobo
+                  : svcDepositType === 'fixed'
+                    ? Math.max(0, Math.round(rawDepAmt * 100))
+                    : Math.min(100, Math.max(1, Math.round(s.depositValue ?? rawDepAmt)));
 
             return {
               businessId,
@@ -475,7 +505,9 @@ export async function POST(request: Request) {
               priceKobo,
               depositType: svcDepositType,
               depositValue,
-              freeCancelHours: 4,
+              freeCancelHours: Number.isFinite(s.freeCancelHours)
+                ? Math.max(0, Math.min(72, Math.round(Number(s.freeCancelHours))))
+                : freeCancelHours,
               depositCountsTowardBill: true,
             };
           });

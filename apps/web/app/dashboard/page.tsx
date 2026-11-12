@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
+import { computeKoraFeeKobo } from '@/components/DepositCard';
+import { HoldBand } from '@/components/HoldBand';
 import { SwitchboardLogo } from '@/components/SwitchboardLogo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -91,6 +93,8 @@ interface WorkspaceApiData {
     depositRequired?: boolean;
     depositType?: OnboardingState['depositType'];
     depositAmount?: number;
+    freeCancelHours?: number;
+    merchantBearsCost?: boolean;
     cancellationPolicy?: string;
     koraStatus?: OnboardingState['koraStatus'];
     assistantName?: string;
@@ -163,6 +167,8 @@ const DEFAULT_WORKSPACE: OnboardingState = {
   depositRequired: true,
   depositType: 'fixed',
   depositAmount: 1500,
+  freeCancelHours: 4,
+  merchantBearsCost: false,
   cancellationPolicy: 'Full refund if cancelled at least 4 hours before your scheduled slot.',
   koraStatus: 'ready',
   assistantName: 'Maya',
@@ -228,6 +234,9 @@ export default function DashboardPage() {
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
   const [copiedSlug, setCopiedSlug] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [savingPaymentSettings, setSavingPaymentSettings] = useState(false);
+  const [paymentSaveNotice, setPaymentSaveNotice] = useState<string | null>(null);
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [staffReplyInput, setStaffReplyInput] = useState<Record<string, string>>({});
@@ -301,6 +310,8 @@ export default function DashboardPage() {
             depositRequired: b.depositRequired ?? prev.depositRequired,
             depositType: b.depositType || prev.depositType,
             depositAmount: b.depositAmount ?? prev.depositAmount,
+            freeCancelHours: b.freeCancelHours ?? prev.freeCancelHours ?? 4,
+            merchantBearsCost: b.merchantBearsCost ?? prev.merchantBearsCost ?? false,
             cancellationPolicy: b.cancellationPolicy || prev.cancellationPolicy,
             koraStatus: b.koraStatus || prev.koraStatus,
             assistantName: b.assistantName || prev.assistantName,
@@ -651,6 +662,63 @@ export default function DashboardPage() {
     setTimeout(() => setCopiedSlug(false), 2000);
   };
 
+  const handleSavePaymentSettings = async (nextWorkspace?: OnboardingState) => {
+    const target = nextWorkspace ?? workspace;
+    setSavingPaymentSettings(true);
+    setPaymentSaveNotice(null);
+    try {
+      localStorage.setItem('switchboard_onboarding_draft', JSON.stringify(target));
+    } catch {
+      // ignore storage errors
+    }
+    try {
+      const res = await fetch('/api/workspace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: target.businessName,
+          name: target.businessName,
+          slug: target.slug,
+          category: target.category,
+          vertical: target.category === 'beauty' ? 'salon' : target.category,
+          phone: target.phone,
+          location: target.location,
+          country: target.country,
+          timezone: target.timezone,
+          instagramOrWeb: target.instagramOrWeb,
+          services: target.services,
+          staff: target.staff,
+          selfProvided: target.selfProvided,
+          schedule: target.schedule,
+          advanceDays: target.advanceDays,
+          allowSameDay: target.allowSameDay,
+          depositRequired: target.depositRequired,
+          depositType: target.depositType,
+          depositAmount: target.depositAmount,
+          freeCancelHours: target.freeCancelHours ?? 4,
+          merchantBearsCost: Boolean(target.merchantBearsCost),
+          cancellationPolicy: `Full refund if cancelled at least ${target.freeCancelHours ?? 4} hours before your scheduled slot.`,
+          koraStatus: target.koraStatus,
+          assistantName: target.assistantName,
+          greeting: target.greeting,
+          tone: target.tone,
+          capabilities: target.capabilities,
+          agentEnabled: apiState.agentEnabled,
+          onboardingCompleted: true,
+        }),
+      });
+      if (res.ok) {
+        setPaymentSaveNotice('Payment & deposit rules saved to Postgres.');
+      } else {
+        setPaymentSaveNotice('Saved locally; could not sync to Postgres.');
+      }
+    } catch {
+      setPaymentSaveNotice('Network error while saving to Postgres.');
+    } finally {
+      setSavingPaymentSettings(false);
+    }
+  };
+
   const navGroups: Array<{
     group: string;
     ownerOnly?: boolean;
@@ -734,12 +802,14 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Workspace Selector */}
-          <div className="px-4 pb-2">
-            <Link
-              href="/onboarding"
-              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors text-left"
-              title="Edit onboarding configuration"
+          {/* Workspace Selector Dropdown (stays in dashboard; Setup Wizard is an explicit menu item) */}
+          <div className="px-4 pb-2 relative">
+            <button
+              type="button"
+              onClick={() => setWorkspaceMenuOpen((prev) => !prev)}
+              aria-expanded={workspaceMenuOpen}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors text-left cursor-pointer"
+              title="Switch or manage workspace"
             >
               <div className="flex items-center gap-2 overflow-hidden">
                 <div className="w-5 h-5 rounded-md bg-secondary-container flex items-center justify-center shrink-0">
@@ -753,7 +823,60 @@ export default function DashboardPage() {
                 name="unfold_more"
                 className="text-[16px] text-on-surface-variant shrink-0"
               />
-            </Link>
+            </button>
+
+            {workspaceMenuOpen && (
+              <div className="mt-1.5 rounded-xl border border-border bg-white shadow-lg p-1.5 space-y-1 z-50">
+                <div className="px-2.5 py-1.5 border-b border-slate-100">
+                  <p className="text-[11px] font-semibold text-text-primary truncate">
+                    {workspace.businessName}
+                  </p>
+                  <p className="text-[10px] font-mono text-text-secondary truncate">
+                    /b/{workspace.slug} · Active workspace
+                  </p>
+                </div>
+                <Link
+                  href={`/b/${workspace.slug}`}
+                  onClick={() => setWorkspaceMenuOpen(false)}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-text-primary hover:bg-surface-container-low transition-colors"
+                >
+                  <AppIcon name="open_in_new" className="text-[14px] text-primary" />
+                  <span>View public booking page</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveNav('payments');
+                    setWorkspaceMenuOpen(false);
+                    setSidebarOpenMobile(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-text-primary hover:bg-surface-container-low transition-colors text-left cursor-pointer"
+                >
+                  <AppIcon name="payments" className="text-[14px] text-primary" />
+                  <span>Deposit &amp; Kora settings</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveNav('settings');
+                    setWorkspaceMenuOpen(false);
+                    setSidebarOpenMobile(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-text-primary hover:bg-surface-container-low transition-colors text-left cursor-pointer"
+                >
+                  <AppIcon name="settings" className="text-[14px] text-text-secondary" />
+                  <span>Workspace settings</span>
+                </button>
+                <Link
+                  href="/onboarding"
+                  onClick={() => setWorkspaceMenuOpen(false)}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-surface-container-low hover:text-text-primary transition-colors border-t border-slate-100 mt-1 pt-2"
+                >
+                  <AppIcon name="tune" className="text-[14px]" />
+                  <span>Re-run setup wizard</span>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Grouped Navigation */}
@@ -1789,45 +1912,57 @@ export default function DashboardPage() {
                 ) : (
                   <div className="bg-surface rounded-xl border border-border divide-y divide-border">
                     {bookings.map((bk) => (
-                      <div
-                        key={bk.id}
-                        className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-text-primary">{bk.customerName}</span>
-                            <span className="text-xs font-mono text-text-secondary">
-                              {bk.customerPhone}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                bk.status === 'confirmed'
-                                  ? 'bg-success/15 text-success'
-                                  : 'bg-amber-500/15 text-amber-700'
-                              }`}
-                            >
-                              {bk.status}
-                            </span>
+                      <div key={bk.id} className="p-5 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-text-primary">{bk.customerName}</span>
+                              <span className="text-xs font-mono text-text-secondary">
+                                {bk.customerPhone}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                  bk.status === 'confirmed'
+                                    ? 'bg-success/15 text-success'
+                                    : bk.status === 'expired' || bk.status === 'cancelled'
+                                      ? 'bg-red-500/15 text-red-700'
+                                      : 'bg-amber-500/15 text-amber-700'
+                                }`}
+                              >
+                                {bk.status}
+                              </span>
+                            </div>
+                            <p className="text-sm text-text-secondary">
+                              {bk.serviceName} • {bk.staffName} • {bk.slotTime}
+                            </p>
+                            <p className="text-xs font-mono text-text-secondary">
+                              Ref: {bk.reference} • Deposit: {formatNairaFromKobo(bk.depositKobo)} (
+                              {bk.paymentStatus})
+                            </p>
                           </div>
-                          <p className="text-sm text-text-secondary">
-                            {bk.serviceName} • {bk.staffName} • {bk.slotTime}
-                          </p>
-                          <p className="text-xs font-mono text-text-secondary">
-                            Ref: {bk.reference} • Deposit: {formatNairaFromKobo(bk.depositKobo)} (
-                            {bk.paymentStatus})
-                          </p>
+                          <div className="flex items-center gap-2">
+                            {bk.status === 'held' && (
+                              <button
+                                type="button"
+                                onClick={() => handleVerifyKoraDeposit(bk.id)}
+                                className="px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
+                              >
+                                Confirm Kora Payment
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {bk.status === 'held' && (
-                            <button
-                              type="button"
-                              onClick={() => handleVerifyKoraDeposit(bk.id)}
-                              className="px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
-                            >
-                              Confirm Kora Payment
-                            </button>
-                          )}
-                        </div>
+
+                        {(bk.status === 'held' || bk.status === 'confirmed') && (
+                          <HoldBand
+                            compact
+                            status={bk.status === 'confirmed' ? 'confirmed' : 'held'}
+                            remainingSeconds={bk.holdSecondsRemaining ?? 900}
+                            totalSeconds={900}
+                            autoTick={bk.status === 'held'}
+                            reference={bk.reference}
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2058,45 +2193,330 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {activeNav !== 'services-staff' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                      <div className="p-4 rounded-lg bg-surface-container-low space-y-1">
-                        <span className="text-xs text-text-secondary uppercase font-mono">
-                          Business & Slug
-                        </span>
-                        <div className="font-semibold text-text-primary">
-                          {workspace.businessName} (/b/{workspace.slug})
+                  {(activeNav === 'payments' || activeNav === 'settings') && (
+                    <div className="space-y-6">
+                      {/* Phase 2: Business-wide Kora Fee & Free-Cancel Window */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 rounded-xl border border-border bg-surface-container-low/50 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-sm font-bold text-text-primary">
+                                Who bears the Kora fee
+                              </h3>
+                              <p className="text-xs text-text-secondary">
+                                Sets <code>merchant_bears_cost</code> on virtual bank-transfer
+                                charges
+                              </p>
+                            </div>
+                            <span className="px-2 py-0.5 rounded bg-secondary-container text-[10px] font-mono font-bold text-on-secondary-fixed">
+                              KORA
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setWorkspace((prev) => ({ ...prev, merchantBearsCost: false }))
+                              }
+                              className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                                !workspace.merchantBearsCost
+                                  ? 'border-primary-container bg-white ring-2 ring-primary-container/30'
+                                  : 'border-border bg-white/70 hover:bg-white'
+                              }`}
+                            >
+                              <p className="text-xs font-bold text-text-primary">
+                                Customer pays fee
+                              </p>
+                              <p className="text-[11px] text-text-secondary mt-0.5">
+                                Adds{' '}
+                                {formatNairaFromKobo(
+                                  computeKoraFeeKobo((workspace.depositAmount || 1500) * 100),
+                                )}{' '}
+                                to ₦{(workspace.depositAmount || 1500).toLocaleString()}
+                              </p>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setWorkspace((prev) => ({ ...prev, merchantBearsCost: true }))
+                              }
+                              className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                                workspace.merchantBearsCost
+                                  ? 'border-primary-container bg-white ring-2 ring-primary-container/30'
+                                  : 'border-border bg-white/70 hover:bg-white'
+                              }`}
+                            >
+                              <p className="text-xs font-bold text-text-primary">
+                                Business absorbs fee
+                              </p>
+                              <p className="text-[11px] text-text-secondary mt-0.5">
+                                Customer transfers exact ₦
+                                {(workspace.depositAmount || 1500).toLocaleString()}
+                              </p>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl border border-border bg-surface-container-low/50 space-y-3">
+                          <div>
+                            <h3 className="text-sm font-bold text-text-primary">
+                              Default free-cancel refund window
+                            </h3>
+                            <p className="text-xs text-text-secondary">
+                              Cancellations inside this window receive an automatic Kora refund
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <select
+                              aria-label="Default free cancellation window in hours"
+                              value={workspace.freeCancelHours ?? 4}
+                              onChange={(e) => {
+                                const hours = Number(e.target.value);
+                                setWorkspace((prev) => ({
+                                  ...prev,
+                                  freeCancelHours: hours,
+                                  cancellationPolicy: `Full refund if cancelled at least ${hours} hours before your scheduled slot.`,
+                                }));
+                              }}
+                              className="flex-1 px-3 py-2 rounded-lg border border-border bg-white text-sm font-semibold text-text-primary outline-none cursor-pointer"
+                            >
+                              <option value={2}>2 hours before slot</option>
+                              <option value={4}>4 hours before slot (Recommended)</option>
+                              <option value={12}>12 hours before slot</option>
+                              <option value={24}>24 hours before slot</option>
+                              <option value={48}>48 hours before slot</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
-                      <div className="p-4 rounded-lg bg-surface-container-low space-y-1">
-                        <span className="text-xs text-text-secondary uppercase font-mono">
-                          Kora Deposit & Hold Policy
-                        </span>
-                        <div className="font-semibold text-text-primary">
-                          ₦{workspace.depositAmount.toLocaleString()} deposit • 15-minute slot hold
+
+                      {/* Phase 2: Per-Service Deposit Rule Table */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <h3 className="text-base font-bold text-text-primary">
+                              Deposit rule per service
+                            </h3>
+                            <p className="text-xs text-text-secondary">
+                              Configure fixed Naira, percentage, full upfront, or no-deposit (direct
+                              confirmation) per service.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={savingPaymentSettings}
+                            onClick={() => void handleSavePaymentSettings()}
+                            className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors cursor-pointer disabled:opacity-60"
+                          >
+                            {savingPaymentSettings ? 'Saving rules...' : 'Save payment settings'}
+                          </button>
                         </div>
-                      </div>
-                      <div className="p-4 rounded-lg bg-surface-container-low space-y-1">
-                        <span className="text-xs text-text-secondary uppercase font-mono">
-                          AI Receptionist
-                        </span>
-                        <div className="font-semibold text-text-primary">
-                          {workspace.assistantName} ({workspace.tone} tone)
-                        </div>
-                      </div>
-                      <div className="p-4 rounded-lg bg-surface-container-low space-y-1">
-                        <span className="text-xs text-text-secondary uppercase font-mono">
-                          Channels
-                        </span>
-                        <div className="font-semibold text-text-primary">
-                          Web Chat Live •{' '}
-                          {apiState.whatsappConnected
-                            ? 'WhatsApp Connected'
-                            : 'WhatsApp Ready to Pair'}
+
+                        {paymentSaveNotice && (
+                          <div className="px-3.5 py-2 rounded-lg bg-success/10 border border-success/30 text-xs font-medium text-success">
+                            {paymentSaveNotice}
+                          </div>
+                        )}
+
+                        <div className="rounded-xl border border-border divide-y divide-border overflow-hidden bg-white">
+                          {workspace.services.map((svc, idx) => {
+                            const rule =
+                              svc.depositType ?? (svc.depositRequired === false ? 'none' : 'fixed');
+                            return (
+                              <div
+                                key={svc.id}
+                                className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-3 items-center"
+                              >
+                                <div className="lg:col-span-4">
+                                  <p className="text-sm font-semibold text-text-primary">
+                                    {svc.name}
+                                  </p>
+                                  <p className="text-xs font-mono text-text-secondary">
+                                    ₦{svc.price.toLocaleString()} • {svc.duration} mins
+                                  </p>
+                                </div>
+
+                                <div className="lg:col-span-3">
+                                  <label
+                                    htmlFor={`dep-rule-${svc.id}`}
+                                    className="text-[11px] font-mono text-text-secondary block mb-1"
+                                  >
+                                    Deposit type
+                                  </label>
+                                  <select
+                                    id={`dep-rule-${svc.id}`}
+                                    value={rule}
+                                    onChange={(e) => {
+                                      const nextRule = e.target.value as
+                                        | 'fixed'
+                                        | 'percent'
+                                        | 'full'
+                                        | 'none';
+                                      setWorkspace((prev) => {
+                                        const updated = [...prev.services];
+                                        const current = updated[idx];
+                                        if (current) {
+                                          updated[idx] = {
+                                            ...current,
+                                            depositType: nextRule,
+                                            depositRequired: nextRule !== 'none',
+                                            depositAmount:
+                                              nextRule === 'none'
+                                                ? 0
+                                                : nextRule === 'full'
+                                                  ? current.price
+                                                  : nextRule === 'percent'
+                                                    ? Math.min(100, current.depositValue || 30)
+                                                    : current.depositAmount || 1500,
+                                            depositValue:
+                                              nextRule === 'percent'
+                                                ? Math.min(100, current.depositValue || 30)
+                                                : undefined,
+                                          };
+                                        }
+                                        return { ...prev, services: updated };
+                                      });
+                                    }}
+                                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-surface text-xs font-semibold text-text-primary outline-none cursor-pointer"
+                                  >
+                                    <option value="fixed">Fixed amount (₦)</option>
+                                    <option value="percent">Percentage (%)</option>
+                                    <option value="full">Full price upfront</option>
+                                    <option value="none">No deposit (direct confirm)</option>
+                                  </select>
+                                </div>
+
+                                <div className="lg:col-span-3">
+                                  <label
+                                    htmlFor={`dep-val-${svc.id}`}
+                                    className="text-[11px] font-mono text-text-secondary block mb-1"
+                                  >
+                                    {rule === 'percent'
+                                      ? 'Percentage (%)'
+                                      : rule === 'fixed'
+                                        ? 'Deposit (₦)'
+                                        : 'Calculated deposit'}
+                                  </label>
+                                  {rule === 'fixed' || rule === 'percent' ? (
+                                    <input
+                                      id={`dep-val-${svc.id}`}
+                                      type="number"
+                                      min={rule === 'percent' ? 5 : 0}
+                                      max={rule === 'percent' ? 100 : svc.price}
+                                      step={rule === 'percent' ? 5 : 500}
+                                      value={
+                                        rule === 'percent'
+                                          ? (svc.depositValue ?? svc.depositAmount ?? 30)
+                                          : svc.depositAmount
+                                      }
+                                      onChange={(e) => {
+                                        const val = Number(e.target.value);
+                                        setWorkspace((prev) => {
+                                          const updated = [...prev.services];
+                                          const current = updated[idx];
+                                          if (current) {
+                                            updated[idx] = {
+                                              ...current,
+                                              depositAmount: val,
+                                              depositValue: rule === 'percent' ? val : undefined,
+                                            };
+                                          }
+                                          return { ...prev, services: updated };
+                                        });
+                                      }}
+                                      className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-white text-xs font-mono font-bold text-text-primary outline-none"
+                                    />
+                                  ) : (
+                                    <div className="px-2.5 py-1.5 rounded-lg border border-border bg-surface-container-low text-xs font-mono text-text-secondary">
+                                      {rule === 'full'
+                                        ? `₦${svc.price.toLocaleString()} (100%)`
+                                        : '₦0 (Instant confirm)'}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="lg:col-span-2">
+                                  <label
+                                    htmlFor={`cancel-hrs-${svc.id}`}
+                                    className="text-[11px] font-mono text-text-secondary block mb-1"
+                                  >
+                                    Free cancel
+                                  </label>
+                                  <select
+                                    id={`cancel-hrs-${svc.id}`}
+                                    value={svc.freeCancelHours ?? workspace.freeCancelHours ?? 4}
+                                    onChange={(e) => {
+                                      const hrs = Number(e.target.value);
+                                      setWorkspace((prev) => {
+                                        const updated = [...prev.services];
+                                        const current = updated[idx];
+                                        if (current) {
+                                          updated[idx] = { ...current, freeCancelHours: hrs };
+                                        }
+                                        return { ...prev, services: updated };
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs font-mono text-text-primary outline-none cursor-pointer"
+                                  >
+                                    <option value={2}>2h</option>
+                                    <option value={4}>4h</option>
+                                    <option value={12}>12h</option>
+                                    <option value={24}>24h</option>
+                                  </select>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
                   )}
+
+                  {activeNav !== 'services-staff' &&
+                    activeNav !== 'payments' &&
+                    activeNav !== 'settings' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div className="p-4 rounded-lg bg-surface-container-low space-y-1">
+                          <span className="text-xs text-text-secondary uppercase font-mono">
+                            Business & Slug
+                          </span>
+                          <div className="font-semibold text-text-primary">
+                            {workspace.businessName} (/b/{workspace.slug})
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-surface-container-low space-y-1">
+                          <span className="text-xs text-text-secondary uppercase font-mono">
+                            Kora Deposit & Hold Policy
+                          </span>
+                          <div className="font-semibold text-text-primary">
+                            ₦{workspace.depositAmount.toLocaleString()} deposit • 15-minute slot
+                            hold
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-surface-container-low space-y-1">
+                          <span className="text-xs text-text-secondary uppercase font-mono">
+                            AI Receptionist
+                          </span>
+                          <div className="font-semibold text-text-primary">
+                            {workspace.assistantName} ({workspace.tone} tone)
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-surface-container-low space-y-1">
+                          <span className="text-xs text-text-secondary uppercase font-mono">
+                            Channels
+                          </span>
+                          <div className="font-semibold text-text-primary">
+                            Web Chat Live •{' '}
+                            {apiState.whatsappConnected
+                              ? 'WhatsApp Connected'
+                              : 'WhatsApp Ready to Pair'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                 </div>
               )}
           </div>
