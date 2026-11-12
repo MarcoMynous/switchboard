@@ -207,6 +207,44 @@ function formatNairaFromKobo(kobo: number): string {
   return `₦${naira.toLocaleString('en-NG')}`;
 }
 
+function getGreeting(timezone = 'Africa/Lagos', ownerName?: string): string {
+  try {
+    const tz = timezone.includes('/') ? timezone.split(' ')[0] : 'Africa/Lagos';
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      hour12: false,
+    });
+    const hour = parseInt(formatter.format(new Date()), 10);
+    const timeOfDay = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    return ownerName ? `${timeOfDay}, ${ownerName}` : timeOfDay;
+  } catch {
+    const hour = new Date().getHours();
+    const timeOfDay = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    return ownerName ? `${timeOfDay}, ${ownerName}` : timeOfDay;
+  }
+}
+
+function getFormattedDate(timezone = 'Africa/Lagos'): string {
+  try {
+    const tz = timezone.includes('/') ? timezone.split(' ')[0] : 'Africa/Lagos';
+    return new Intl.DateTimeFormat('en-NG', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: tz,
+    }).format(new Date());
+  } catch {
+    return new Intl.DateTimeFormat('en-NG', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date());
+  }
+}
+
 export default function DashboardPage() {
   const [activeNav, setActiveNav] = useState<NavSection>('overview');
   const [sidebarOpenMobile, setSidebarOpenMobile] = useState(false);
@@ -245,6 +283,21 @@ export default function DashboardPage() {
     category: string;
     steps: string[];
   } | null>(null);
+  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<BookingRecord | null>(
+    null,
+  );
+  const [newBookingModalOpen, setNewBookingModalOpen] = useState(false);
+  const [newBookingForm, setNewBookingForm] = useState({
+    customerName: '',
+    customerPhone: '',
+    serviceIndex: 0,
+    staffIndex: 0,
+    slotTime: 'Today, 3:30 PM (WAT)',
+    requireDeposit: true,
+  });
+  const [showDepositTooltip, setShowDepositTooltip] = useState(false);
+  const [checklistExpanded, setChecklistExpanded] = useState(false);
+  const [devSandboxOpen, setDevSandboxOpen] = useState(false);
 
   // Hydrate persisted onboarding state + live backend database state
   useEffect(() => {
@@ -604,6 +657,180 @@ export default function DashboardPage() {
     };
     saveConversations([escalated, ...conversations]);
   };
+
+  const handleCreateManualBooking = (e: React.FormEvent) => {
+    e.preventDefault();
+    const svc = workspace.services[newBookingForm.serviceIndex] ?? {
+      name: 'Classic Fade & Beard Sculpt',
+      price: 5000,
+      depositAmount: 1500,
+    };
+    const stf = workspace.staff[newBookingForm.staffIndex] ?? {
+      name: 'Tunde Adeyemi',
+    };
+    const ulidSuffix = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const depKobo = newBookingForm.requireDeposit ? (workspace.depositAmount || 1500) * 100 : 0;
+
+    const newBooking: BookingRecord = {
+      id: `bk_${Date.now()}`,
+      reference: `sb_dep_${ulidSuffix}`,
+      customerName: newBookingForm.customerName.trim() || 'Walk-in Customer',
+      customerPhone: newBookingForm.customerPhone.trim() || '+234 800 000 0000',
+      serviceName: svc.name,
+      staffName: stf.name,
+      slotTime: newBookingForm.slotTime,
+      priceKobo: svc.price * 100,
+      depositKobo: depKobo,
+      status: newBookingForm.requireDeposit ? 'held' : 'confirmed',
+      paymentStatus: newBookingForm.requireDeposit ? 'awaiting_payment' : 'not_required',
+      holdSecondsRemaining: newBookingForm.requireDeposit ? 900 : undefined,
+      source: 'staff',
+      createdAt: new Date().toISOString(),
+    };
+
+    saveBookings([newBooking, ...bookings]);
+    setNewBookingModalOpen(false);
+    setNewBookingForm({
+      customerName: '',
+      customerPhone: '',
+      serviceIndex: 0,
+      staffIndex: 0,
+      slotTime: 'Today, 3:30 PM (WAT)',
+      requireDeposit: true,
+    });
+  };
+
+  const handleExpireHold = (bookingId: string) => {
+    const next = bookings.map((b) =>
+      b.id === bookingId
+        ? {
+            ...b,
+            status: 'expired' as const,
+            holdSecondsRemaining: 0,
+          }
+        : b,
+    );
+    saveBookings(next);
+  };
+
+  const needsAttentionItems = useMemo(() => {
+    const list: Array<{
+      id: string;
+      type: 'customer_request' | 'payment_verification';
+      typeLabel: string;
+      customerName: string;
+      customerPhone: string;
+      description: string;
+      time: string;
+      priority: 'High' | 'Normal';
+      onAction: () => void;
+    }> = [];
+
+    for (const conv of conversations) {
+      if (conv.status === 'needs_human') {
+        list.push({
+          id: `na_conv_${conv.id}`,
+          type: 'customer_request',
+          typeLabel: 'Customer Request',
+          customerName: conv.customerName,
+          customerPhone: conv.customerPhone,
+          description: conv.escalationReason || conv.lastMessage,
+          time: conv.updatedAt,
+          priority: 'High',
+          onAction: () => {
+            setActiveNav('conversations');
+          },
+        });
+      }
+    }
+
+    for (const bk of bookings) {
+      if (bk.paymentStatus === 'pending_verification') {
+        list.push({
+          id: `na_bk_${bk.id}`,
+          type: 'payment_verification',
+          typeLabel: 'Payment Verification',
+          customerName: bk.customerName,
+          customerPhone: bk.customerPhone,
+          description: `Deposit verification for ${bk.reference} is pending re-check with Kora.`,
+          time: bk.slotTime,
+          priority: 'High',
+          onAction: () => {
+            setSelectedBookingForDetails(bk);
+          },
+        });
+      }
+    }
+
+    return list;
+  }, [conversations, bookings]);
+
+  const recentActivities = useMemo(() => {
+    const list: Array<{
+      id: string;
+      title: string;
+      description: string;
+      time: string;
+      icon: string;
+      badgeColor: string;
+    }> = [];
+
+    for (const bk of bookings) {
+      if (bk.status === 'confirmed') {
+        list.push({
+          id: `act_conf_${bk.id}`,
+          title: 'Appointment Confirmed',
+          description: `${bk.customerName}'s appointment for ${bk.serviceName} with ${bk.staffName} was secured after deposit verification.`,
+          time: bk.slotTime,
+          icon: 'event_available',
+          badgeColor: 'text-success bg-emerald-50',
+        });
+        if (bk.depositKobo > 0 && bk.paymentStatus === 'verified') {
+          list.push({
+            id: `act_dep_${bk.id}`,
+            title: 'Deposit Collected via Kora',
+            description: `${formatNairaFromKobo(bk.depositKobo)} verified through Kora for booking ${bk.reference}.`,
+            time: bk.slotTime,
+            icon: 'payments',
+            badgeColor: 'text-primary bg-indigo-50',
+          });
+        }
+      } else if (bk.status === 'held') {
+        list.push({
+          id: `act_held_${bk.id}`,
+          title: 'Appointment Slot Reserved',
+          description: `Temporary 15-minute slot held for ${bk.customerName} (${bk.serviceName} with ${bk.staffName}). Waiting for deposit.`,
+          time: bk.slotTime,
+          icon: 'schedule',
+          badgeColor: 'text-amber-600 bg-amber-50',
+        });
+      }
+    }
+
+    for (const conv of conversations) {
+      if (conv.status === 'needs_human') {
+        list.push({
+          id: `act_conv_esc_${conv.id}`,
+          title: 'Staff Assistance Requested',
+          description: `${conv.customerName} requested help: "${conv.escalationReason || conv.lastMessage}"`,
+          time: conv.updatedAt,
+          icon: 'support_agent',
+          badgeColor: 'text-amber-600 bg-amber-50',
+        });
+      } else {
+        list.push({
+          id: `act_conv_${conv.id}`,
+          title: 'Customer Inquiry Handled',
+          description: `${conv.customerName} chatted with ${workspace.assistantName} via ${conv.channel === 'whatsapp' ? 'WhatsApp' : 'Web Chat'}.`,
+          time: conv.updatedAt,
+          icon: 'chat',
+          badgeColor: 'text-iris bg-iris/10',
+        });
+      }
+    }
+
+    return list.slice(0, 8);
+  }, [bookings, conversations, workspace.assistantName]);
 
   const handleSendWebChatMessage = () => {
     if (!chatInput.trim()) return;
@@ -1081,316 +1308,774 @@ export default function DashboardPage() {
             )}
 
             {/* ===============================================================
-                VIEW 1: OVERVIEW (New Workspace + Active Business Overview)
+                VIEW 1: OVERVIEW (Daily Command Center)
             =============================================================== */}
             {activeNav === 'overview' && (
-              <div className="flex flex-col w-full">
-                {/* Top Welcome & Onboarding Header */}
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+              <div className="flex flex-col w-full space-y-8">
+                {/* -------------------------------------------------------------
+                    SECTION ONE: WELCOME HEADER & CHANNEL STATUS
+                ------------------------------------------------------------- */}
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-2 border-b border-border/50">
                   <div className="flex flex-col gap-2 max-w-2xl">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm uppercase tracking-wider font-semibold">
-                        {bookings.length > 0 ? 'Active Operations' : 'Workspace Activation'}
-                      </span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-outline-variant" />
-                      <span className="font-metric-sm text-metric-sm text-text-secondary">
-                        {workspace.timezone} • {workspace.location}
+                      <span className="font-metric-sm text-metric-sm text-text-secondary font-medium">
+                        {getFormattedDate(workspace.timezone)} • {workspace.timezone.split(' ')[0]}{' '}
+                        (WAT)
                       </span>
                     </div>
-                    <h1 className="font-headline-lg text-headline-lg text-text-primary tracking-tight">
-                      Welcome to Switchboard, {workspace.businessName}
+                    <h1 className="font-headline-lg text-headline-lg text-text-primary tracking-tight font-semibold">
+                      {getGreeting(
+                        workspace.timezone,
+                        apiState.ownerName ? apiState.ownerName.split(' ')[0] : undefined,
+                      )}
                     </h1>
                     <p className="font-body-md text-body-md text-text-secondary">
-                      Your booking front desk for WhatsApp and web chat—holding real staff slots for
-                      15 minutes and confirming appointments only after verified Kora deposits.
+                      Here&apos;s what&apos;s happening at {workspace.businessName} today.
                     </p>
+
+                    {/* Customer-Facing Channel Status Indicators */}
+                    <div className="flex items-center gap-2 flex-wrap pt-1">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-metric-sm text-metric-sm font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        Web booking active
+                      </span>
+
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-metric-sm text-metric-sm font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        Web chat active
+                      </span>
+
+                      {apiState.whatsappConnected ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-metric-sm text-metric-sm font-medium">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          WhatsApp connected
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 font-metric-sm text-metric-sm font-medium">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          WhatsApp setup required
+                        </span>
+                      )}
+
+                      {apiState.agentEnabled ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-900 border border-indigo-200/60 font-metric-sm text-metric-sm font-medium">
+                          <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                          {workspace.assistantName || 'AI receptionist'} active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-metric-sm text-metric-sm font-medium">
+                          <span className="w-2 h-2 rounded-full bg-slate-400" />
+                          AI receptionist paused
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Quick Global Actions */}
-                  <div className="flex items-center gap-3 flex-wrap shrink-0">
+                  {/* Quick Actions (4 Clean Business Actions) */}
+                  <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+                    <Link
+                      href={`/b/${workspace.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-9 px-3.5 rounded-lg bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md font-medium flex items-center gap-1.5 shadow-xs transition-colors"
+                    >
+                      <AppIcon name="open_in_new" className="text-[16px]" />
+                      <span>View Booking Page</span>
+                    </Link>
+
                     <Button
                       type="button"
-                      variant="default"
+                      variant="outline"
                       size="sm"
-                      onClick={handleCreateSimulatedBooking}
+                      onClick={copyBookingLink}
+                      className="h-9 font-label-md text-label-md"
                     >
-                      <AppIcon name="add_circle" className="text-[16px]" />
-                      <span>Simulate Customer Booking</span>
+                      <AppIcon
+                        name={copiedSlug ? 'check' : 'content_copy'}
+                        className="text-[16px] text-primary"
+                      />
+                      <span>{copiedSlug ? 'Link Copied!' : 'Copy Booking Link'}</span>
                     </Button>
+
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => setChatDrawerOpen(true)}
+                      className="h-9 font-label-md text-label-md"
                     >
-                      <AppIcon name="chat" className="text-[16px] text-primary" />
-                      <span>Test {workspace.assistantName} Chat</span>
+                      <AppIcon name="smart_toy" className="text-[16px] text-primary" />
+                      <span>Test AI Receptionist</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setNewBookingModalOpen(true)}
+                      className="h-9 font-label-md text-label-md"
+                    >
+                      <AppIcon name="add" className="text-[16px]" />
+                      <span>New Booking</span>
                     </Button>
                   </div>
                 </div>
 
-                {/* ===========================================================
-                    ACTIVE BUSINESS METRICS & LIVE BOOKINGS (When activity exists)
-                =========================================================== */}
-                {bookings.length > 0 && (
-                  <div className="mb-10 space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
-                          Live Business Performance
-                        </h2>
-                        <p className="font-body-sm text-body-sm text-text-secondary">
-                          Scoped to {workspace.businessName} • Today ({workspace.timezone})
-                        </p>
+                {/* -------------------------------------------------------------
+                    SECTION TWO: KEY BUSINESS METRICS (4 SUMMARY CARDS)
+                ------------------------------------------------------------- */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  {/* Card 1 — Confirmed Bookings */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveNav('bookings')}
+                    className="bg-surface rounded-xl p-5 shadow-xs border border-border/70 hover:border-primary/40 hover:shadow-sm transition-all text-left cursor-pointer flex flex-col justify-between group"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-text-secondary mb-1">
+                        <span className="font-label-md text-label-md font-semibold text-text-primary">
+                          Confirmed Bookings
+                        </span>
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-success">
+                          <AppIcon name="event_available" className="text-[18px]" />
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleTriggerHumanEscalation}
-                        className="px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-container-low text-xs font-medium text-text-secondary hover:text-text-primary flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <AppIcon
-                          name="notification_important"
-                          className="text-[16px] text-amber-600"
-                        />
-                        Simulate Needs-Attention Escalation
-                      </button>
+                      <p className="font-body-sm text-[12px] text-text-secondary leading-tight">
+                        Appointments successfully secured for today.
+                      </p>
                     </div>
-
-                    {/* 4 Scoped KPI Cards (Strict Invariant Adherence) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                      <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/60">
-                        <div className="flex items-center justify-between text-text-secondary mb-2">
-                          <span className="font-label-md text-label-md">Confirmed Bookings</span>
-                          <AppIcon name="event_available" className="text-[18px] text-success" />
-                        </div>
-                        <div className="font-metric-lg text-metric-lg text-text-primary font-bold">
-                          {metrics.confirmedCount}
-                        </div>
-                        <div className="font-body-sm text-body-sm text-text-secondary mt-1">
-                          {metrics.heldCount > 0 ? (
-                            <span className="text-amber-600 font-medium">
-                              +{metrics.heldCount} in 15m hold (unconfirmed)
-                            </span>
-                          ) : (
-                            'Excludes unverified holds (I5)'
-                          )}
-                        </div>
+                    <div className="mt-4">
+                      <div className="font-metric-lg text-3xl text-text-primary font-bold">
+                        {metrics.confirmedCount}
                       </div>
-
-                      <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/60">
-                        <div className="flex items-center justify-between text-text-secondary mb-2">
-                          <span className="font-label-md text-label-md">
-                            Verified Kora Deposits
+                      <div className="font-body-sm text-[12px] text-text-secondary mt-1">
+                        {metrics.heldCount > 0 ? (
+                          <span className="text-amber-600 font-medium">
+                            +{metrics.heldCount} awaiting deposit
                           </span>
-                          <AppIcon name="payments" className="text-[18px] text-primary" />
-                        </div>
-                        <div className="font-metric-lg text-metric-lg text-success font-bold">
-                          {formatNairaFromKobo(metrics.verifiedDepositKobo)}
-                        </div>
-                        <div className="font-body-sm text-body-sm text-text-secondary mt-1">
-                          {metrics.pendingVerificationCount > 0 ? (
-                            <span className="text-amber-600 font-medium">
-                              {metrics.pendingVerificationCount} pending verification (I7)
-                            </span>
-                          ) : (
-                            'Webhook + query verified (I2)'
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/60">
-                        <div className="flex items-center justify-between text-text-secondary mb-2">
-                          <span className="font-label-md text-label-md">
-                            Customer Conversations
-                          </span>
-                          <AppIcon name="forum" className="text-[18px] text-primary" />
-                        </div>
-                        <div className="font-metric-lg text-metric-lg text-text-primary font-bold">
-                          {metrics.conversationsCount}
-                        </div>
-                        <div className="font-body-sm text-body-sm text-text-secondary mt-1">
-                          WhatsApp & web chat threads
-                        </div>
-                      </div>
-
-                      <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/60">
-                        <div className="flex items-center justify-between text-text-secondary mb-2">
-                          <span className="font-label-md text-label-md">Needs Attention</span>
-                          <AppIcon
-                            name="notification_important"
-                            className="text-[18px] text-error"
-                          />
-                        </div>
-                        <div className="font-metric-lg text-metric-lg text-text-primary font-bold">
-                          {metrics.needsAttentionCount}
-                        </div>
-                        <div className="font-body-sm text-body-sm text-text-secondary mt-1">
-                          Human handoffs & payment checks
-                        </div>
+                        ) : (
+                          <span>All appointments secured</span>
+                        )}
                       </div>
                     </div>
+                  </button>
 
-                    {/* Upcoming Bookings & Hold Band Table */}
-                    <div className="bg-surface rounded-xl border border-border/60 shadow-xs overflow-hidden">
-                      <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-                        <div>
-                          <h3 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
-                            Today&apos;s Appointments & Slot Holds
-                          </h3>
-                          <p className="font-body-sm text-body-sm text-text-secondary">
-                            Held slots drain over 15 minutes and lock only after Kora verification
-                          </p>
+                  {/* Card 2 — Verified Deposits */}
+                  <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/70 flex flex-col justify-between relative group">
+                    <div>
+                      <div className="flex items-center justify-between text-text-secondary mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-label-md text-label-md font-semibold text-text-primary">
+                            Deposits Collected
+                          </span>
+                          <div className="relative inline-block">
+                            <button
+                              type="button"
+                              onClick={() => setShowDepositTooltip((prev) => !prev)}
+                              onMouseEnter={() => setShowDepositTooltip(true)}
+                              onMouseLeave={() => setShowDepositTooltip(false)}
+                              className="text-text-secondary hover:text-text-primary p-0.5 cursor-pointer"
+                              aria-label="What does this deposit amount represent?"
+                            >
+                              <AppIcon name="info" className="text-[15px]" />
+                            </button>
+                            {showDepositTooltip && (
+                              <div className="absolute left-1/2 -translate-x-1/2 top-6 w-64 p-3 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl z-30 leading-relaxed font-normal">
+                                Verified gross deposits received directly through Kora payment
+                                gateway. Excludes unverified holds and pending transfers.
+                              </div>
+                            )}
+                          </div>
                         </div>
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-primary">
+                          <AppIcon name="payments" className="text-[18px]" />
+                        </div>
+                      </div>
+                      <p className="font-body-sm text-[12px] text-text-secondary leading-tight">
+                        Payments received and verified through Kora.
+                      </p>
+                    </div>
+                    <div className="mt-4">
+                      <div className="font-metric-lg text-3xl text-success font-bold">
+                        {formatNairaFromKobo(metrics.verifiedDepositKobo)}
+                      </div>
+                      <div className="font-body-sm text-[12px] text-text-secondary mt-1">
                         <button
                           type="button"
-                          onClick={() => setActiveNav('bookings')}
-                          className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                          onClick={() => setActiveNav('payments')}
+                          className="text-primary hover:underline font-medium cursor-pointer"
                         >
-                          Open Full Calendar →
+                          View payment history →
                         </button>
-                      </div>
-
-                      <div className="divide-y divide-border">
-                        {bookings.map((bk) => {
-                          const holdPct =
-                            bk.status === 'held'
-                              ? Math.max(
-                                  0,
-                                  Math.min(100, ((bk.holdSecondsRemaining ?? 900) / 900) * 100),
-                                )
-                              : 100;
-
-                          return (
-                            <div key={bk.id} className="p-4 sm:px-6 flex flex-col gap-2">
-                              {/* Draining 15-Minute Hold Band (Design System §16) */}
-                              <div className="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
-                                <div
-                                  className={`h-full transition-all duration-300 ${
-                                    bk.status === 'confirmed'
-                                      ? 'bg-primary-container'
-                                      : bk.status === 'held'
-                                        ? 'bg-amber-500'
-                                        : 'bg-slate-300'
-                                  }`}
-                                  style={{ width: `${holdPct}%` }}
-                                />
-                              </div>
-
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-label-md text-label-md font-semibold text-text-primary">
-                                      {bk.customerName}
-                                    </span>
-                                    <span className="font-metric-sm text-metric-sm text-text-secondary">
-                                      {apiState.role === 'staff'
-                                        ? `•••• ${bk.customerPhone.slice(-4)}`
-                                        : bk.customerPhone}
-                                    </span>
-                                    <span
-                                      className={`px-2 py-0.5 rounded-full font-metric-sm text-metric-sm font-medium ${
-                                        bk.status === 'confirmed'
-                                          ? 'bg-success/15 text-success'
-                                          : bk.status === 'held'
-                                            ? 'bg-amber-500/15 text-amber-700'
-                                            : 'bg-slate-200 text-slate-600'
-                                      }`}
-                                    >
-                                      {bk.status === 'confirmed'
-                                        ? 'Confirmed'
-                                        : bk.status === 'held'
-                                          ? `Held (${Math.floor((bk.holdSecondsRemaining ?? 900) / 60)}:${((bk.holdSecondsRemaining ?? 900) % 60).toString().padStart(2, '0')} left)`
-                                          : bk.status}
-                                    </span>
-                                    {bk.paymentStatus === 'pending_verification' && (
-                                      <span className="px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-metric-sm text-metric-sm">
-                                        Pending Verification (I7)
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="font-body-sm text-body-sm text-text-secondary">
-                                    {bk.serviceName} with <strong>{bk.staffName}</strong> •{' '}
-                                    {bk.slotTime} • Deposit: {formatNairaFromKobo(bk.depositKobo)} (
-                                    {bk.reference})
-                                  </p>
-                                </div>
-
-                                <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                                  {bk.status === 'held' && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleVerifyKoraDeposit(bk.id)}
-                                        className="px-3 py-1.5 rounded-lg bg-primary-container hover:bg-primary text-on-primary text-xs font-semibold shadow-xs cursor-pointer"
-                                      >
-                                        Verify Kora Deposit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleFlagPaymentPendingVerification(bk.id)}
-                                        className="px-2.5 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-container-low text-xs font-medium text-text-secondary cursor-pointer"
-                                      >
-                                        Simulate Timeout
-                                      </button>
-                                    </>
-                                  )}
-                                  {bk.status === 'confirmed' && (
-                                    <span className="font-metric-sm text-metric-sm text-success flex items-center gap-1">
-                                      <AppIcon name="verified" className="text-[16px]" />
-                                      Kora Verified
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
                       </div>
                     </div>
                   </div>
-                )}
 
-                {/* ===========================================================
-                    MAIN GRID: GUIDED CHECKLIST (8 Cols) & WORKSPACE CARD (4 Cols)
-                =========================================================== */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
-                  {/* Setup Checklist Card (Derived from actual persisted data) */}
-                  <div className="lg:col-span-8 flex flex-col bg-surface rounded-xl shadow-xs border border-border/60 overflow-hidden">
-                    <div className="p-6 md:p-8 bg-surface-container-lowest border-b border-border/50">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  {/* Card 3 — Awaiting Payment */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveNav('bookings')}
+                    className="bg-surface rounded-xl p-5 shadow-xs border border-border/70 hover:border-amber-400 hover:shadow-sm transition-all text-left cursor-pointer flex flex-col justify-between group"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-text-secondary mb-1">
+                        <span className="font-label-md text-label-md font-semibold text-text-primary">
+                          Awaiting Payment
+                        </span>
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+                          <AppIcon name="schedule" className="text-[18px]" />
+                        </div>
+                      </div>
+                      <p className="font-body-sm text-[12px] text-text-secondary leading-tight">
+                        Customers with temporarily reserved appointments.
+                      </p>
+                    </div>
+                    <div className="mt-4">
+                      <div className="font-metric-lg text-3xl text-amber-600 font-bold">
+                        {metrics.heldCount}
+                      </div>
+                      <div className="font-body-sm text-[12px] text-text-secondary mt-1">
+                        {metrics.heldCount === 1
+                          ? '1 appointment waiting for deposit'
+                          : `${metrics.heldCount} appointments waiting for deposits`}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Card 4 — Needs Attention */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveNav('needs-attention')}
+                    className={`bg-surface rounded-xl p-5 shadow-xs border transition-all text-left cursor-pointer flex flex-col justify-between group ${
+                      metrics.needsAttentionCount > 0
+                        ? 'border-amber-400/80 hover:border-amber-500 bg-amber-50/10'
+                        : 'border-border/70 hover:border-success/50'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-text-secondary mb-1">
+                        <span className="font-label-md text-label-md font-semibold text-text-primary">
+                          Needs Attention
+                        </span>
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            metrics.needsAttentionCount > 0
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-50 text-success'
+                          }`}
+                        >
+                          <AppIcon
+                            name={
+                              metrics.needsAttentionCount > 0
+                                ? 'notification_important'
+                                : 'check_circle'
+                            }
+                            className="text-[18px]"
+                          />
+                        </div>
+                      </div>
+                      <p className="font-body-sm text-[12px] text-text-secondary leading-tight">
+                        Customer requests or payment issues requiring your help.
+                      </p>
+                    </div>
+                    <div className="mt-4">
+                      <div
+                        className={`font-metric-lg text-3xl font-bold ${
+                          metrics.needsAttentionCount > 0 ? 'text-amber-700' : 'text-text-primary'
+                        }`}
+                      >
+                        {metrics.needsAttentionCount}
+                      </div>
+                      <div className="font-body-sm text-[12px] text-text-secondary mt-1">
+                        {metrics.needsAttentionCount > 0 ? (
+                          <span className="text-amber-700 font-medium">
+                            Action needed from your team
+                          </span>
+                        ) : (
+                          <span className="text-success font-medium">
+                            All caught up • No issues pending
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* -------------------------------------------------------------
+                    SECTION THREE: TODAY'S APPOINTMENTS & SLOT HOLDS
+                ------------------------------------------------------------- */}
+                <div className="bg-surface rounded-xl border border-border/70 shadow-xs overflow-hidden">
+                  <div className="px-6 py-4 border-b border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
+                        Today&apos;s Appointments
+                      </h2>
+                      <p className="font-body-sm text-body-sm text-text-secondary mt-0.5">
+                        See your upcoming bookings and appointments awaiting payment.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveNav('bookings')}
+                      className="text-xs font-semibold text-primary hover:underline cursor-pointer self-start sm:self-auto"
+                    >
+                      View All Bookings →
+                    </button>
+                  </div>
+
+                  {bookings.length === 0 ? (
+                    <div className="p-10 text-center flex flex-col items-center justify-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center text-text-secondary">
+                        <AppIcon name="calendar_month" className="text-[24px]" />
+                      </div>
+                      <h3 className="font-headline-sm text-base text-text-primary font-medium">
+                        No appointments scheduled for today yet
+                      </h3>
+                      <p className="font-body-sm text-sm text-text-secondary max-w-md">
+                        Share your booking link on WhatsApp or Instagram, or create a walk-in
+                        appointment.
+                      </p>
+                      <div className="flex items-center gap-2 pt-2">
+                        <Button type="button" variant="outline" size="sm" onClick={copyBookingLink}>
+                          <AppIcon name="content_copy" className="text-[14px]" />
+                          <span>Copy Booking Link</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setNewBookingModalOpen(true)}
+                        >
+                          <AppIcon name="add" className="text-[14px]" />
+                          <span>New Booking</span>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border/60">
+                      {bookings.map((bk) => (
+                        <div
+                          key={bk.id}
+                          className="p-4 sm:px-6 hover:bg-surface-container-lowest/60 transition-colors"
+                        >
+                          {/* Active Hold Draining Band */}
+                          {bk.status === 'held' && (
+                            <div className="mb-3">
+                              <HoldBand
+                                status="held"
+                                remainingSeconds={bk.holdSecondsRemaining ?? 900}
+                                totalSeconds={900}
+                                compact
+                                theme="light"
+                                autoTick
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-label-md text-label-md font-semibold text-text-primary">
+                                  {bk.customerName}
+                                </span>
+                                <span className="font-metric-sm text-metric-sm text-text-secondary">
+                                  {apiState.role === 'staff'
+                                    ? `•••• ${bk.customerPhone.slice(-4)}`
+                                    : bk.customerPhone}
+                                </span>
+
+                                {/* Booking Status Badge */}
+                                {bk.status === 'confirmed' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                                    <AppIcon name="verified" className="text-[13px]" />
+                                    Confirmed
+                                  </span>
+                                )}
+                                {bk.status === 'held' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                                    <AppIcon name="schedule" className="text-[13px]" />
+                                    Awaiting Deposit
+                                  </span>
+                                )}
+                                {bk.paymentStatus === 'pending_verification' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                                    <AppIcon name="hourglass_empty" className="text-[13px]" />
+                                    Payment Being Verified
+                                  </span>
+                                )}
+                                {bk.status === 'expired' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                                    <AppIcon name="history" className="text-[13px]" />
+                                    Expired
+                                  </span>
+                                )}
+                                {bk.status === 'cancelled' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                                    <AppIcon name="cancel" className="text-[13px]" />
+                                    Cancelled
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="font-body-sm text-body-sm text-text-secondary">
+                                {bk.serviceName} with <strong>{bk.staffName}</strong> •{' '}
+                                {bk.slotTime}
+                              </p>
+
+                              <div className="flex items-center gap-3 text-xs text-text-secondary pt-0.5">
+                                <span>
+                                  Deposit: <strong>{formatNairaFromKobo(bk.depositKobo)}</strong>
+                                </span>
+                                <span>•</span>
+                                <span className="font-mono text-[11px] text-text-secondary">
+                                  Ref: {bk.reference}
+                                </span>
+                                <span>•</span>
+                                <span>
+                                  {bk.paymentStatus === 'verified' && (
+                                    <span className="text-emerald-700 font-medium">
+                                      Verified via Kora
+                                    </span>
+                                  )}
+                                  {bk.paymentStatus === 'pending_verification' && (
+                                    <span className="text-indigo-700 font-medium">
+                                      Re-checking with Kora
+                                    </span>
+                                  )}
+                                  {bk.paymentStatus === 'awaiting_payment' && (
+                                    <span className="text-amber-700 font-medium">
+                                      Awaiting deposit
+                                    </span>
+                                  )}
+                                  {bk.paymentStatus === 'not_required' && (
+                                    <span>No deposit required</span>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBookingForDetails(bk)}
+                                className="px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-container-low text-xs font-medium text-text-primary transition-colors cursor-pointer"
+                              >
+                                View Details
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* -------------------------------------------------------------
+                    SECTION FOUR & FIVE: OPERATIONAL PANELS (TWO COLUMNS)
+                ------------------------------------------------------------- */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column: Needs Attention (Section 5) */}
+                  <div className="bg-surface rounded-xl border border-border/70 shadow-xs p-6 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between pb-3 border-b border-border/50 mb-4">
+                        <div>
+                          <h3 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
+                            Needs Attention
+                          </h3>
+                          <p className="font-body-sm text-body-sm text-text-secondary mt-0.5">
+                            These requests need someone from your team.
+                          </p>
+                        </div>
+                        <span
+                          className={`font-metric-sm text-xs px-2.5 py-0.5 rounded-full font-semibold ${
+                            needsAttentionItems.length > 0
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {needsAttentionItems.length}{' '}
+                          {needsAttentionItems.length === 1 ? 'item' : 'items'}
+                        </span>
+                      </div>
+
+                      {needsAttentionItems.length === 0 ? (
+                        <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
+                          <div className="w-10 h-10 rounded-full bg-emerald-50 text-success flex items-center justify-center">
+                            <AppIcon name="check_circle" className="text-[22px]" />
+                          </div>
+                          <h4 className="font-label-md text-sm font-semibold text-text-primary">
+                            All caught up!
+                          </h4>
+                          <p className="font-body-sm text-xs text-text-secondary max-w-sm">
+                            There are no customer requests or payment issues needing your attention
+                            right now.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {needsAttentionItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="p-3.5 rounded-xl border border-border/70 bg-surface-container-lowest flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-label-md text-xs font-bold text-text-primary">
+                                    {item.customerName}
+                                  </span>
+                                  <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                    {item.typeLabel}
+                                  </span>
+                                </div>
+                                <p className="font-body-sm text-xs text-text-secondary leading-snug">
+                                  {item.description}
+                                </p>
+                                <span className="text-[11px] text-text-secondary block">
+                                  {item.time}
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={item.onAction}
+                                className="h-8 px-3 rounded-lg bg-primary text-on-primary font-label-sm text-xs font-medium hover:bg-primary/90 transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
+                              >
+                                Review Request
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t border-border/40 mt-4 flex items-center justify-between text-xs text-text-secondary">
+                      <span>Operational issues & customer escalations</span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveNav('needs-attention')}
+                        className="text-primary hover:underline font-medium cursor-pointer"
+                      >
+                        View attention inbox →
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Your AI Receptionist (Section 4) */}
+                  <div className="bg-surface rounded-xl border border-border/70 shadow-xs p-6 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between pb-3 border-b border-border/50 mb-4">
+                        <div>
+                          <h3 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
+                            Your AI Receptionist
+                          </h3>
+                          <p className="font-body-sm text-body-sm text-text-secondary mt-0.5">
+                            See how your assistant is handling customer inquiries and bookings.
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          {apiState.agentEnabled ? 'Active' : 'Paused'}
+                        </span>
+                      </div>
+
+                      {/* Assistant Persona & Channel Status */}
+                      <div className="p-4 rounded-xl bg-surface-container-lowest border border-border/60 mb-4 space-y-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-primary-fixed flex items-center justify-center text-primary shrink-0">
-                            <AppIcon name="rocket_launch" className="text-[22px]" />
+                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-sm shrink-0">
+                            {(workspace.assistantName || 'Maya').slice(0, 1).toUpperCase()}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h2 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
-                                Setup Checklist
-                              </h2>
-                              <Badge variant="default">
-                                {checklist.completedCount} of {checklist.totalCount} Completed
-                              </Badge>
-                            </div>
-                            <p className="font-body-sm text-body-sm text-text-secondary mt-0.5">
-                              Derived from your persisted business, service, and deposit settings
+                            <h4 className="font-label-md text-sm font-bold text-text-primary">
+                              {workspace.assistantName || 'Maya'}
+                            </h4>
+                            <p className="font-body-sm text-xs text-text-secondary">
+                              Tone: {workspace.tone || 'Friendly & concise'} • 15-minute slot
+                              reservation
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex items-baseline gap-1 font-metric-lg text-metric-lg text-primary-container">
-                          <span className="font-semibold">{checklist.percent}</span>
-                          <span className="font-metric-sm text-metric-sm text-text-secondary">
-                            %
-                          </span>
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
+                          <div>
+                            <span className="text-text-secondary block">Web Chat Status</span>
+                            <span className="font-medium text-emerald-700 flex items-center gap-1 mt-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              Active on booking page
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-text-secondary block">WhatsApp Status</span>
+                            <span
+                              className={`font-medium flex items-center gap-1 mt-0.5 ${
+                                apiState.whatsappConnected ? 'text-emerald-700' : 'text-amber-700'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  apiState.whatsappConnected ? 'bg-emerald-500' : 'bg-amber-500'
+                                }`}
+                              />
+                              {apiState.whatsappConnected ? 'Connected' : 'Setup Required'}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Dynamic Progress Track */}
-                      <Progress value={checklist.percent} />
+                      {/* Operational Metrics */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="p-3 rounded-lg bg-surface-container-low border border-border/40">
+                          <span className="text-[11px] text-text-secondary block uppercase tracking-wide">
+                            Conversations Handled
+                          </span>
+                          <span className="font-metric-md text-xl font-bold text-text-primary mt-1 block">
+                            {metrics.conversationsCount}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-lg bg-surface-container-low border border-border/40">
+                          <span className="text-[11px] text-text-secondary block uppercase tracking-wide">
+                            Escalated to Staff
+                          </span>
+                          <span className="font-metric-md text-xl font-bold text-amber-700 mt-1 block">
+                            {conversations.filter((c) => c.status === 'needs_human').length}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Checklist Items */}
-                    <div className="flex flex-col p-4 md:p-6 gap-2.5 bg-surface">
+                    {/* Actions */}
+                    <div className="pt-3 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setChatDrawerOpen(true)}
+                          className="h-8 text-xs"
+                        >
+                          <AppIcon name="chat" className="text-[14px]" />
+                          <span>Test Chat</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setActiveNav('conversations')}
+                          className="h-8 text-xs"
+                        >
+                          <span>View Conversations</span>
+                        </Button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveNav('ai-receptionist')}
+                        className="text-xs font-medium text-primary hover:underline cursor-pointer"
+                      >
+                        Manage Receptionist →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* -------------------------------------------------------------
+                    SECTION SIX: RECENT ACTIVITY TIMELINE
+                ------------------------------------------------------------- */}
+                <div className="bg-surface rounded-xl border border-border/70 shadow-xs p-6">
+                  <div className="flex items-center justify-between pb-3 border-b border-border/50 mb-4">
+                    <div>
+                      <h3 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
+                        Recent Activity
+                      </h3>
+                      <p className="font-body-sm text-body-sm text-text-secondary mt-0.5">
+                        What has happened in your business recently.
+                      </p>
+                    </div>
+                  </div>
+
+                  {recentActivities.length === 0 ? (
+                    <div className="py-8 text-center text-text-secondary text-sm">
+                      No recent activity recorded today. When customers book appointments or start
+                      conversations, updates will appear here.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentActivities.map((act) => (
+                        <div
+                          key={act.id}
+                          className="flex items-start gap-3 p-3 rounded-xl bg-surface-container-lowest/80 border border-border/50 hover:bg-surface-container-low transition-colors"
+                        >
+                          <div
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.badgeColor}`}
+                          >
+                            <AppIcon name={act.icon} className="text-[16px]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-label-md text-xs font-semibold text-text-primary truncate">
+                                {act.title}
+                              </h4>
+                              <span className="font-metric-sm text-[11px] text-text-secondary shrink-0">
+                                {act.time}
+                              </span>
+                            </div>
+                            <p className="font-body-sm text-xs text-text-secondary mt-0.5 leading-snug">
+                              {act.description}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* -------------------------------------------------------------
+                    SECTION SEVEN: SETUP CHECKLIST & LAUNCH GUIDES
+                ------------------------------------------------------------- */}
+                <div className="bg-surface rounded-xl border border-border/70 shadow-xs overflow-hidden">
+                  <div className="p-6 bg-surface-container-lowest border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary-fixed flex items-center justify-center text-primary shrink-0">
+                        <AppIcon name="rocket_launch" className="text-[20px]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
+                            Setup Checklist
+                          </h3>
+                          <Badge variant="default">
+                            {checklist.completedCount} of {checklist.totalCount} Completed
+                          </Badge>
+                        </div>
+                        <p className="font-body-sm text-xs text-text-secondary mt-0.5">
+                          Derived from your persisted business, service, and deposit settings
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-baseline gap-1 font-metric-lg text-metric-lg text-primary">
+                        <span className="font-bold">{checklist.percent}</span>
+                        <span className="font-metric-sm text-metric-sm text-text-secondary">%</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setChecklistExpanded((prev) => !prev)}
+                        className="text-xs"
+                      >
+                        {checklistExpanded ? 'Collapse' : 'View Checklist'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Progress Bar */}
+                  <div className="px-6 pt-3 pb-1 bg-surface-container-lowest">
+                    <Progress value={checklist.percent} />
+                  </div>
+
+                  {checklistExpanded && (
+                    <div className="p-6 space-y-3 bg-surface border-t border-border/50">
                       {checklist.items.map((item, index) => {
                         const isDone = item.status === 'completed';
                         const isFocal = !isDone && index === checklist.completedCount;
@@ -1398,7 +2083,7 @@ export default function DashboardPage() {
                         return (
                           <div
                             key={item.id}
-                            className={`group flex items-start gap-4 p-4 rounded-xl transition-all ${
+                            className={`flex items-start gap-4 p-3.5 rounded-xl transition-all ${
                               isFocal
                                 ? 'bg-surface-container-low shadow-xs border border-primary/20'
                                 : 'bg-surface-container-lowest hover:bg-surface-container-low'
@@ -1440,7 +2125,7 @@ export default function DashboardPage() {
                                     {item.badgeText}
                                   </span>
                                 </div>
-                                <p className="font-body-sm text-body-sm text-text-secondary mt-0.5">
+                                <p className="font-body-sm text-xs text-text-secondary mt-0.5">
                                   {item.description}
                                 </p>
                               </div>
@@ -1448,9 +2133,9 @@ export default function DashboardPage() {
                               <button
                                 type="button"
                                 onClick={item.onAction}
-                                className={`h-8 px-3.5 rounded-lg font-label-sm text-label-sm transition-colors shrink-0 self-start sm:self-auto flex items-center gap-1 cursor-pointer ${
+                                className={`h-8 px-3 rounded-lg font-label-sm text-xs transition-colors shrink-0 self-start sm:self-auto flex items-center gap-1 cursor-pointer ${
                                   isFocal
-                                    ? 'bg-primary-container hover:bg-primary text-on-primary shadow-xs font-semibold'
+                                    ? 'bg-primary hover:bg-primary/90 text-on-primary shadow-xs font-semibold'
                                     : 'bg-surface hover:bg-surface-container text-text-primary border border-border shadow-2xs'
                                 }`}
                               >
@@ -1462,406 +2147,206 @@ export default function DashboardPage() {
                         );
                       })}
                     </div>
+                  )}
 
-                    {/* Checklist Footer */}
-                    <div className="px-6 py-4 bg-surface-container-lowest border-t border-border/50 flex items-center justify-between">
-                      <Link
-                        href="/onboarding"
-                        className="font-label-md text-label-md text-text-secondary hover:text-text-primary transition-colors flex items-center gap-1.5"
-                      >
-                        <AppIcon name="edit_note" className="text-[16px]" />
-                        <span>Re-open 6-Step Onboarding Wizard</span>
-                      </Link>
-                      <span className="font-metric-sm text-metric-sm text-text-secondary">
-                        Public URL: <code>/b/{workspace.slug}</code>
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Workspace Identity & Correctness Guarantee */}
-                  <div className="lg:col-span-4 flex flex-col gap-6">
-                    {/* Midnight Operational Card */}
-                    <div className="bg-midnight-hero text-on-primary rounded-xl p-6 relative overflow-hidden shadow-lg flex flex-col justify-between min-h-[340px]">
-                      <div className="absolute -right-16 -top-16 w-64 h-64 bg-primary-container opacity-20 rounded-full blur-3xl pointer-events-none" />
-                      <div className="absolute -left-16 -bottom-16 w-56 h-56 bg-surface-tint opacity-15 rounded-full blur-3xl pointer-events-none" />
-
-                      <div className="relative z-10 flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
-                          <span className="px-2.5 py-1 rounded-full bg-surface/10 backdrop-blur-md font-label-sm text-label-sm tracking-wide uppercase text-iris-light">
-                            Booking Engine
-                          </span>
-                          <div className="flex items-center gap-1.5 font-metric-sm text-metric-sm text-iris-light">
-                            <span className="w-2 h-2 rounded-full bg-success" />
-                            <span>{workspace.timezone.split(' ')[0]}</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-2">
-                          <div className="text-on-primary-container font-headline-sm text-headline-sm font-semibold tracking-tight">
-                            {workspace.businessName}
-                          </div>
-                          <p className="text-on-tertiary-container/70 font-body-sm text-body-sm mt-1">
-                            {workspace.location} • {workspace.services.length} active services
-                          </p>
-                        </div>
-
-                        {/* Mini Operational Specs Bento */}
-                        <div className="grid grid-cols-2 gap-2.5 mt-2">
-                          <div className="p-3 rounded-lg bg-surface/5 backdrop-blur-sm flex flex-col">
-                            <span className="text-text-secondary font-label-sm text-label-sm uppercase">
-                              Slot Hold Window
-                            </span>
-                            <span className="font-metric-md text-metric-md text-on-primary mt-1">
-                              15 Min Lock
-                            </span>
-                          </div>
-                          <div className="p-3 rounded-lg bg-surface/5 backdrop-blur-sm flex flex-col">
-                            <span className="text-text-secondary font-label-sm text-label-sm uppercase">
-                              Kora Deposit
-                            </span>
-                            <span className="font-metric-md text-metric-md text-on-primary mt-1">
-                              {workspace.depositRequired
-                                ? `₦${workspace.depositAmount.toLocaleString()}`
-                                : 'Optional'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="relative z-10 mt-6 pt-4 bg-surface/5 rounded-lg p-3 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center shrink-0">
-                          <AppIcon name="smart_toy" className="text-[16px] text-on-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-label-md text-label-md text-on-primary truncate">
-                            {workspace.assistantName} is active on Web Chat
-                          </div>
-                          <div className="font-metric-sm text-metric-sm text-iris-light truncate">
-                            {apiState.whatsappConnected
-                              ? 'WhatsApp Cloud Connected'
-                              : 'Ready for WhatsApp Cloud pairing'}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setChatDrawerOpen(true)}
-                          className="p-1.5 rounded hover:bg-surface/10 text-on-primary transition-colors cursor-pointer"
-                          title="Open Web Chat Simulator"
-                        >
-                          <AppIcon name="play_circle" className="text-[18px]" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Correctness Guarantee Micro-Card (Replaces legacy HIPAA copy) */}
-                    <div className="bg-surface rounded-xl p-5 shadow-xs border border-border/60 flex flex-col gap-2.5">
-                      <div className="flex items-center gap-2">
-                        <AppIcon name="verified_user" className="text-[18px] text-primary" />
-                        <span className="font-label-md text-label-md text-text-primary font-semibold">
-                          Verified Booking Guarantee
-                        </span>
-                      </div>
-                      <p className="font-body-sm text-body-sm text-text-secondary leading-relaxed">
-                        Switchboard never confirms a booking it cannot prove. Every deposit is
-                        verified via Kora webhook signature and transaction query before locking a
-                        staff member&apos;s slot.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ===========================================================
-                    WORKSPACE STATUS — HONEST ZERO-STATE / CHANNEL CARDS
-                =========================================================== */}
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
-                      Workspace & Channel Status
-                    </h3>
-                    <p className="font-body-sm text-body-sm text-text-secondary">
-                      Real-time status of your conversations, bookings, and Kora deposit pipeline
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        bookings.length > 0 ? 'bg-success' : 'bg-secondary-fixed-dim'
-                      }`}
-                    />
-                    <span className="font-metric-sm text-metric-sm text-text-secondary">
-                      {bookings.length > 0 ? 'Live Activity' : 'Ready for First Booking'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                  {/* 1. Conversations Card */}
-                  <div className="bg-surface rounded-xl p-6 shadow-xs border border-border/60 flex flex-col justify-between relative overflow-hidden hover:shadow-md transition-shadow">
-                    <div>
-                      <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary mb-5">
-                        <AppIcon name="chat_bubble" className="text-[24px]" />
-                      </div>
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-headline-sm text-headline-sm text-text-primary font-medium">
-                          Conversations
-                        </h4>
-                        <span className="font-metric-sm text-metric-sm px-2 py-0.5 rounded bg-surface-container-low text-text-secondary">
-                          {conversations.length} Threads
-                        </span>
-                      </div>
-                      <p className="font-body-sm text-body-sm text-text-secondary mt-2 leading-relaxed">
-                        {conversations.length === 0
-                          ? `No customer conversations yet. When customers message via WhatsApp or web chat, ${workspace.assistantName} checks real availability and streams threads here.`
-                          : `${conversations.length} active conversation(s). ${metrics.needsAttentionCount} currently flagged for staff review.`}
-                      </p>
-                    </div>
-                    <div className="mt-8 pt-4 bg-surface-container-lowest border-t border-border/40 rounded-lg p-3 flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm text-text-secondary">
-                        Web text chat widget
-                      </span>
+                  {/* Launch Resources Grid */}
+                  <div className="p-6 bg-surface-container-lowest border-t border-border/50">
+                    <h4 className="font-label-md text-xs uppercase tracking-wider text-text-secondary font-semibold mb-4">
+                      Setup Guides & Help
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Guide 1 */}
                       <button
                         type="button"
-                        onClick={() => setChatDrawerOpen(true)}
-                        className="h-8 px-3 rounded-lg bg-surface hover:bg-surface-container text-primary border border-border font-label-sm text-label-sm shadow-2xs transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                        onClick={() =>
+                          setGuideModal({
+                            title: 'Connecting your Meta WhatsApp Business number',
+                            category: 'WhatsApp Cloud API',
+                            steps: [
+                              'Open Integrations in the left sidebar and enter your Meta Phone Number ID.',
+                              'Configure your webhook callback URL to point to /api/webhooks/whatsapp.',
+                              'Once paired, incoming WhatsApp messages route to your AI receptionist to check real staff availability and offer 15-minute slot holds.',
+                            ],
+                          })
+                        }
+                        className="p-4 rounded-xl bg-surface border border-border/60 hover:border-primary/40 text-left transition-all group cursor-pointer"
                       >
-                        <AppIcon name="chat" className="text-[14px]" />
-                        <span>Try Web Chat</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 2. Bookings & Public Page Card */}
-                  <div className="bg-surface rounded-xl p-6 shadow-xs border border-border/60 flex flex-col justify-between relative overflow-hidden hover:shadow-md transition-shadow">
-                    <div>
-                      <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary mb-5">
-                        <AppIcon name="calendar_month" className="text-[24px]" />
-                      </div>
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-headline-sm text-headline-sm text-text-primary font-medium">
-                          Bookings
-                        </h4>
-                        <span className="font-metric-sm text-metric-sm px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">
-                          {metrics.confirmedCount} Confirmed
-                        </span>
-                      </div>
-                      <p className="font-body-sm text-body-sm text-text-secondary mt-2 leading-relaxed">
-                        {bookings.length === 0
-                          ? `No appointments booked yet. Share your public booking page or simulate a 15-minute slot hold to test your schedule.`
-                          : `${metrics.confirmedCount} confirmed appointment(s) and ${metrics.heldCount} active 15-minute hold(s).`}
-                      </p>
-                      <div className="mt-4 p-3 rounded-lg bg-surface-container-low flex items-center justify-between">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-7 h-7 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                            {workspace.assistantName.slice(0, 1).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-label-md text-label-md text-text-primary font-medium truncate">
-                              /b/{workspace.slug}
-                            </div>
-                            <div className="font-metric-sm text-metric-sm text-text-secondary">
-                              {workspace.services.length} services • {workspace.staff.length} staff
-                            </div>
-                          </div>
+                        <div className="flex items-center gap-1.5 text-text-secondary text-xs mb-2">
+                          <AppIcon name="chat" className="text-[16px] text-primary" />
+                          <span>WhatsApp Cloud</span>
                         </div>
-                        <span className="font-metric-sm text-metric-sm px-2 py-0.5 rounded-full bg-surface text-success shadow-2xs">
-                          Live
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-8 pt-4 bg-surface-container-lowest border-t border-border/40 rounded-lg p-3 flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm text-text-secondary">
-                        15-min hold test
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleCreateSimulatedBooking}
-                        className="h-8 px-3 rounded-lg bg-surface hover:bg-surface-container text-text-primary border border-border font-label-sm text-label-sm shadow-2xs transition-colors flex items-center gap-1 font-medium cursor-pointer"
-                      >
-                        <AppIcon name="add" className="text-[14px]" />
-                        <span>Hold Test Slot</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 3. Kora Payments & Deposits Card */}
-                  <div className="bg-surface rounded-xl p-6 shadow-xs border border-border/60 flex flex-col justify-between relative overflow-hidden hover:shadow-md transition-shadow">
-                    <div>
-                      <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary mb-5">
-                        <AppIcon name="payments" className="text-[24px]" />
-                      </div>
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-headline-sm text-headline-sm text-text-primary font-medium">
-                          Kora Deposits
-                        </h4>
-                        <span className="font-metric-sm text-metric-sm px-2 py-0.5 rounded bg-surface-container-low text-success font-medium">
-                          {formatNairaFromKobo(metrics.verifiedDepositKobo)} Verified
-                        </span>
-                      </div>
-                      <p className="font-body-sm text-body-sm text-text-secondary mt-2 leading-relaxed">
-                        Customers pay a ₦{workspace.depositAmount.toLocaleString()} deposit via Kora
-                        bank transfer or card. Unpaid 15-minute holds expire automatically via
-                        Inngest.
-                      </p>
-                      <div className="mt-4 p-3 rounded-lg bg-surface-container-low flex items-center gap-3">
-                        <AppIcon name="verified" className="text-[18px] text-success" />
-                        <span className="font-label-sm text-label-sm text-text-secondary">
-                          Kora webhook signature + query verification active
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-8 pt-4 bg-surface-container-lowest border-t border-border/40 rounded-lg p-3 flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm text-text-secondary">
-                        Deposit policy
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setActiveNav('payments')}
-                        className="h-8 px-3 rounded-lg bg-surface hover:bg-surface-container text-text-primary border border-border font-label-sm text-label-sm shadow-2xs transition-colors flex items-center gap-1 font-medium cursor-pointer"
-                      >
-                        <AppIcon name="tune" className="text-[14px]" />
-                        <span>Manage Kora</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ===========================================================
-                    LAUNCH RESOURCES & GUIDES (Booking-First MVP)
-                =========================================================== */}
-                <div className="bg-surface rounded-xl p-6 md:p-8 shadow-xs border border-border/60 mb-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                    <div>
-                      <h3 className="font-headline-sm text-headline-sm text-text-primary font-semibold">
-                        Launch Resources & Setup Guides
-                      </h3>
-                      <p className="font-body-sm text-body-sm text-text-secondary">
-                        Practical guides for WhatsApp booking automation, Kora deposits, and staff
-                        schedules
-                      </p>
-                    </div>
-                    <Link
-                      href={`/b/${workspace.slug}`}
-                      className="font-label-md text-label-md text-primary hover:text-primary-container transition-colors flex items-center gap-1"
-                    >
-                      <span>Preview Public Booking Page</span>
-                      <AppIcon name="open_in_new" className="text-[14px]" />
-                    </Link>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Guide 1: WhatsApp Cloud */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setGuideModal({
-                          title: 'Connecting your Meta WhatsApp Business number',
-                          category: 'WhatsApp Cloud API',
-                          steps: [
-                            'Open Integrations in the left sidebar and enter your Meta Phone Number ID.',
-                            'Configure your webhook callback URL to point to /api/webhooks/whatsapp.',
-                            'Once paired, incoming WhatsApp messages route to Maya to check real staff availability and offer 15-minute slot holds.',
-                          ],
-                        })
-                      }
-                      className="p-5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between group text-left cursor-pointer"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 text-text-secondary mb-3">
-                          <AppIcon name="chat" className="text-[18px]" />
-                          <span className="font-label-sm text-label-sm uppercase tracking-wider">
-                            WhatsApp Cloud
-                          </span>
-                        </div>
-                        <h5 className="font-headline-sm text-headline-sm text-text-primary font-medium group-hover:text-primary transition-colors text-base leading-snug">
-                          How to connect your Meta WhatsApp Business number
+                        <h5 className="font-label-md text-xs font-bold text-text-primary group-hover:text-primary transition-colors">
+                          How to connect WhatsApp Business
                         </h5>
-                        <p className="font-body-sm text-body-sm text-text-secondary mt-2">
+                        <p className="font-body-sm text-[11px] text-text-secondary mt-1 leading-snug">
                           Automate late-night customer DMs so customers can check slots and book
-                          while you focus on clients in the chair.
+                          anytime.
                         </p>
-                      </div>
-                      <div className="mt-6 flex items-center justify-between text-text-secondary font-metric-sm text-metric-sm pt-4">
-                        <span>3 min setup</span>
-                        <AppIcon
-                          name="arrow_forward"
-                          className="text-[16px] group-hover:translate-x-1 transition-transform"
-                        />
-                      </div>
-                    </button>
+                      </button>
 
-                    {/* Guide 2: Kora Deposits & Hold Invariants */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setGuideModal({
-                          title: 'How 15-minute holds and Kora deposits stop no-shows',
-                          category: 'Deposits & Verification',
-                          steps: [
-                            'When a customer picks a time slot, Postgres locks that staff window for 15 minutes (EXCLUDE USING gist).',
-                            'Switchboard generates a unique sb_dep_<ulid> Kora reference for the deposit.',
-                            'Only after Kora sends charge.success AND our backend re-verifies the transaction status does the booking become Confirmed.',
-                            'If the customer does not pay within 15 minutes, Inngest expires the hold so walk-ins can book.',
-                          ],
-                        })
-                      }
-                      className="p-5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between group text-left cursor-pointer"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 text-text-secondary mb-3">
-                          <AppIcon name="payments" className="text-[18px]" />
-                          <span className="font-label-sm text-label-sm uppercase tracking-wider">
-                            Kora Deposits
-                          </span>
+                      {/* Guide 2 */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setGuideModal({
+                            title: 'How 15-minute slot holds and Kora deposits work',
+                            category: 'Deposits & Verification',
+                            steps: [
+                              'When a customer picks a time slot, the calendar locks that staff window for 15 minutes.',
+                              'Switchboard generates a unique deposit reference for payment.',
+                              'Only after Kora sends a verified transaction status does the booking become Confirmed.',
+                              'If the customer does not pay within 15 minutes, the slot automatically re-opens for others.',
+                            ],
+                          })
+                        }
+                        className="p-4 rounded-xl bg-surface border border-border/60 hover:border-primary/40 text-left transition-all group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-1.5 text-text-secondary text-xs mb-2">
+                          <AppIcon name="payments" className="text-[16px] text-primary" />
+                          <span>Kora Deposits</span>
                         </div>
-                        <h5 className="font-headline-sm text-headline-sm text-text-primary font-medium group-hover:text-primary transition-colors text-base leading-snug">
-                          How 15-minute slot holds and Kora bank-transfer deposits work
+                        <h5 className="font-label-md text-xs font-bold text-text-primary group-hover:text-primary transition-colors">
+                          How slot holds & deposits stop no-shows
                         </h5>
-                        <p className="font-body-sm text-body-sm text-text-secondary mt-2">
-                          Understand how Switchboard prevents double-bookings, verifies Kora
-                          webhooks, and handles cancellations.
+                        <p className="font-body-sm text-[11px] text-text-secondary mt-1 leading-snug">
+                          Understand how Switchboard prevents double-bookings and safely verifies
+                          deposits.
                         </p>
-                      </div>
-                      <div className="mt-6 flex items-center justify-between text-text-secondary font-metric-sm text-metric-sm pt-4">
-                        <span>4 min read</span>
-                        <AppIcon
-                          name="arrow_forward"
-                          className="text-[16px] group-hover:translate-x-1 transition-transform"
-                        />
-                      </div>
-                    </button>
+                      </button>
 
-                    {/* Guide 3: Share Public Link */}
-                    <div className="p-5 rounded-lg bg-primary-fixed text-on-primary-fixed flex flex-col justify-between relative overflow-hidden">
-                      <div>
-                        <div className="flex items-center gap-2 text-primary font-semibold mb-3">
-                          <AppIcon name="share" className="text-[18px]" />
-                          <span className="font-label-sm text-label-sm uppercase tracking-wider">
-                            Go Live Today
-                          </span>
+                      {/* Guide 3 */}
+                      <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200/60 text-left">
+                        <div className="flex items-center gap-1.5 text-primary text-xs mb-2 font-semibold">
+                          <AppIcon name="share" className="text-[16px]" />
+                          <span>Public Booking Link</span>
                         </div>
-                        <h5 className="font-headline-sm text-headline-sm text-on-primary-fixed font-semibold text-base leading-snug">
-                          Share your public booking link on Instagram & WhatsApp
+                        <h5 className="font-label-md text-xs font-bold text-indigo-950">
+                          Share your booking link
                         </h5>
-                        <p className="font-body-sm text-body-sm text-on-primary-fixed-variant mt-2">
-                          Customers can view your services, pick a barber, and pay their deposit at{' '}
-                          <strong className="font-mono">/b/{workspace.slug}</strong>.
+                        <p className="font-body-sm text-[11px] text-indigo-800 mt-1 leading-snug">
+                          Your live booking link is ready at{' '}
+                          <code className="font-mono">/b/{workspace.slug}</code>.
                         </p>
-                      </div>
-                      <div className="mt-6 pt-4 flex items-center justify-between">
-                        <span className="font-metric-sm text-metric-sm text-primary font-medium">
-                          Ready to share
-                        </span>
                         <button
                           type="button"
                           onClick={copyBookingLink}
-                          className="h-8 px-3 rounded bg-primary text-on-primary font-label-sm text-label-sm hover:bg-primary-container transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
+                          className="mt-3 text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
                         >
-                          <span>{copiedSlug ? 'Link Copied!' : 'Copy Booking Link'}</span>
-                          <AppIcon name="content_copy" className="text-[14px]" />
+                          <span>{copiedSlug ? 'Link Copied!' : 'Copy Link'}</span>
+                          <AppIcon name="content_copy" className="text-[13px]" />
                         </button>
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* -------------------------------------------------------------
+                    SECTION EIGHT: DEVELOPER SANDBOX & TESTING (COLLAPSIBLE)
+                ------------------------------------------------------------- */}
+                <div className="rounded-xl border border-dashed border-border/80 bg-surface-container-lowest/60 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-text-secondary">
+                      <AppIcon name="tune" className="text-[18px]" />
+                      <span className="font-label-md text-xs font-semibold text-text-primary">
+                        Developer Sandbox &amp; Testing Controls
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDevSandboxOpen((prev) => !prev)}
+                      className="text-xs h-7"
+                    >
+                      {devSandboxOpen ? 'Hide Developer Controls' : 'Show Developer Controls'}
+                    </Button>
+                  </div>
+
+                  {devSandboxOpen && (
+                    <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
+                      <p className="text-xs text-text-secondary">
+                        These controls allow developers and pair programmers to simulate customer
+                        bookings, payment webhook verifications, timeouts, and human escalations in
+                        local environments.
+                      </p>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCreateSimulatedBooking}
+                          className="text-xs h-8"
+                        >
+                          <AppIcon name="add_circle" className="text-[14px] text-primary" />
+                          <span>Simulate Customer Booking</span>
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleTriggerHumanEscalation}
+                          className="text-xs h-8"
+                        >
+                          <AppIcon
+                            name="notification_important"
+                            className="text-[14px] text-amber-600"
+                          />
+                          <span>Simulate Needs-Attention Escalation</span>
+                        </Button>
+
+                        {bookings.some((b) => b.status === 'held') && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                const held = bookings.find((b) => b.status === 'held');
+                                if (held) handleVerifyKoraDeposit(held.id);
+                              }}
+                              className="text-xs h-8"
+                            >
+                              <AppIcon name="verified" className="text-[14px]" />
+                              <span>Simulate Kora Webhook Verification</span>
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const held = bookings.find((b) => b.status === 'held');
+                                if (held) handleFlagPaymentPendingVerification(held.id);
+                              }}
+                              className="text-xs h-8"
+                            >
+                              <AppIcon
+                                name="hourglass_empty"
+                                className="text-[14px] text-indigo-600"
+                              />
+                              <span>Simulate Provider Timeout (Pending)</span>
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const held = bookings.find((b) => b.status === 'held');
+                                if (held) handleExpireHold(held.id);
+                              }}
+                              className="text-xs h-8"
+                            >
+                              <AppIcon name="history" className="text-[14px] text-slate-600" />
+                              <span>Expire Hold (15m Elapsed)</span>
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -2623,6 +3108,290 @@ export default function DashboardPage() {
                 Send
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          BOOKING DETAILS MODAL
+      ===================================================================== */}
+      {selectedBookingForDetails && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-surface rounded-2xl border border-border shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-border/50 pb-3">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                  Booking Details
+                </span>
+                <h3 className="text-lg font-bold text-text-primary mt-1">
+                  {selectedBookingForDetails.customerName}
+                </h3>
+                <p className="text-xs text-text-secondary font-mono mt-0.5">
+                  Ref: {selectedBookingForDetails.reference}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedBookingForDetails(null)}
+                className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-container transition-colors"
+                aria-label="Close details"
+              >
+                <AppIcon name="close" className="text-[20px]" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div className="p-3 rounded-xl bg-surface-container-low border border-border/50">
+                <span className="text-text-secondary block">Service</span>
+                <span className="font-semibold text-text-primary text-sm mt-0.5 block">
+                  {selectedBookingForDetails.serviceName}
+                </span>
+                <span className="text-text-secondary mt-1 block">
+                  Price: {formatNairaFromKobo(selectedBookingForDetails.priceKobo)}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-surface-container-low border border-border/50">
+                <span className="text-text-secondary block">Specialist</span>
+                <span className="font-semibold text-text-primary text-sm mt-0.5 block">
+                  {selectedBookingForDetails.staffName}
+                </span>
+                <span className="text-text-secondary mt-1 block">
+                  Slot: {selectedBookingForDetails.slotTime}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-surface-container-low border border-border/50">
+                <span className="text-text-secondary block">Customer Contact</span>
+                <span className="font-semibold text-text-primary text-sm mt-0.5 block">
+                  {apiState.role === 'staff'
+                    ? `•••• ${selectedBookingForDetails.customerPhone.slice(-4)}`
+                    : selectedBookingForDetails.customerPhone}
+                </span>
+                <span className="text-text-secondary mt-1 block capitalize">
+                  Source: {selectedBookingForDetails.source.replace('_', ' ')}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-surface-container-low border border-border/50">
+                <span className="text-text-secondary block">Deposit &amp; Payment</span>
+                <span className="font-semibold text-emerald-700 text-sm mt-0.5 block">
+                  {formatNairaFromKobo(selectedBookingForDetails.depositKobo)}
+                </span>
+                <span className="text-text-secondary mt-1 block capitalize">
+                  Status: {selectedBookingForDetails.paymentStatus.replace('_', ' ')}
+                </span>
+              </div>
+            </div>
+
+            {selectedBookingForDetails.status === 'held' && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/60">
+                <div className="flex items-center gap-2 text-amber-800 text-xs font-semibold mb-2">
+                  <AppIcon name="schedule" className="text-[16px]" />
+                  <span>Temporary 15-Minute Slot Lock Active</span>
+                </div>
+                <HoldBand
+                  status="held"
+                  remainingSeconds={selectedBookingForDetails.holdSecondsRemaining ?? 900}
+                  totalSeconds={900}
+                  compact
+                  theme="light"
+                  autoTick
+                />
+              </div>
+            )}
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-border/50">
+              <button
+                type="button"
+                onClick={() => setSelectedBookingForDetails(null)}
+                className="px-4 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container text-text-primary text-xs font-semibold transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          NEW MANUAL APPOINTMENT MODAL
+      ===================================================================== */}
+      {newBookingModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-surface rounded-2xl border border-border shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-border/50 pb-3">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                  New Appointment
+                </span>
+                <h3 className="text-lg font-bold text-text-primary mt-1">
+                  Create Customer Booking
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewBookingModalOpen(false)}
+                className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-container transition-colors"
+                aria-label="Close dialog"
+              >
+                <AppIcon name="close" className="text-[20px]" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateManualBooking} className="space-y-4">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="new-booking-customer-name"
+                  className="block text-xs font-semibold text-text-primary"
+                >
+                  Customer Name
+                </label>
+                <input
+                  id="new-booking-customer-name"
+                  type="text"
+                  required
+                  placeholder="e.g. Chinedu Eze"
+                  value={newBookingForm.customerName}
+                  onChange={(e) =>
+                    setNewBookingForm((prev) => ({ ...prev, customerName: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="new-booking-customer-phone"
+                  className="block text-xs font-semibold text-text-primary"
+                >
+                  Phone Number
+                </label>
+                <input
+                  id="new-booking-customer-phone"
+                  type="tel"
+                  required
+                  placeholder="e.g. +234 809 123 4567"
+                  value={newBookingForm.customerPhone}
+                  onChange={(e) =>
+                    setNewBookingForm((prev) => ({ ...prev, customerPhone: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="new-booking-service"
+                    className="block text-xs font-semibold text-text-primary"
+                  >
+                    Service
+                  </label>
+                  <select
+                    id="new-booking-service"
+                    value={newBookingForm.serviceIndex}
+                    onChange={(e) =>
+                      setNewBookingForm((prev) => ({
+                        ...prev,
+                        serviceIndex: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    {workspace.services.map((svc, idx) => (
+                      <option key={svc.id || svc.name} value={idx}>
+                        {svc.name} (₦{svc.price.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="new-booking-staff"
+                    className="block text-xs font-semibold text-text-primary"
+                  >
+                    Specialist
+                  </label>
+                  <select
+                    id="new-booking-staff"
+                    value={newBookingForm.staffIndex}
+                    onChange={(e) =>
+                      setNewBookingForm((prev) => ({
+                        ...prev,
+                        staffIndex: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    {workspace.staff.map((stf, idx) => (
+                      <option key={stf.id || stf.name} value={idx}>
+                        {stf.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="new-booking-slot-time"
+                  className="block text-xs font-semibold text-text-primary"
+                >
+                  Time Slot
+                </label>
+                <input
+                  id="new-booking-slot-time"
+                  type="text"
+                  required
+                  placeholder="e.g. Today, 4:30 PM (WAT)"
+                  value={newBookingForm.slotTime}
+                  onChange={(e) =>
+                    setNewBookingForm((prev) => ({ ...prev, slotTime: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              <div className="p-3 rounded-lg bg-surface-container-low border border-border/50 flex items-center justify-between">
+                <div>
+                  <label
+                    htmlFor="new-booking-require-deposit"
+                    className="text-xs font-semibold text-text-primary block cursor-pointer"
+                  >
+                    Require Kora Deposit
+                  </label>
+                  <span className="text-[11px] text-text-secondary block">
+                    ₦{(workspace.depositAmount || 1500).toLocaleString()} deposit (15-minute slot
+                    lock)
+                  </span>
+                </div>
+                <input
+                  id="new-booking-require-deposit"
+                  type="checkbox"
+                  checked={newBookingForm.requireDeposit}
+                  onChange={(e) =>
+                    setNewBookingForm((prev) => ({ ...prev, requireDeposit: e.target.checked }))
+                  }
+                  className="w-4 h-4 accent-primary rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border/50">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setNewBookingModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="default" size="sm">
+                  Create Appointment
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
