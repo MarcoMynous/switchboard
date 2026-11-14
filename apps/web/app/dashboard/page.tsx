@@ -3,6 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
+import {
+  type DashboardBookingRecord as BookingRecord,
+  BookingsManagementView,
+  type DashboardConversationRecord as ConversationRecord,
+} from '@/components/BookingsManagementView';
+import { ConversationsManagementView } from '@/components/ConversationsManagementView';
 import { computeKoraFeeKobo } from '@/components/DepositCard';
 import { HoldBand } from '@/components/HoldBand';
 import { SwitchboardLogo } from '@/components/SwitchboardLogo';
@@ -25,45 +31,6 @@ type NavSection =
   | 'team-permissions'
   | 'analytics'
   | 'settings';
-
-interface BookingRecord {
-  id: string;
-  reference: string;
-  customerName: string;
-  customerPhone: string;
-  serviceName: string;
-  staffName: string;
-  slotTime: string;
-  priceKobo: number;
-  depositKobo: number;
-  status: 'held' | 'confirmed' | 'completed' | 'expired' | 'cancelled' | 'no_show';
-  paymentStatus:
-    | 'awaiting_payment'
-    | 'pending_verification'
-    | 'verified'
-    | 'refunded'
-    | 'not_required';
-  holdSecondsRemaining?: number;
-  source: 'whatsapp' | 'web_chat' | 'booking_page' | 'staff';
-  createdAt: string;
-}
-
-interface ConversationRecord {
-  id: string;
-  customerName: string;
-  customerPhone: string;
-  channel: 'whatsapp' | 'web_chat';
-  lastMessage: string;
-  status: 'agent_active' | 'needs_human' | 'staff_takeover' | 'resolved';
-  escalationReason?: string;
-  updatedAt: string;
-  messages: Array<{
-    id: string;
-    sender: 'customer' | 'agent' | 'staff';
-    text: string;
-    time: string;
-  }>;
-}
 
 interface WorkspaceApiData {
   ok: boolean;
@@ -277,7 +244,6 @@ export default function DashboardPage() {
   const [paymentSaveNotice, setPaymentSaveNotice] = useState<string | null>(null);
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
-  const [staffReplyInput, setStaffReplyInput] = useState<Record<string, string>>({});
   const [guideModal, setGuideModal] = useState<{
     title: string;
     category: string;
@@ -2355,260 +2321,85 @@ export default function DashboardPage() {
                 SUB-VIEWS FOR ALL SIDEBAR DESTINATIONS (Mounted in same shell)
             =============================================================== */}
             {activeNav === 'bookings' && (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h1 className="text-2xl font-bold text-text-primary">
-                      Bookings & Multi-Staff Day Calendar
-                    </h1>
-                    <p className="text-sm text-text-secondary">
-                      Today • {workspace.timezone} • Postgres conflict-free slot protection active
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCreateSimulatedBooking}
-                      className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary cursor-pointer"
-                    >
-                      + Add Walk-In / Test Hold
-                    </button>
-                  </div>
-                </div>
-
-                {bookings.length === 0 ? (
-                  <div className="bg-surface rounded-xl p-10 border border-border text-center space-y-3">
-                    <AppIcon name="calendar_month" className="text-[36px] text-primary" />
-                    <h3 className="text-lg font-semibold text-text-primary">
-                      No bookings on the calendar for today
-                    </h3>
-                    <p className="text-sm text-text-secondary max-w-md mx-auto">
-                      Share your booking link (<code>/b/{workspace.slug}</code>) or add a simulated
-                      booking to test the 15-minute hold band and Kora verification.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleCreateSimulatedBooking}
-                      className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
-                    >
-                      Simulate Customer Slot Hold
-                    </button>
-                  </div>
-                ) : (
-                  <div className="bg-surface rounded-xl border border-border divide-y divide-border">
-                    {bookings.map((bk) => (
-                      <div key={bk.id} className="p-5 space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-text-primary">{bk.customerName}</span>
-                              <span className="text-xs font-mono text-text-secondary">
-                                {bk.customerPhone}
-                              </span>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                  bk.status === 'confirmed'
-                                    ? 'bg-success/15 text-success-strong'
-                                    : bk.status === 'expired' || bk.status === 'cancelled'
-                                      ? 'bg-red-500/15 text-red-700'
-                                      : 'bg-amber-500/15 text-amber-700'
-                                }`}
-                              >
-                                {bk.status}
-                              </span>
-                            </div>
-                            <p className="text-sm text-text-secondary">
-                              {bk.serviceName} • {bk.staffName} • {bk.slotTime}
-                            </p>
-                            <p className="text-xs font-mono text-text-secondary">
-                              Ref: {bk.reference} • Deposit: {formatNairaFromKobo(bk.depositKobo)} (
-                              {bk.paymentStatus})
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {bk.status === 'held' && (
-                              <button
-                                type="button"
-                                onClick={() => handleVerifyKoraDeposit(bk.id)}
-                                className="px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
-                              >
-                                Confirm Kora Payment
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {(bk.status === 'held' || bk.status === 'confirmed') && (
-                          <HoldBand
-                            compact
-                            status={bk.status === 'confirmed' ? 'confirmed' : 'held'}
-                            remainingSeconds={bk.holdSecondsRemaining ?? 900}
-                            totalSeconds={900}
-                            autoTick={bk.status === 'held'}
-                            reference={bk.reference}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <BookingsManagementView
+                workspace={workspace}
+                bookings={bookings}
+                conversations={conversations}
+                userRole={apiState.role}
+                isLoading={apiState.loading}
+                apiError={apiState.error}
+                copiedSlug={copiedSlug}
+                onCopyBookingLink={copyBookingLink}
+                onCreateBooking={(newBk) => saveBookings([newBk, ...bookings])}
+                onUpdateBooking={(bookingId, updater) =>
+                  saveBookings(bookings.map((b) => (b.id === bookingId ? updater(b) : b)))
+                }
+                onNavigateSection={(sec) => setActiveNav(sec)}
+              />
             )}
 
             {(activeNav === 'conversations' || activeNav === 'needs-attention') && (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h1 className="text-2xl font-bold text-text-primary">
-                      {activeNav === 'needs-attention'
-                        ? 'Needs Attention (Human Handoff & Exceptions)'
-                        : 'Customer Conversations'}
-                    </h1>
-                    <p className="text-sm text-text-secondary">
-                      WhatsApp & Web Chat threads • Staff takeover pauses {workspace.assistantName}{' '}
-                      automatically
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleTriggerHumanEscalation}
-                      className="px-3.5 py-2 rounded-lg border border-border bg-surface text-xs font-semibold hover:bg-surface-container-low cursor-pointer"
-                    >
-                      Simulate Escalation
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setChatDrawerOpen(true)}
-                      className="px-3.5 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
-                    >
-                      Open Web Chat
-                    </button>
-                  </div>
-                </div>
-
-                {conversations.length === 0 ? (
-                  <div className="bg-surface rounded-xl p-10 border border-border text-center space-y-3">
-                    <AppIcon name="forum" className="text-[36px] text-primary" />
-                    <h3 className="text-lg font-semibold text-text-primary">
-                      No active conversations yet
-                    </h3>
-                    <p className="text-sm text-text-secondary max-w-md mx-auto">
-                      Test a conversation in the Web Chat simulator or simulate a human escalation
-                      to try staff takeover.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {conversations
-                      .filter((c) => activeNav !== 'needs-attention' || c.status === 'needs_human')
-                      .map((conv) => (
-                        <div
-                          key={conv.id}
-                          className="bg-surface rounded-xl p-5 border border-border space-y-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <span className="font-bold text-text-primary">
-                                {conv.customerName}
-                              </span>
-                              <span className="text-xs font-mono text-text-secondary">
-                                {conv.customerPhone}
-                              </span>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                  conv.status === 'needs_human'
-                                    ? 'bg-error-container text-on-error-container'
-                                    : conv.status === 'staff_takeover'
-                                      ? 'bg-amber-500/15 text-amber-800'
-                                      : 'bg-success/15 text-success-strong'
-                                }`}
-                              >
-                                {conv.status === 'needs_human'
-                                  ? `Needs Human: ${conv.escalationReason || 'Requested staff'}`
-                                  : conv.status === 'staff_takeover'
-                                    ? 'Staff Handling (Agent Paused)'
-                                    : `${workspace.assistantName} Active`}
-                              </span>
-                            </div>
-                            {conv.status === 'staff_takeover' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  saveConversations(
-                                    conversations.map((c) =>
-                                      c.id === conv.id ? { ...c, status: 'agent_active' } : c,
-                                    ),
-                                  );
-                                }}
-                                className="text-xs font-semibold text-primary hover:underline cursor-pointer"
-                              >
-                                Hand back to {workspace.assistantName}
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="space-y-2 bg-surface-container-low p-3.5 rounded-lg">
-                            {conv.messages.map((m) => (
-                              <div key={m.id} className="text-xs">
-                                <strong className="capitalize text-text-primary">
-                                  {m.sender === 'agent' ? workspace.assistantName : m.sender}:
-                                </strong>{' '}
-                                <span className="text-text-secondary">{m.text}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={staffReplyInput[conv.id] || ''}
-                              onChange={(e) =>
-                                setStaffReplyInput((prev) => ({
-                                  ...prev,
-                                  [conv.id]: e.target.value,
-                                }))
-                              }
-                              placeholder="Reply as staff (pauses AI receptionist for this chat)..."
-                              className="flex-1 px-3 py-2 text-xs rounded-lg border border-border bg-white outline-none focus:ring-2 focus:ring-primary"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const text = staffReplyInput[conv.id]?.trim();
-                                if (!text) return;
-                                saveConversations(
-                                  conversations.map((c) =>
-                                    c.id === conv.id
-                                      ? {
-                                          ...c,
-                                          status: 'staff_takeover',
-                                          lastMessage: text,
-                                          messages: [
-                                            ...c.messages,
-                                            {
-                                              id: `st_${Date.now()}`,
-                                              sender: 'staff',
-                                              text,
-                                              time: 'Now',
-                                            },
-                                          ],
-                                        }
-                                      : c,
-                                  ),
-                                );
-                                setStaffReplyInput((prev) => ({ ...prev, [conv.id]: '' }));
-                              }}
-                              className="px-3.5 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
-                            >
-                              Reply as staff
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
+              <ConversationsManagementView
+                workspace={workspace}
+                conversations={conversations}
+                bookings={bookings}
+                userRole={apiState.role}
+                operatorName={apiState.ownerName}
+                whatsappConnected={apiState.whatsappConnected}
+                isLoading={apiState.loading}
+                apiError={apiState.error}
+                initialNeedsHumanOnly={activeNav === 'needs-attention'}
+                onRefresh={() => {
+                  try {
+                    const savedConvs = localStorage.getItem('switchboard_dashboard_conversations');
+                    if (savedConvs) {
+                      setConversations(JSON.parse(savedConvs));
+                    }
+                    const savedBks = localStorage.getItem('switchboard_dashboard_bookings');
+                    if (savedBks) {
+                      setBookings(JSON.parse(savedBks));
+                    }
+                  } catch {
+                    // ignore storage errors
+                  }
+                  fetch('/api/workspace')
+                    .then(async (res) => {
+                      const data = (await res.json()) as WorkspaceApiData;
+                      if (!res.ok || !data.ok) {
+                        setApiState((prev) => ({
+                          ...prev,
+                          connected: false,
+                          error: data.error || 'Unable to reach workspace backend.',
+                        }));
+                        return;
+                      }
+                      setApiState((prev) => ({
+                        ...prev,
+                        connected: true,
+                        error: null,
+                        whatsappConnected: Boolean(data.business?.whatsappPhoneNumberId),
+                        agentEnabled: data.business?.agentEnabled ?? prev.agentEnabled,
+                      }));
+                    })
+                    .catch(() => {
+                      setApiState((prev) => ({
+                        ...prev,
+                        connected: false,
+                        error: 'Network connection interrupted. Displaying cached workspace data.',
+                      }));
+                    });
+                }}
+                onOpenTestChat={() => setChatDrawerOpen(true)}
+                onUpdateConversation={(conversationId, updater) =>
+                  saveConversations(
+                    conversations.map((c) => (c.id === conversationId ? updater(c) : c)),
+                  )
+                }
+                onUpdateBooking={(bookingId, updater) =>
+                  saveBookings(bookings.map((b) => (b.id === bookingId ? updater(b) : b)))
+                }
+                onNavigateSection={(sec) => setActiveNav(sec)}
+              />
             )}
 
             {activeNav !== 'overview' &&
