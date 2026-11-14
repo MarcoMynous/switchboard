@@ -1,12 +1,7 @@
 'use client';
 
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import React, { type ReactNode, useEffect, useRef } from 'react';
-
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger);
-}
+import type React from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 
 interface ScrollRevealProps {
   children: ReactNode;
@@ -22,18 +17,38 @@ interface ScrollRevealProps {
   triggerOffset?: string;
 }
 
+type RevealCallback = () => void;
+const callbacks = new WeakMap<Element, RevealCallback>();
+let sharedObserver: IntersectionObserver | null = null;
+
+function getSharedObserver(): IntersectionObserver | null {
+  if (typeof window === 'undefined' || !('IntersectionObserver' in window)) return null;
+  if (!sharedObserver) {
+    sharedObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const cb = callbacks.get(entry.target);
+            if (cb) {
+              cb();
+              callbacks.delete(entry.target);
+            }
+            sharedObserver?.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.05, rootMargin: '0px 0px -8% 0px' },
+    );
+  }
+  return sharedObserver;
+}
+
 export const ScrollReveal: React.FC<ScrollRevealProps> = ({
   children,
   className = '',
-  delay = 0.2,
-  duration = 1.0,
-  yOffset = 32,
-  scale = 0.98,
-  ease = 'back.out(0.85)',
-  staggerChildren = false,
-  staggerDelay = 0.16,
-  childSelector,
-  triggerOffset = 'top 78%',
+  delay = 0,
+  duration = 0.5,
+  yOffset = 20,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -41,76 +56,32 @@ export const ScrollReveal: React.FC<ScrollRevealProps> = ({
     const el = containerRef.current;
     if (!el) return;
 
-    const mm = gsap.matchMedia();
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    mm.add('(prefers-reduced-motion: no-preference)', () => {
-      if (staggerChildren) {
-        const targets = childSelector
-          ? el.querySelectorAll(childSelector)
-          : Array.from(el.children);
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight * 0.95) return;
 
-        if (targets.length > 0) {
-          gsap.fromTo(
-            targets,
-            {
-              opacity: 0,
-              y: yOffset,
-              scale: scale,
-            },
-            {
-              opacity: 1,
-              y: 0,
-              scale: 1,
-              duration,
-              delay,
-              stagger: staggerDelay,
-              ease,
-              scrollTrigger: {
-                trigger: el,
-                start: triggerOffset,
-                once: true,
-              },
-            },
-          );
-          return;
-        }
-      }
+    const observer = getSharedObserver();
+    if (!observer) return;
 
-      gsap.fromTo(
-        el,
-        {
-          opacity: 0,
-          y: yOffset,
-          scale: scale,
-        },
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration,
-          delay,
-          ease,
-          scrollTrigger: {
-            trigger: el,
-            start: triggerOffset,
-            once: true,
-          },
-        },
-      );
+    el.style.opacity = '0';
+    el.style.transform = `translate3d(0, ${Math.min(yOffset, 24)}px, 0)`;
+    el.style.transitionProperty = 'opacity, transform';
+    el.style.transitionDuration = `${Math.min(duration, 0.6)}s`;
+    el.style.transitionTimingFunction = 'cubic-bezier(0.22, 1, 0.36, 1)';
+    el.style.transitionDelay = `${Math.min(delay, 0.2)}s`;
+
+    callbacks.set(el, () => {
+      el.style.opacity = '1';
+      el.style.transform = 'translate3d(0, 0, 0)';
     });
+    observer.observe(el);
 
-    return () => mm.revert();
-  }, [
-    delay,
-    duration,
-    yOffset,
-    scale,
-    ease,
-    staggerChildren,
-    staggerDelay,
-    childSelector,
-    triggerOffset,
-  ]);
+    return () => {
+      callbacks.delete(el);
+      observer.unobserve(el);
+    };
+  }, [delay, duration, yOffset]);
 
   return (
     <div ref={containerRef} className={className}>
