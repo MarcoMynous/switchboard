@@ -60,7 +60,9 @@ ALTER TABLE bookings ADD CONSTRAINT bookings_no_overlap
   ) WHERE (status IN ('held', 'confirmed'));
 ```
 
-Drizzle can't express this — it lives in a hand-written SQL migration (`packages/db/sql/0002_overlap.sql`). A test asserts the constraint exists.
+Drizzle can't express this, so it is hand-appended to the end of `packages/db/sql/0004_booking_engine.sql` (the one migration of P1; re-append it after any regenerate). `migrate.int.test.ts` asserts the constraint exists, and the property test was checked to *fail* when it is dropped.
+
+Also enforced in 0004: `bookings_held_has_expiry` (a `held` row always has `hold_expires_at`), `ends_at > starts_at`, and a partial index on `hold_expires_at WHERE status = 'held'` for the sweeper. Customers' phone column is `phone_e164`.
 
 ## Idempotency indexes (invariant I4)
 

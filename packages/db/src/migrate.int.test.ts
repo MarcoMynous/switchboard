@@ -82,4 +82,29 @@ describe('migrations', () => {
       'schedule',
     ]);
   });
+  it('enforces I1 with the bookings_no_overlap EXCLUDE constraint on held/confirmed only', async () => {
+    const { rows } = await pool.query<{ def: string }>(
+      `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'bookings_no_overlap' AND contype = 'x'`,
+    );
+    expect(rows).toHaveLength(1);
+    const def = rows[0]?.def ?? '';
+    expect(def).toContain('staff_id WITH =');
+    expect(def).toContain("tstzrange(starts_at, ends_at, '[)'::text) WITH &&");
+    expect(def).toMatch(/held.*confirmed/);
+  });
+
+  it('enforces I3/I4 with unique idempotency and event-key indexes', async () => {
+    const { rows } = await pool.query<{ indexname: string; indexdef: string }>(
+      `SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public'
+         AND indexname IN ('bookings_idem', 'payments_idem', 'payment_events_provider_key_uq', 'customers_business_phone_uq')
+       ORDER BY indexname`,
+    );
+    expect(rows.map((r) => r.indexname)).toEqual([
+      'bookings_idem',
+      'customers_business_phone_uq',
+      'payment_events_provider_key_uq',
+      'payments_idem',
+    ]);
+    for (const r of rows) expect(r.indexdef).toContain('UNIQUE');
+  });
 });
