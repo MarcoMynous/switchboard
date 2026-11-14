@@ -83,13 +83,37 @@ jobs:
           cp .env.example .env
           docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
           docker compose exec -T api pnpm db:seed
+      - name: Wait for web app HTTP readiness
+        run: |
+          for i in $(seq 1 30); do
+            if [ -n "$(docker compose ps --status exited -q web)" ]; then
+              echo "::error::web container exited unexpectedly"
+              docker compose ps -a
+              docker compose logs --no-color web
+              exit 1
+            fi
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || true)
+            slug_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/b/fade-republic || true)
+            if [ "$code" = "200" ] && [ "$slug_code" = "200" ]; then
+              echo "Web app ready on http://localhost:3000 (/ -> $code, /b/fade-republic -> $slug_code)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Timed out waiting for http://localhost:3000 (/ -> $code, /b/fade-republic -> $slug_code)"
+          docker compose ps -a
+          docker compose logs --no-color web
+          exit 1
       - run: pnpm test:e2e
         env: { E2E_BASE_URL: http://localhost:3000 }
       - name: Lighthouse on local prod build (early signal; preview run is the gate)
         run: pnpm dlx @lhci/cli autorun --config=./lighthouserc.cjs
         env: { LHCI_BASE_URL: http://localhost:3000 }
       - if: failure()
-        run: docker compose logs --no-color > compose.log
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color --tail=120
+          docker compose logs --no-color > compose.log
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
