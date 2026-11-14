@@ -380,6 +380,13 @@ export default function OnboardingPage() {
         if (data.user?.email) {
           setVerifiedEmail(data.user.email);
         }
+        const isEditMode =
+          typeof window !== 'undefined' &&
+          new URLSearchParams(window.location.search).get('edit') === '1';
+        if (data.user && data.business?.onboardingCompleted && !isEditMode) {
+          router.replace('/dashboard/overview');
+          return;
+        }
         if (data.business) {
           const b = data.business;
           setState((prev) => {
@@ -431,7 +438,7 @@ export default function OnboardingPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [router]);
 
   const persistToDatabase = async (
     payload: OnboardingState,

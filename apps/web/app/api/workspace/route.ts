@@ -99,15 +99,31 @@ export async function GET(request: Request) {
         .orderBy(desc(businesses.updatedAt))
         .limit(1);
       businessRow = ownedRows[0];
+
+      if (!businessRow) {
+        const staffRows = await db
+          .select({ businessId: staff.businessId })
+          .from(staff)
+          .where(eq(staff.userId, session.user.id))
+          .limit(1);
+        if (staffRows[0]?.businessId) {
+          const staffBizRows = await db
+            .select()
+            .from(businesses)
+            .where(eq(businesses.id, staffRows[0].businessId))
+            .limit(1);
+          businessRow = staffBizRows[0];
+        }
+      }
     }
 
-    if (!businessRow) {
-      const latestRows = await db
+    if (!businessRow && !session?.user?.id && requestedSlug) {
+      const slugRows = await db
         .select()
         .from(businesses)
-        .orderBy(desc(businesses.updatedAt))
+        .where(eq(businesses.slug, requestedSlug))
         .limit(1);
-      businessRow = latestRows[0];
+      businessRow = slugRows[0];
     }
 
     if (!businessRow) {

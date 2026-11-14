@@ -193,7 +193,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   <span>Workspace settings</span>
                 </button>
                 <Link
-                  href="/onboarding"
+                  href="/onboarding?edit=1"
                   onClick={() => setWorkspaceMenuOpen(false)}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-surface-container-low hover:text-text-primary transition-colors border-t border-slate-100 mt-1 pt-2"
                 >
@@ -296,7 +296,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <Link
-              href="/onboarding"
+              href="/onboarding?edit=1"
               className="p-1 text-on-surface-variant hover:text-on-surface transition-colors"
               title="Workspace Setup"
             >

@@ -7,15 +7,36 @@ import { AppIcon } from '@/components/AppIcon';
 import { SwitchboardLogo } from '@/components/SwitchboardLogo';
 import { authClient } from '@/lib/auth-client';
 
+const MAGIC_LINK_COOLDOWN_SECONDS = 60;
+
+function getCooldownKey(email: string): string {
+  return `sb_magic_link_cooldown:${email.trim().toLowerCase()}`;
+}
+
 function CheckEmailContent() {
   const searchParams = useSearchParams();
   const initialEmail = searchParams.get('email') || 'hello@acmeenterprises.com';
 
   const [email, setEmail] = useState(initialEmail);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldown, setCooldown] = useState(MAGIC_LINK_COOLDOWN_SECONDS);
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<'idle' | 'resent' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Sync remaining cooldown from localStorage so users can't bypass the timer by refreshing
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(getCooldownKey(email));
+      if (raw) {
+        const remaining = Math.ceil((Number(raw) - Date.now()) / 1000);
+        setCooldown(Math.max(remaining, 0));
+      } else {
+        setCooldown(0);
+      }
+    } catch {
+      // keep default cooldown
+    }
+  }, [email]);
 
   // Handle countdown timer
   useEffect(() => {
@@ -34,7 +55,7 @@ function CheckEmailContent() {
     try {
       const res = await authClient.signIn.magicLink({
         email,
-        callbackURL: '/onboarding',
+        callbackURL: '/auth/post-login',
       });
 
       if (res?.error) {
@@ -42,7 +63,15 @@ function CheckEmailContent() {
         setErrorMessage(res.error.message || 'Unable to dispatch a new link. Please try again.');
       } else {
         setResendStatus('resent');
-        setCooldown(60); // 60 seconds cooldown
+        try {
+          localStorage.setItem(
+            getCooldownKey(email),
+            String(Date.now() + MAGIC_LINK_COOLDOWN_SECONDS * 1000),
+          );
+        } catch {
+          // ignore storage errors
+        }
+        setCooldown(MAGIC_LINK_COOLDOWN_SECONDS);
       }
     } catch (_err) {
       setResendStatus('error');

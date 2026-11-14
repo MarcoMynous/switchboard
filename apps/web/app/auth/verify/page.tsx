@@ -58,27 +58,35 @@ function VerifyLinkContent() {
         }
       }
 
-      // Step 2: Decrypting / Establishing Session
+      // Step 2: Decrypting / Establishing Session & Resolving Onboarding Status
       const timer1 = setTimeout(() => {
         if (!isMounted) return;
         setState('decrypting');
         setProgress(85);
 
-        // Step 3: Success and redirect
-        const timer2 = setTimeout(() => {
+        void (async () => {
+          let destination = '/onboarding';
+          try {
+            const destRes = await fetch('/api/auth/destination', { cache: 'no-store' });
+            if (destRes.ok) {
+              const destData = (await destRes.json()) as { destination?: string };
+              if (destData.destination) {
+                destination = destData.destination;
+              }
+            }
+          } catch {
+            // Fall back to /onboarding if destination lookup fails
+          }
+
           if (!isMounted) return;
           setState('success');
           setProgress(100);
 
-          const timer3 = setTimeout(() => {
+          setTimeout(() => {
             if (!isMounted) return;
-            router.push('/onboarding');
+            router.replace(destination);
           }, 800);
-
-          return () => clearTimeout(timer3);
-        }, 900);
-
-        return () => clearTimeout(timer2);
+        })();
       }, 700);
 
       return () => clearTimeout(timer1);

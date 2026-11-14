@@ -3,10 +3,16 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
 import { SwitchboardLogo } from '@/components/SwitchboardLogo';
 import { authClient } from '@/lib/auth-client';
+
+const MAGIC_LINK_COOLDOWN_SECONDS = 60;
+
+function getCooldownKey(email: string): string {
+  return `sb_magic_link_cooldown:${email.trim().toLowerCase()}`;
+}
 
 export default function SignInPage() {
   const router = useRouter();
@@ -15,6 +21,53 @@ export default function SignInPage() {
   const [clientError, setClientError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  // If the user is already signed in and verified, route straight to dashboard (if onboarded) or onboarding.
+  useEffect(() => {
+    let active = true;
+    fetch('/api/auth/destination', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data: { authenticated?: boolean; destination?: string }) => {
+        if (!active || !data?.authenticated || !data.destination) return;
+        router.replace(data.destination);
+      })
+      .catch(() => {
+        // Stay on sign-in when offline or unauthenticated
+      });
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  // Sync cooldown for the typed email from localStorage
+  useEffect(() => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) {
+      setCooldown(0);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(getCooldownKey(trimmed));
+      if (!raw) {
+        setCooldown(0);
+        return;
+      }
+      const expiresAt = Number(raw);
+      const remaining = Math.ceil((expiresAt - Date.now()) / 1000);
+      setCooldown(Math.max(remaining, 0));
+    } catch {
+      setCooldown(0);
+    }
+  }, [email]);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const handleFormSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -33,12 +86,17 @@ export default function SignInPage() {
       return;
     }
 
+    if (cooldown > 0) {
+      setClientError(`Please wait ${cooldown}s before requesting another sign-in link.`);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const res = await authClient.signIn.magicLink({
         email: trimmed,
-        callbackURL: '/onboarding',
+        callbackURL: '/auth/post-login',
       });
 
       if (res?.error) {
@@ -50,6 +108,13 @@ export default function SignInPage() {
         return;
       }
 
+      const expiresAt = Date.now() + MAGIC_LINK_COOLDOWN_SECONDS * 1000;
+      try {
+        localStorage.setItem(getCooldownKey(trimmed), String(expiresAt));
+      } catch {
+        // ignore storage errors
+      }
+      setCooldown(MAGIC_LINK_COOLDOWN_SECONDS);
       setIsSuccess(true);
       setTimeout(() => {
         router.push(`/auth/check-email?email=${encodeURIComponent(trimmed)}`);
@@ -71,7 +136,7 @@ export default function SignInPage() {
     try {
       const res = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/',
+        callbackURL: '/auth/post-login',
       });
 
       if (res?.error) {
@@ -298,7 +363,7 @@ export default function SignInPage() {
               {/* Primary Submit CTA */}
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || cooldown > 0}
                 className="w-full h-11 px-4 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-primary active:scale-[0.99] transition-all shadow-md disabled:opacity-75 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
@@ -310,6 +375,11 @@ export default function SignInPage() {
                   <>
                     <AppIcon name="mark_email_read" className="text-[18px]" />
                     <span>Check Your Inbox</span>
+                  </>
+                ) : cooldown > 0 ? (
+                  <>
+                    <AppIcon name="schedule" className="text-[18px]" />
+                    <span>Wait {cooldown}s to send another link</span>
                   </>
                 ) : (
                   <>

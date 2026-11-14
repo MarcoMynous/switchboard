@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { parseEnv, webSchema } from '@switchboard/env';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { APIError } from 'better-auth/api';
 import { magicLink } from 'better-auth/plugins';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import nodemailer from 'nodemailer';
@@ -67,6 +68,9 @@ const transporter =
       })
     : null;
 
+const MAGIC_LINK_COOLDOWN_MS = 60_000;
+const recentMagicLinkSends = new Map<string, number>();
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: 'pg', schema }),
   baseURL,
@@ -81,6 +85,26 @@ export const auth = betterAuth({
     magicLink({
       expiresIn: 60 * 15, // 15 minutes
       sendMagicLink: async ({ email, token, url }, request) => {
+        const normalizedEmail = email.trim().toLowerCase();
+        const now = Date.now();
+        const lastSentAt = recentMagicLinkSends.get(normalizedEmail);
+        if (lastSentAt && now - lastSentAt < MAGIC_LINK_COOLDOWN_MS) {
+          const remainingSeconds = Math.ceil((MAGIC_LINK_COOLDOWN_MS - (now - lastSentAt)) / 1000);
+          throw new APIError('TOO_MANY_REQUESTS', {
+            message: `Please wait ${remainingSeconds}s before requesting another sign-in link.`,
+          });
+        }
+
+        // Prune stale entries to prevent unbounded growth in long-running processes
+        if (recentMagicLinkSends.size > 500) {
+          for (const [key, ts] of recentMagicLinkSends.entries()) {
+            if (now - ts >= MAGIC_LINK_COOLDOWN_MS) {
+              recentMagicLinkSends.delete(key);
+            }
+          }
+        }
+        recentMagicLinkSends.set(normalizedEmail, now);
+
         const reqOrigin = request?.headers?.get('origin');
         const effectiveOrigin = reqOrigin || baseURL;
         const resolvedUrl =
