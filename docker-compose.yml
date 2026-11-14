@@ -97,6 +97,15 @@ services:
     ports: ["3000:3000"]
     depends_on:
       api: { condition: service_healthy }
+    # Without this, `up --wait` returns as soon as the container runs, while the prod override is
+    # still inside `next build`, and e2e/Lighthouse hit a port nothing is listening on yet.
+    # start_period covers that build; failures during it don't count against retries.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:3000/ || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 24
+      start_period: 300s
 
   # ---- opt-in tools ----
   k6:
