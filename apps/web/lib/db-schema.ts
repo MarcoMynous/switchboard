@@ -76,6 +76,8 @@ export const businesses = pgTable(
     defaultDepositKobo: bigint('default_deposit_kobo', { mode: 'number' })
       .notNull()
       .default(150_000),
+    freeCancelHours: integer('free_cancel_hours').notNull().default(4),
+    merchantBearsCost: boolean('merchant_bears_cost').notNull().default(false),
     cancellationPolicy: text('cancellation_policy'),
     koraStatus: text('kora_status').notNull().default('ready'),
     assistantName: text('assistant_name').notNull().default('Maya'),

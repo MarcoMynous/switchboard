@@ -11,9 +11,9 @@
 - [ ] A: Late-payment path (slot gone → auto refund; slot free → confirm) — see concern
 - [ ] A: mock-kora: bank-transfer charge, transaction query, signed webhooks, `/_control/pay`, chaos mode
 - [ ] A: Test with a captured real Kora sandbox webhook payload (signature correctness)
-- [ ] B: Deposit card: bank, account number (copy button), exact amount to transfer, hold band, live status (poll every 3s, stop on terminal)
-- [ ] B: Confirmed / expired / underpaid states on booking page
-- [ ] B: Owner settings: deposit rule per service, free-cancel window, who bears the Kora fee
+- [x] B: Deposit card: bank, account number (copy button), exact amount to transfer, hold band, live status (poll every 3s, stop on terminal)
+- [x] B: Confirmed / expired / underpaid states on booking page
+- [x] B: Owner settings: deposit rule per service, free-cancel window, who bears the Kora fee
 
 ## Exit criteria
 

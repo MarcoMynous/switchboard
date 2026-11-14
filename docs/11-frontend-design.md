@@ -72,6 +72,8 @@ Use the **Premium Hybrid** visual approach.
 | Success | `#10B981` | Confirmed positive states, paid toasts, money dashboard positives. **Fills, dots and tints only**: 2.5:1 on white, never text |
 | Success strong | `#047857` (light) / `#34D399` (dark) | Success-coloured **text** (`text-success-strong`) |
 | Warning | `#F59E0B` | **Held** slot state, countdown hold band, and non-blocking warnings |
+| Warning text | `#92400E` | Held/warning **text** on amber tints (`#B45309` was 4.2:1 on `bg-[#F59E0B]/15`, failed AA) |
+| Iris text on tints | `#5247D8` | Iris-coloured text on iris tints (`#6258E8` is 4.2–4.5:1 there) |
 | Danger | `#EF4444` | Errors, no-shows, and destructive operations |
 | Slate | `#5B6577` | Secondary information and free slot outlines (was `#64748B`: 4.1:1 on surface-container, failed AA) |
 | Border | `#E5E7EB` | Light-surface borders |

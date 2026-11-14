@@ -1,8 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-// P0 smoke: the public landing page renders and has zero axe violations (WCAG 2.1 A/AA).
+// Smoke: public pages render and have zero axe violations (WCAG 2.1 A/AA).
 // Add a page here as it ships, alongside lighthouserc.cjs and load/k6/smoke.js.
+const publicPages = ['/', '/b/fade-republic'];
 
 test.describe('landing page', () => {
   test('renders the hero', async ({ page }) => {
@@ -11,13 +12,17 @@ test.describe('landing page', () => {
     await expect(page).toHaveTitle(/Switchboard/);
     await expect(page.getByRole('heading', { level: 1 })).toContainText('front desk');
   });
+});
 
-  test('has no accessibility violations', async ({ page }) => {
+for (const path of publicPages) {
+  test(`${path} has no accessibility violations`, async ({ page }) => {
     // Audit the settled page. Mid-animation text is semi-transparent, which makes
     // axe's colour-contrast check flaky; ScrollFloat/ScrollReveal skip motion under this.
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(200);
+    // Not 'networkidle': some pages poll, so the network never goes quiet.
+    await page.waitForLoadState('load');
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();
@@ -27,4 +32,4 @@ test.describe('landing page', () => {
     );
     expect(problems).toEqual([]);
   });
-});
+}

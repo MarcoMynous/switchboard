@@ -212,7 +212,27 @@
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+/* Keep browser-autofilled inputs crisp white with dark text instead of grey/blue browser fill */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #111827;
+  caret-color: #111827;
+  background-color: #ffffff;
+  color: #111827;
+  transition: background-color 9999s ease-out 0s;
 }
 
 body {
