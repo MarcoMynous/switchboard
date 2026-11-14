@@ -16,6 +16,7 @@ type ServiceDepositRule = 'fixed' | 'percent' | 'none' | 'full';
 
 interface ServiceItem {
   id: string;
+  slug?: string;
   name: string;
   description?: string;
   durationMinutes: number;
@@ -30,6 +31,29 @@ interface StaffItem {
   id: string;
   name: string;
   role: string;
+  serviceIds?: string[];
+}
+
+interface ApiSlotOption {
+  startsAt: string;
+  endsAt: string;
+  staffIds: string[];
+  label: string;
+}
+
+function formatSlotLabel(isoUtc: string, timezone = 'Africa/Lagos'): string {
+  try {
+    const d = new Date(isoUtc);
+    const timeStr = new Intl.DateTimeFormat('en-NG', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: timezone.includes('/') ? timezone.split(' ')[0] : 'Africa/Lagos',
+    }).format(d);
+    return `${timeStr} WAT`;
+  } catch {
+    return isoUtc.slice(11, 16);
+  }
 }
 
 interface DaySchedule {
@@ -185,6 +209,7 @@ export default function PublicBookingPage() {
   const slug = params?.slug ?? 'fade-republic';
 
   const [businessName, setBusinessName] = useState('Fade Republic');
+  const [businessTimezone, setBusinessTimezone] = useState('Africa/Lagos');
   const [address, setAddress] = useState('KM 10 Idiroko Road, Ota, Ogun State');
   const [phone, setPhone] = useState('+234 803 123 4567');
   const [merchantBearsCost, setMerchantBearsCost] = useState(false);
@@ -195,16 +220,37 @@ export default function PublicBookingPage() {
   const [schedule, setSchedule] = useState<Record<string, DaySchedule>>(DEFAULT_SCHEDULE);
   const [servicesList, setServicesList] = useState<ServiceItem[]>(DEFAULT_SERVICES);
   const [staffList, setStaffList] = useState<StaffItem[]>(DEFAULT_STAFF);
+  const [usingRealBookingApi, setUsingRealBookingApi] = useState(false);
+  const [apiSlots, setApiSlots] = useState<ApiSlotOption[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
 
   const [selectedServiceId, setSelectedServiceId] = useState<string>('svc_1');
-  const [selectedStaffId, setSelectedStaffId] = useState<string>('stf_1');
+  const [selectedStaffId, setSelectedStaffId] = useState<string>('any');
   const [selectedDateIso, setSelectedDateIso] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<string>('10:00 WAT');
+  const [selectedSlotStartsAt, setSelectedSlotStartsAt] = useState<string>('');
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `idem_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+  );
+  const [isSubmittingHold, setIsSubmittingHold] = useState(false);
+  const [holdError, setHoldError] = useState<string | null>(null);
+  const [slotTakenAlternatives, setSlotTakenAlternatives] = useState<ApiSlotOption[]>([]);
+  const [holdRemainingSeconds, setHoldRemainingSeconds] = useState<number>(900);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [bookingStatus, setBookingStatus] = useState<DepositCardStatus | null>(null);
   const [reference, setReference] = useState('sb_dep_01JFADEREP98K2');
   const [amountPaidKobo, setAmountPaidKobo] = useState(0);
+
+  const rotateIdempotencyKey = () => {
+    setIdempotencyKey(
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `idem_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    );
+  };
 
   useEffect(() => {
     try {
@@ -238,99 +284,186 @@ export default function PublicBookingPage() {
       // Ignore storage error
     }
 
-    fetch(`/api/workspace?slug=${encodeURIComponent(slug)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!data?.ok || !data.business) return;
-        setBusinessName(data.business.name || 'Fade Republic');
-        if (data.business.location) setAddress(data.business.location);
-        if (data.business.phone) setPhone(data.business.phone);
-        if (typeof data.business.merchantBearsCost === 'boolean') {
-          setMerchantBearsCost(data.business.merchantBearsCost);
-        }
-        if (typeof data.business.freeCancelHours === 'number') {
-          setDefaultFreeCancelHours(data.business.freeCancelHours);
-        }
-        if (data.business.cancellationPolicy) {
-          setCancellationPolicy(data.business.cancellationPolicy);
-        }
-        if (data.business.schedule) {
-          setSchedule(data.business.schedule);
-        }
+    let cancelled = false;
 
-        if (Array.isArray(data.services) && data.services.length > 0) {
-          const mappedServices: ServiceItem[] = data.services.map(
-            (s: {
+    const loadCatalog = async () => {
+      try {
+        const pubRes = await fetch(`/api/public/${encodeURIComponent(slug)}`);
+        if (pubRes.ok) {
+          const catalog = (await pubRes.json()) as {
+            business?: {
               id: string;
               name: string;
-              description?: string;
-              durationMin?: number;
-              duration?: number;
-              priceKobo?: number;
-              price?: number;
-              depositValue?: number;
-              depositAmount?: number;
-              depositRequired?: boolean;
-              depositType?: ServiceDepositRule;
-              freeCancelHours?: number;
-            }) => {
-              const priceKobo = s.priceKobo ?? Math.round((s.price ?? 5000) * 100);
-              const depositType: ServiceDepositRule =
-                s.depositRequired === false || s.depositType === 'none'
-                  ? 'none'
-                  : s.depositType && ['fixed', 'percent', 'full', 'none'].includes(s.depositType)
-                    ? s.depositType
-                    : 'fixed';
-              const depositValue =
-                depositType === 'none'
-                  ? 0
-                  : depositType === 'full'
-                    ? priceKobo
-                    : (s.depositValue ?? Math.round((s.depositAmount ?? 1500) * 100));
+              slug: string;
+              location: string | null;
+              phone: string | null;
+              timezone: string;
+              cancellationPolicy: string | null;
+            };
+            services?: Array<{
+              id: string;
+              slug: string;
+              name: string;
+              description: string | null;
+              durationMin: number;
+              priceKobo: number;
+              depositType: ServiceDepositRule;
+              depositValue: number;
+            }>;
+            staff?: Array<{
+              id: string;
+              name: string;
+              roleTitle: string;
+              serviceIds: string[];
+            }>;
+          };
 
-              return {
-                id: s.id,
-                name: s.name,
-                description: s.description || 'Bookable appointment service.',
-                durationMinutes: s.durationMin ?? s.duration ?? 45,
-                priceKobo,
-                depositType,
-                depositValue,
-                freeCancelHours: s.freeCancelHours ?? data.business.freeCancelHours ?? 4,
-              };
-            },
-          );
+          if (
+            !cancelled &&
+            catalog.business &&
+            Array.isArray(catalog.services) &&
+            catalog.services.length > 0
+          ) {
+            setUsingRealBookingApi(true);
+            setBusinessName(catalog.business.name);
+            setBusinessTimezone(catalog.business.timezone || 'Africa/Lagos');
+            if (catalog.business.location) setAddress(catalog.business.location);
+            if (catalog.business.phone) setPhone(catalog.business.phone);
+            if (catalog.business.cancellationPolicy) {
+              setCancellationPolicy(catalog.business.cancellationPolicy);
+            }
 
-          const hasNoDepositService = mappedServices.some((s) => s.depositType === 'none');
-          const finalServices = hasNoDepositService
-            ? mappedServices
-            : [
-                ...mappedServices,
-                {
-                  id: 'svc_no_deposit',
-                  name: 'Quick Line-up & Consultation',
-                  description: 'Fast perimeter check — confirms directly with no deposit.',
-                  durationMinutes: 15,
-                  priceKobo: 150_000,
-                  depositType: 'none' as const,
-                  depositValue: 0,
-                  freeCancelHours: data.business.freeCancelHours ?? 4,
-                },
-              ];
+            const mappedServices: ServiceItem[] = catalog.services.map((s) => ({
+              id: s.id,
+              slug: s.slug,
+              name: s.name,
+              description: s.description || 'Bookable appointment service.',
+              durationMinutes: s.durationMin,
+              priceKobo: s.priceKobo,
+              depositType: s.depositType,
+              depositValue: s.depositValue,
+              freeCancelHours: defaultFreeCancelHours,
+            }));
+            setServicesList(mappedServices);
+            if (mappedServices[0]) setSelectedServiceId(mappedServices[0].id);
 
-          setServicesList(finalServices);
-          if (finalServices[0]) setSelectedServiceId(finalServices[0].id);
+            if (Array.isArray(catalog.staff) && catalog.staff.length > 0) {
+              setStaffList(
+                catalog.staff.map((st) => ({
+                  id: st.id,
+                  name: st.name,
+                  role: st.roleTitle,
+                  serviceIds: st.serviceIds,
+                })),
+              );
+              setSelectedStaffId('any');
+            }
+            return;
+          }
         }
+      } catch {
+        // Fall back to /api/workspace below
+      }
 
-        if (Array.isArray(data.staff) && data.staff.length > 0) {
-          setStaffList(data.staff);
-          if (data.staff[0]) setSelectedStaffId(data.staff[0].id);
-        }
-      })
-      .catch(() => {
-        // Keep defaults
-      });
-  }, [slug]);
+      fetch(`/api/workspace?slug=${encodeURIComponent(slug)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled || !data?.ok || !data.business) return;
+          setBusinessName(data.business.name || 'Fade Republic');
+          if (data.business.location) setAddress(data.business.location);
+          if (data.business.phone) setPhone(data.business.phone);
+          if (typeof data.business.merchantBearsCost === 'boolean') {
+            setMerchantBearsCost(data.business.merchantBearsCost);
+          }
+          if (typeof data.business.freeCancelHours === 'number') {
+            setDefaultFreeCancelHours(data.business.freeCancelHours);
+          }
+          if (data.business.cancellationPolicy) {
+            setCancellationPolicy(data.business.cancellationPolicy);
+          }
+          if (data.business.schedule) {
+            setSchedule(data.business.schedule);
+          }
+
+          if (Array.isArray(data.services) && data.services.length > 0) {
+            const mappedServices: ServiceItem[] = data.services.map(
+              (s: {
+                id: string;
+                name: string;
+                description?: string;
+                durationMin?: number;
+                duration?: number;
+                priceKobo?: number;
+                price?: number;
+                depositValue?: number;
+                depositAmount?: number;
+                depositRequired?: boolean;
+                depositType?: ServiceDepositRule;
+                freeCancelHours?: number;
+              }) => {
+                const priceKobo = s.priceKobo ?? Math.round((s.price ?? 5000) * 100);
+                const depositType: ServiceDepositRule =
+                  s.depositRequired === false || s.depositType === 'none'
+                    ? 'none'
+                    : s.depositType && ['fixed', 'percent', 'full', 'none'].includes(s.depositType)
+                      ? s.depositType
+                      : 'fixed';
+                const depositValue =
+                  depositType === 'none'
+                    ? 0
+                    : depositType === 'full'
+                      ? priceKobo
+                      : (s.depositValue ?? Math.round((s.depositAmount ?? 1500) * 100));
+
+                return {
+                  id: s.id,
+                  name: s.name,
+                  description: s.description || 'Bookable appointment service.',
+                  durationMinutes: s.durationMin ?? s.duration ?? 45,
+                  priceKobo,
+                  depositType,
+                  depositValue,
+                  freeCancelHours: s.freeCancelHours ?? data.business.freeCancelHours ?? 4,
+                };
+              },
+            );
+
+            const hasNoDepositService = mappedServices.some((s) => s.depositType === 'none');
+            const finalServices = hasNoDepositService
+              ? mappedServices
+              : [
+                  ...mappedServices,
+                  {
+                    id: 'svc_no_deposit',
+                    name: 'Quick Line-up & Consultation',
+                    description: 'Fast perimeter check — confirms directly with no deposit.',
+                    durationMinutes: 15,
+                    priceKobo: 150_000,
+                    depositType: 'none' as const,
+                    depositValue: 0,
+                    freeCancelHours: data.business.freeCancelHours ?? 4,
+                  },
+                ];
+
+            setServicesList(finalServices);
+            if (finalServices[0]) setSelectedServiceId(finalServices[0].id);
+          }
+
+          if (Array.isArray(data.staff) && data.staff.length > 0) {
+            setStaffList(data.staff);
+            if (data.staff[0]) setSelectedStaffId(data.staff[0].id);
+          }
+        })
+        .catch(() => {
+          // Keep defaults
+        });
+    };
+
+    void loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, defaultFreeCancelHours]);
 
   const dayStrip = useMemo(() => buildDayStrip(schedule), [schedule]);
 
@@ -352,15 +485,84 @@ export default function PublicBookingPage() {
   );
 
   useEffect(() => {
-    if (timeChips.length > 0 && !timeChips.includes(selectedSlot)) {
+    if (!usingRealBookingApi || !selectedServiceId || !selectedDateIso) return;
+    let cancelled = false;
+    setSlotsLoading(true);
+    setSlotTakenAlternatives([]);
+    setHoldError(null);
+
+    const paramsObj = new URLSearchParams({
+      service: selectedServiceId,
+      date: selectedDateIso,
+      limit: '12',
+    });
+    if (selectedStaffId && selectedStaffId !== 'any') {
+      paramsObj.set('staff', selectedStaffId);
+    }
+
+    fetch(`/api/public/${encodeURIComponent(slug)}/slots?${paramsObj.toString()}`)
+      .then(async (res) => {
+        const data = (await res.json()) as {
+          slots?: Array<{ startsAt: string; endsAt: string; staffIds: string[] }>;
+        };
+        if (cancelled) return;
+        if (!res.ok || !Array.isArray(data.slots)) {
+          setApiSlots([]);
+          return;
+        }
+        const mapped: ApiSlotOption[] = data.slots.map((s) => ({
+          ...s,
+          label: formatSlotLabel(s.startsAt, businessTimezone),
+        }));
+        setApiSlots(mapped);
+        if (mapped[0]) {
+          setSelectedSlot(mapped[0].label);
+          setSelectedSlotStartsAt(mapped[0].startsAt);
+        } else {
+          setSelectedSlotStartsAt('');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setApiSlots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSlotsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    usingRealBookingApi,
+    slug,
+    selectedServiceId,
+    selectedDateIso,
+    selectedStaffId,
+    businessTimezone,
+  ]);
+
+  useEffect(() => {
+    if (!usingRealBookingApi && timeChips.length > 0 && !timeChips.includes(selectedSlot)) {
       setSelectedSlot(timeChips[0] ?? '10:00 WAT');
     }
-  }, [timeChips, selectedSlot]);
+  }, [usingRealBookingApi, timeChips, selectedSlot]);
 
   const selectedService =
     servicesList.find((s) => s.id === selectedServiceId) ?? servicesList[0] ?? DEFAULT_SERVICES[0];
+  const eligibleStaff = useMemo(() => {
+    if (!selectedService) return staffList;
+    const filtered = staffList.filter(
+      (st) =>
+        !st.serviceIds || st.serviceIds.length === 0 || st.serviceIds.includes(selectedService.id),
+    );
+    return filtered.length > 0 ? filtered : staffList;
+  }, [selectedService, staffList]);
   const selectedStaff =
-    staffList.find((s) => s.id === selectedStaffId) ?? staffList[0] ?? DEFAULT_STAFF[0];
+    selectedStaffId === 'any'
+      ? { id: 'any', name: 'Any available specialist', role: 'Fastest opening' }
+      : (eligibleStaff.find((s) => s.id === selectedStaffId) ??
+        eligibleStaff[0] ??
+        DEFAULT_STAFF[0]);
 
   const baseDepositKobo = selectedService ? resolveServiceDepositKobo(selectedService) : 0;
   const isNoDepositService = baseDepositKobo === 0;
@@ -431,9 +633,117 @@ export default function PublicBookingPage() {
 
   const handleHoldOrConfirmSlot = async (e: React.FormEvent) => {
     e.preventDefault();
+    setHoldError(null);
+    setSlotTakenAlternatives([]);
+
+    if (usingRealBookingApi && selectedService) {
+      if (!selectedSlotStartsAt) {
+        setHoldError('Please pick an available time slot first.');
+        return;
+      }
+
+      setIsSubmittingHold(true);
+      try {
+        const res = await fetch(`/api/public/${encodeURIComponent(slug)}/holds`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            serviceId: selectedService.id,
+            ...(selectedStaffId !== 'any' ? { staffId: selectedStaffId } : {}),
+            startsAt: selectedSlotStartsAt,
+            customer: {
+              name: customerName.trim(),
+              phone: customerPhone.trim(),
+            },
+            idempotencyKey,
+          }),
+        });
+
+        const payload = (await res.json()) as {
+          replayed?: boolean;
+          booking?: {
+            id: string;
+            status: 'held' | 'confirmed';
+            startsAt: string;
+            endsAt: string;
+            holdExpiresAt: string | null;
+            staffId: string;
+            serviceId: string;
+          };
+          error?: { code?: string; message?: string };
+          alternatives?: Array<{ startsAt: string; endsAt: string; staffIds: string[] }>;
+        };
+
+        if (res.status === 409 && payload.error?.code === 'SLOT_TAKEN') {
+          const alts: ApiSlotOption[] = (payload.alternatives ?? []).map((s) => ({
+            ...s,
+            label: formatSlotLabel(s.startsAt, businessTimezone),
+          }));
+          setSlotTakenAlternatives(alts);
+          setHoldError('That time just got taken. Here are the next three.');
+          if (alts.length > 0) {
+            setApiSlots((prev) => (alts.length > 0 ? alts : prev));
+          }
+          rotateIdempotencyKey();
+          return;
+        }
+
+        if (!res.ok || !payload.booking) {
+          const code = payload.error?.code;
+          if (code === 'INVALID_PHONE') {
+            setHoldError('Please enter a valid Nigerian phone number (e.g. 0803 123 4567).');
+          } else if (code === 'IDEMPOTENCY_KEY_REUSED') {
+            rotateIdempotencyKey();
+            setHoldError('This slot selection changed — please tap Hold this time again.');
+          } else {
+            setHoldError(
+              payload.error?.message ||
+                'Unable to hold that slot right now. Please try another time.',
+            );
+          }
+          return;
+        }
+
+        const b = payload.booking;
+        const nextStatus: DepositCardStatus = b.status === 'confirmed' ? 'confirmed' : 'held';
+        const remSecs = b.holdExpiresAt
+          ? Math.max(1, Math.round((new Date(b.holdExpiresAt).getTime() - Date.now()) / 1000))
+          : 900;
+
+        setReference(b.id);
+        setAmountPaidKobo(0);
+        setHoldRemainingSeconds(remSecs);
+        setBookingStatus(nextStatus);
+        syncDashboardBooking(b.id, nextStatus, amountExpectedKobo);
+        rotateIdempotencyKey();
+
+        await fetch('/api/booking-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reference: b.id,
+            status: nextStatus,
+            amountExpectedKobo,
+            amountPaidKobo: 0,
+            bankName: 'Wema Bank',
+            accountNumber: '7829104482',
+            accountName: `${businessName} via Switchboard`,
+            ttlSeconds: remSecs,
+          }),
+        }).catch(() => {});
+        return;
+      } catch {
+        setHoldError('Network error while contacting the booking engine. Please try again.');
+        return;
+      } finally {
+        setIsSubmittingHold(false);
+      }
+    }
+
     const newRef = `sb_dep_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
     setReference(newRef);
     setAmountPaidKobo(0);
+    setHoldRemainingSeconds(900);
 
     const nextStatus: DepositCardStatus = isNoDepositService ? 'confirmed' : 'held';
     setBookingStatus(nextStatus);
@@ -447,7 +757,7 @@ export default function PublicBookingPage() {
           reference: newRef,
           status: nextStatus,
           amountExpectedKobo,
-          amountPaidKobo: isNoDepositService ? 0 : 0,
+          amountPaidKobo: 0,
           bankName: 'Wema Bank',
           accountNumber: '7829104482',
           accountName: `${businessName} via Switchboard`,
@@ -578,7 +888,33 @@ export default function PublicBookingPage() {
                 2. Choose specialist
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {staffList.map((stf) => {
+                {usingRealBookingApi && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedStaffId('any');
+                      setBookingStatus(null);
+                      setHoldError(null);
+                      rotateIdempotencyKey();
+                    }}
+                    className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
+                      selectedStaffId === 'any'
+                        ? 'border-[#6258E8] bg-[#6258E8]/5 ring-1 ring-[#6258E8]'
+                        : 'border-[#E5E7EB] hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="w-9 h-9 rounded-full bg-[#6258E8]/10 text-[#5247D8] flex items-center justify-center font-bold text-xs shrink-0">
+                      <AppIcon name="groups" className="text-[18px]" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-semibold text-[#111827] truncate">
+                        Any available specialist
+                      </p>
+                      <p className="text-[12px] text-text-secondary truncate">Fastest opening</p>
+                    </div>
+                  </button>
+                )}
+                {eligibleStaff.map((stf) => {
                   const active = stf.id === selectedStaffId;
                   return (
                     <button
@@ -587,6 +923,8 @@ export default function PublicBookingPage() {
                       onClick={() => {
                         setSelectedStaffId(stf.id);
                         setBookingStatus(null);
+                        setHoldError(null);
+                        rotateIdempotencyKey();
                       }}
                       className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
                         active
@@ -673,31 +1011,76 @@ export default function PublicBookingPage() {
 
             {/* 4. Time Slot Chips */}
             <div className="space-y-2.5">
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
-                4. Choose time chip (WAT)
-              </p>
-              <div className="grid grid-cols-3 gap-2.5">
-                {timeChips.map((slot) => {
-                  const active = slot === selectedSlot;
-                  return (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => {
-                        setSelectedSlot(slot);
-                        setBookingStatus(null);
-                      }}
-                      className={`py-2.5 px-3 rounded-xl border font-mono text-[13px] font-medium transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
-                        active
-                          ? 'border-[#6258E8] bg-[#6258E8] text-white shadow-xs'
-                          : 'border-[#E5E7EB] text-[#111827] hover:border-[#6258E8]/50 bg-white'
-                      }`}
-                    >
-                      {slot}
-                    </button>
-                  );
-                })}
+              <div className="flex items-center justify-between">
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
+                  4. Choose time chip (WAT)
+                </p>
+                {usingRealBookingApi && (
+                  <span className="text-[11px] font-mono text-[#047857]">
+                    {slotsLoading ? 'Checking live slots…' : 'Live availability'}
+                  </span>
+                )}
               </div>
+
+              {usingRealBookingApi ? (
+                apiSlots.length === 0 && !slotsLoading ? (
+                  <div className="p-4 rounded-xl border border-[#E5E7EB] bg-slate-50 text-xs text-text-secondary">
+                    No open slots left on this date. Pick another day above.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {apiSlots.map((slot) => {
+                      const active = slot.startsAt === selectedSlotStartsAt;
+                      return (
+                        <button
+                          key={slot.startsAt}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSlot(slot.label);
+                            setSelectedSlotStartsAt(slot.startsAt);
+                            setBookingStatus(null);
+                            setHoldError(null);
+                            setSlotTakenAlternatives([]);
+                            rotateIdempotencyKey();
+                          }}
+                          className={`py-2.5 px-3 rounded-xl border font-mono text-[13px] font-medium transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
+                            active
+                              ? 'border-[#6258E8] bg-[#6258E8] text-white shadow-xs'
+                              : 'border-[#E5E7EB] text-[#111827] hover:border-[#6258E8]/50 bg-white'
+                          }`}
+                        >
+                          {slot.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
+              ) : (
+                <div className="grid grid-cols-3 gap-2.5">
+                  {timeChips.map((slot) => {
+                    const active = slot === selectedSlot;
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSlot(slot);
+                          setBookingStatus(null);
+                          setHoldError(null);
+                          rotateIdempotencyKey();
+                        }}
+                        className={`py-2.5 px-3 rounded-xl border font-mono text-[13px] font-medium transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
+                          active
+                            ? 'border-[#6258E8] bg-[#6258E8] text-white shadow-xs'
+                            : 'border-[#E5E7EB] text-[#111827] hover:border-[#6258E8]/50 bg-white'
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -796,13 +1179,45 @@ export default function PublicBookingPage() {
                   />
                 </div>
 
+                {holdError && (
+                  <div
+                    role="alert"
+                    className="p-3 rounded-xl border border-amber-300 bg-amber-50 text-xs text-amber-900 space-y-2"
+                  >
+                    <p className="font-semibold">{holdError}</p>
+                    {slotTakenAlternatives.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {slotTakenAlternatives.map((alt) => (
+                          <button
+                            key={alt.startsAt}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSlot(alt.label);
+                              setSelectedSlotStartsAt(alt.startsAt);
+                              setHoldError(null);
+                              setSlotTakenAlternatives([]);
+                              rotateIdempotencyKey();
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 font-mono font-semibold text-[#111827] hover:border-[#6258E8] cursor-pointer"
+                          >
+                            {alt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-[#6258E8] hover:bg-[#4F46E5] text-white font-semibold text-[14px] transition-colors shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8]"
+                  disabled={isSubmittingHold}
+                  className="w-full py-3 rounded-xl bg-[#6258E8] hover:bg-[#4F46E5] text-white font-semibold text-[14px] transition-colors shadow-xs cursor-pointer disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8]"
                 >
-                  {isNoDepositService
-                    ? 'Hold this time (confirms directly)'
-                    : `Hold this time · Pay ${formatNairaFromKobo(amountExpectedKobo)} deposit`}
+                  {isSubmittingHold
+                    ? 'Securing slot…'
+                    : isNoDepositService
+                      ? 'Hold this time (confirms directly)'
+                      : `Hold this time · Pay ${formatNairaFromKobo(amountExpectedKobo)} deposit`}
                 </button>
               </form>
             ) : (
@@ -818,7 +1233,7 @@ export default function PublicBookingPage() {
                   amountPaidKobo={amountPaidKobo}
                   merchantBearsCost={merchantBearsCost}
                   initialStatus={bookingStatus}
-                  remainingSeconds={900}
+                  remainingSeconds={holdRemainingSeconds}
                   freeCancelHours={serviceFreeCancelHours}
                   pollIntervalMs={3000}
                   enablePolling={!isNoDepositService}
@@ -827,7 +1242,10 @@ export default function PublicBookingPage() {
                     if (typeof paid === 'number') setAmountPaidKobo(paid);
                     syncDashboardBooking(reference, next, amountExpectedKobo);
                   }}
-                  onPickDifferentSlot={() => setBookingStatus(null)}
+                  onPickDifferentSlot={() => {
+                    setBookingStatus(null);
+                    rotateIdempotencyKey();
+                  }}
                 />
 
                 <button

@@ -24,6 +24,7 @@
 
 - ✅ `pnpm test:int` prints `100 parallel holds → 1 success, 99 SLOT_TAKEN`
 - ✅ `packages/booking` coverage: 97.5% statements, 92% branches, 98.8% functions, 98.2% lines (`pnpm coverage:check`, gate 90%)
-- ⏳ No-deposit hold end to end **on preview**: verified locally against the real API server (hold → `confirmed`, retry → same booking, 3rd request → `SLOT_TAKEN` + alternatives). Preview is blocked by the GitHub billing lock; the booking page still uses mock data until B wires it to the API above.
+- ✅ Public booking page (`/b/[slug]`) wired to `GET /api/public/:slug`, `GET /api/public/:slug/slots`, and `POST /api/public/:slug/holds` (with `idempotencyKey`, `SLOT_TAKEN` alternatives, and fallback to local preview when the API origin is offline).
+- ⏳ Preview deployment is blocked by the GitHub billing lock; verified locally.
 
 **Post:** "One Postgres constraint that makes double-booking impossible" (with the test output).
