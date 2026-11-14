@@ -1,18 +1,22 @@
-import type { Pool } from '@switchboard/db';
+import type { BookingConfig } from '@switchboard/booking';
+import type { Db, Pool } from '@switchboard/db';
 import { type Context, Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import { serve } from 'inngest/hono';
-import { functions, inngest } from './inngest.ts';
+import { createFunctions, inngest } from './inngest.ts';
 import type { Logger } from './logger.ts';
+import { publicRoutes } from './routes/public.ts';
 
 export type AppDeps = {
   pool: Pick<Pool, 'query'>;
+  db: Db;
+  bookingConfig: BookingConfig;
   logger: Logger;
 };
 
 type Env = { Variables: { requestId: string } };
 
-export function createApp({ pool, logger }: AppDeps) {
+export function createApp({ pool, db, bookingConfig, logger }: AppDeps) {
   const app = new Hono<Env>();
 
   app.use(requestId());
@@ -45,7 +49,13 @@ export function createApp({ pool, logger }: AppDeps) {
   app.get('/health', handleHealth);
   app.get('/api/health', handleHealth);
 
-  const inngestHandler = serve({ client: inngest, functions });
+  // Public booking API. Mounted twice: on Vercel only /api/* reaches this service (vercel.json),
+  // while local tools (k6, curl) call the API origin directly at /public/*.
+  const pub = publicRoutes({ db, config: bookingConfig });
+  app.route('/public', pub);
+  app.route('/api/public', pub);
+
+  const inngestHandler = serve({ client: inngest, functions: createFunctions({ db }) });
   app.on(['GET', 'PUT', 'POST'], '/api/inngest', (c) => inngestHandler(c));
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));

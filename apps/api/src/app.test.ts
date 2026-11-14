@@ -1,13 +1,18 @@
+import { DEFAULT_CONFIG } from '@switchboard/booking';
+import type { Db } from '@switchboard/db';
 import { describe, expect, it, vi } from 'vitest';
 import { createApp } from './app.ts';
 import { createLogger, maskPhone } from './logger.ts';
 
 const silent = createLogger({ level: 'silent' });
+// /health never touches Drizzle; the public routes are covered by public.int.test.ts.
+const db = {} as unknown as Db;
+const base = { db, bookingConfig: DEFAULT_CONFIG, logger: silent };
 
 describe('GET /', () => {
   it('says hello without touching the DB', async () => {
     const pool = { query: vi.fn() };
-    const app = createApp({ pool, logger: silent });
+    const app = createApp({ ...base, pool });
     const res = await app.request('/');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ service: 'switchboard-api', status: 'ok' });
@@ -18,7 +23,7 @@ describe('GET /', () => {
 describe('GET /health and /api/health', () => {
   it('is ok when the DB answers', async () => {
     const pool = { query: vi.fn().mockResolvedValue({ rows: [] }) };
-    const app = createApp({ pool, logger: silent });
+    const app = createApp({ ...base, pool });
     const res = await app.request('/health');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: 'ok', db: 'ok' });
@@ -31,7 +36,7 @@ describe('GET /health and /api/health', () => {
 
   it('is 503 when the DB is down', async () => {
     const pool = { query: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')) };
-    const app = createApp({ pool, logger: silent });
+    const app = createApp({ ...base, pool });
     const res = await app.request('/health');
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ status: 'error', db: 'down' });

@@ -12,12 +12,16 @@
   },
   "dependencies": {
     "@hono/node-server": "2.1.6",
+    "@switchboard/booking": "workspace:*",
     "@switchboard/db": "workspace:*",
     "@switchboard/env": "workspace:*",
     "@vercel/functions": "3.10.5",
+    "date-fns": "4.4.0",
+    "drizzle-orm": "0.45.4",
     "hono": "4.13.16",
     "inngest": "4.26.2",
-    "pino": "10.4.0"
+    "pino": "10.4.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@switchboard/config": "workspace:*",

@@ -4,12 +4,12 @@
 
 ## Tasks
 
-- [ ] A: Full schema from `03-data-model.md`; hand-written SQL migration for `bookings_no_overlap` + idempotency indexes
-- [ ] A: `packages/booking`: `findSlots`, `holdSlot`, `confirm`, `expire`, `cancel`, `reschedule`, transition table
-- [ ] A: Inngest `hold.expire` + sweeper cron
-- [ ] A: Seed script (Fade Republic, Ota)
-- [ ] A: Tests: property test, 100-parallel-hold test, idempotency race test, stale-hold reclaim test
-- [ ] A: API routes: `GET /public/:slug`, `GET /public/:slug/slots`, `POST /public/:slug/holds`
+- [x] A: Full schema from `03-data-model.md`; hand-written SQL migration for `bookings_no_overlap` + idempotency indexes — one migration, `0004_booking_engine.sql`; constraint hand-appended at the end
+- [x] A: `packages/booking`: `findSlots`, `holdSlot`, `confirm`, `expire`, `cancel`, `reschedule`, transition table — plus per-staff row lock (fixes EXCLUDE deadlocks under load, see `04-booking-engine.md` → As built), server-side validation, outbox writes
+- [x] A: Inngest `hold.expire` + sweeper cron — plus `outbox-relay` (every minute) that turns outbox rows into events
+- [x] A: Seed script (Fade Republic, Ota) — kept the onboarding seed; added a no-deposit `Low cut`, 12 customers, 2 weeks of history + upcoming bookings (decision: keep current + add, Nov 14)
+- [x] A: Tests: property test, 100-parallel-hold test, idempotency race test, stale-hold reclaim test — plus a contention regression test; property test verified to fail with the constraint dropped
+- [x] A: API routes: `GET /public/:slug`, `GET /public/:slug/slots`, `POST /public/:slug/holds` — also under `/api/public/*` for Vercel; contract in `features/F02` → API
 - [x] B: Public booking page: business header, services, day strip, time chips (with no-deposit services confirming directly)
 - [x] B: Hold band component (Storybook-free: a `/dev/components` page excluded from prod)
 - [x] B: Better Auth sign-up/login, business onboarding wizard (name, services, staff, hours)
@@ -19,5 +19,11 @@
 - `pnpm test:int` shows 100 parallel holds → 1 success, 99 `SLOT_TAKEN`
 - Booking page can hold a no-deposit service end to end on preview
 - `packages/booking` coverage ≥ 90%
+
+## Exit status (A, Nov 14)
+
+- ✅ `pnpm test:int` prints `100 parallel holds → 1 success, 99 SLOT_TAKEN`
+- ✅ `packages/booking` coverage: 97.5% statements, 92% branches, 98.8% functions, 98.2% lines (`pnpm coverage:check`, gate 90%)
+- ⏳ No-deposit hold end to end **on preview**: verified locally against the real API server (hold → `confirmed`, retry → same booking, 3rd request → `SLOT_TAKEN` + alternatives). Preview is blocked by the GitHub billing lock; the booking page still uses mock data until B wires it to the API above.
 
 **Post:** "One Postgres constraint that makes double-booking impossible" (with the test output).

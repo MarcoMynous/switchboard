@@ -2,9 +2,17 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dbSchema, parseEnv } from '@switchboard/env';
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { createDb, createPool } from './client.ts';
-import { businesses, services, staff, staffServices, workingHours } from './schema/index.ts';
+import {
+  bookings,
+  businesses,
+  customers,
+  services,
+  staff,
+  staffServices,
+  workingHours,
+} from './schema/index.ts';
 
 if (!process.env.DATABASE_URL && typeof process.loadEnvFile === 'function') {
   const rootEnv = resolve(fileURLToPath(import.meta.url), '../../../../.env');
@@ -147,7 +155,165 @@ try {
     }
   }
 
-  console.log('seeded: Fade Republic, Ota (business, services, staff, working_hours)');
+  if (biz) await seedBookingData(db, biz.id, biz.timezone);
+
+  console.log(
+    'seeded: Fade Republic, Ota (business, services incl. no-deposit Low cut, staff, working_hours, customers, 2 weeks of bookings)',
+  );
 } finally {
   await pool.end();
+}
+
+/**
+ * P1 additions (kept separate from the onboarding seed above, which stays as Martins wrote it):
+ * a no-deposit "Low cut" (slug low-cut: the k6 scripts and the P1 exit flow need a service that
+ * confirms without payment), customers, and two weeks of history for the CRM and money dashboard.
+ * Idempotent: the service is matched by name, history only seeds into a business with no bookings.
+ */
+async function seedBookingData(
+  db: ReturnType<typeof createDb>,
+  businessId: string,
+  timezone: string,
+) {
+  let [lowCut] = await db
+    .select()
+    .from(services)
+    .where(and(eq(services.businessId, businessId), eq(services.name, 'Low cut')));
+  if (!lowCut) {
+    [lowCut] = await db
+      .insert(services)
+      .values({
+        businessId,
+        name: 'Low cut',
+        description: 'Quick, clean low cut. Pay at the chair: no deposit needed.',
+        durationMin: 30,
+        priceKobo: 300_000,
+        depositType: 'none',
+        depositValue: 0,
+      })
+      .returning();
+  }
+  const staffRows = await db.select().from(staff).where(eq(staff.businessId, businessId));
+  if (lowCut) {
+    for (const s of staffRows) {
+      await db
+        .insert(staffServices)
+        .values({ staffId: s.id, serviceId: lowCut.id })
+        .onConflictDoNothing();
+    }
+  }
+
+  const people = [
+    ['Adaeze Okonkwo', '+2348035550101'],
+    ['Babatunde Bello', '+2348035550102'],
+    ['Chinedu Eze', '+2348035550103'],
+    ['Damilola Adebayo', '+2348035550104'],
+    ['Emeka Nwosu', '+2348035550105'],
+    ['Funmilayo Ogunleye', '+2348035550106'],
+    ['Gbenga Ajayi', '+2348035550107'],
+    ['Halima Sule', '+2348035550108'],
+    ['Ifeanyi Obi', '+2348035550109'],
+    ['Jide Olawale', '+2348035550110'],
+    ['Kemi Adeyemi', '+2348035550111'],
+    ['Lanre Fashola', '+2348035550112'],
+  ] as const;
+  await db
+    .insert(customers)
+    .values(people.map(([name, phoneE164]) => ({ businessId, name, phoneE164 })))
+    .onConflictDoNothing();
+  const customerRows = await db
+    .select()
+    .from(customers)
+    .where(eq(customers.businessId, businessId));
+
+  const [existing] = await db
+    .select({ id: bookings.id })
+    .from(bookings)
+    .where(eq(bookings.businessId, businessId))
+    .limit(1);
+  const svcRows = await db.select().from(services).where(eq(services.businessId, businessId));
+  if (existing || staffRows.length === 0 || svcRows.length === 0 || customerRows.length === 0)
+    return;
+
+  // Deterministic pseudo-random, so every preview gets the same demo history.
+  let state = 42;
+  const rand = () => {
+    state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
+    return state / 2_147_483_648;
+  };
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)] as T;
+
+  type Row = {
+    day: number;
+    time: string;
+    staffId: string;
+    serviceId: string;
+    durationMin: number;
+    customerId: string;
+    status: 'completed' | 'no_show' | 'cancelled' | 'confirmed';
+  };
+  const rows: Row[] = [];
+  // Past 14 days: a few bookings per barber per working day, laid end to end so none overlap.
+  for (let day = -14; day <= -1; day++) {
+    for (const s of staffRows) {
+      let minute = 9 * 60 + Math.floor(rand() * 4) * 30;
+      const count = 2 + Math.floor(rand() * 4);
+      for (let i = 0; i < count; i++) {
+        const svc = pick(svcRows);
+        if (minute + svc.durationMin > 19 * 60) break;
+        const roll = rand();
+        rows.push({
+          day,
+          time: `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`,
+          staffId: s.id,
+          serviceId: svc.id,
+          durationMin: svc.durationMin,
+          customerId: pick(customerRows).id,
+          status: roll < 0.08 ? 'no_show' : roll < 0.15 ? 'cancelled' : 'completed',
+        });
+        minute += svc.durationMin + 30 * Math.floor(rand() * 3);
+      }
+    }
+  }
+  // A few upcoming confirmed bookings (tomorrow, late afternoon) so the dashboard isn't empty.
+  for (const [i, s] of staffRows.entries()) {
+    const svc = lowCut ?? pick(svcRows);
+    rows.push({
+      day: 1,
+      time: `${16 + i}:00`,
+      staffId: s.id,
+      serviceId: svc.id,
+      durationMin: svc.durationMin,
+      customerId: pick(customerRows).id,
+      status: 'confirmed',
+    });
+  }
+
+  // Business-local wall clock → UTC in Postgres (AT TIME ZONE), relative to today in that zone.
+  const local = (day: number, time: string) =>
+    sql`(((now() AT TIME ZONE ${timezone})::date + ${day}::int) + ${time}::time) AT TIME ZONE ${timezone}`;
+  await db
+    .insert(bookings)
+    .values(
+      rows.map((r, i) => ({
+        businessId,
+        staffId: r.staffId,
+        serviceId: r.serviceId,
+        customerId: r.customerId,
+        startsAt: local(r.day, r.time),
+        endsAt: sql`${local(r.day, r.time)} + make_interval(mins => ${r.durationMin})`,
+        status: r.status,
+        source: pick(['whatsapp', 'whatsapp', 'web_chat', 'booking_page', 'staff'] as const),
+        idempotencyKey: `seed-${i}`,
+        ...(r.status === 'cancelled' ? { cancelReason: 'Customer rescheduled by phone' } : {}),
+      })),
+    )
+    .onConflictDoNothing();
+
+  // CRM counters from the history just written.
+  await db.execute(sql`
+    UPDATE customers c SET
+      visits = (SELECT count(*) FROM bookings b WHERE b.customer_id = c.id AND b.status = 'completed'),
+      no_shows = (SELECT count(*) FROM bookings b WHERE b.customer_id = c.id AND b.status = 'no_show')
+    WHERE c.business_id = ${businessId}`);
 }

@@ -52,6 +52,18 @@ return db.transaction(async (tx) => {
 
 On `SLOT_TAKEN` the agent immediately calls `findSlots` again and offers the next options. The customer never sees an error.
 
+### As built (P1): what the sketch above leaves out
+
+Implemented in `packages/booking/src/hold.ts`. Differences from the sketch, each for a reason:
+
+- **Per-staff row lock first.** Each hold transaction starts with `SELECT … FROM staff WHERE id = $1 FOR NO KEY UPDATE`. Without it, concurrent inserts checked by the EXCLUDE constraint wait on each other's *uncommitted* rows and **deadlock** (SQLSTATE `40P01`): in a stress run (30 × 100 contended holds) ~6% of holds threw, and each deadlock cost Postgres' 1 s `deadlock_timeout`, so one round took 81 s. With the lock: 0 errors, slowest round < 1 s. The lock only orders contenders; **correctness still comes from the constraint**. It is transaction-scoped (safe behind PgBouncer) and `NO KEY UPDATE` doesn't block FK checks. Deadlock/serialization failures are also retried (5×, jittered) as a backstop. Regression test: `hold.int.test.ts → contention never surfaces as a server error`.
+- **Server-side validation before the insert:** working hours, time off, `MIN_LEAD_MINUTES`, the business's `advance_days` / `allow_same_day`, and that the staff member does the service. The client (page or LLM) is never trusted with availability; only *overlap* is left to Postgres.
+- **Idempotency is re-checked after any constraint refusal.** Two same-key requests can lose on either index (`bookings_idem` or `bookings_no_overlap`, whichever Postgres checks first), so a `23P01` is only `SLOT_TAKEN` if no row with this key exists. A key reused for a *different* service/time returns `IDEMPOTENCY_KEY_REUSED` instead of silently handing back the wrong booking.
+- **"Any staff":** `staffId` is optional; eligible staff are tried in order until one sticks.
+- **Every state change writes the outbox in the same transaction** (`booking.held`, `.confirmed`, `.expired`, `.cancelled`, `.rescheduled`). The `outbox-relay` Inngest cron (every minute) sends them as events, deduped by outbox row id.
+
+Other functions: `findSlots`, `confirmBooking` (held → confirmed; accepts an open tx so P2 can call it inside the payment transaction), `cancelBooking`, `transitionBooking` (completed / no_show), `rescheduleBooking` (optimistic `version` lock + same validation), `expireHold`, `sweepExpiredHolds`, `upsertCustomer` (E.164 normalisation), `getPublicCatalog`. All return `Result<T, DomainError>`.
+
 ## Idempotency keys
 
 | Caller | Key |
@@ -61,6 +73,8 @@ On `SLOT_TAKEN` the agent immediately calls `findSlots` again and offers the nex
 | Staff dashboard | Same as booking page |
 
 ## Confirm: `confirmFromPayment(paymentId)`
+
+> P1 ships the booking half as `confirmBooking(tx, businessId, bookingId)`. P2 wraps it with the payment update below in one transaction.
 
 Called only by the `payment.received` Inngest function **after** Kora re-verification:
 
