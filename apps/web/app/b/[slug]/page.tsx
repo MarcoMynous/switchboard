@@ -1134,7 +1134,7 @@ export default function PublicBookingPage() {
                 </span>
                 <span
                   className={`font-mono font-bold ${
-                    isNoDepositService ? 'text-[#10B981]' : 'text-[#5247D8]'
+                    isNoDepositService ? 'text-[#047857]' : 'text-[#5247D8]'
                   }`}
                 >
                   {isNoDepositService ? '₦0 (No deposit)' : formatNairaFromKobo(amountExpectedKobo)}
