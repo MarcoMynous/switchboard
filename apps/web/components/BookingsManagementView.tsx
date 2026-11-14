@@ -60,12 +60,17 @@ export interface DashboardConversationRecord {
   lastMessage: string;
   status: 'agent_active' | 'needs_human' | 'staff_takeover' | 'resolved';
   escalationReason?: string;
+  assignedTo?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  unread?: boolean;
   updatedAt: string;
   messages: Array<{
     id: string;
-    sender: 'customer' | 'agent' | 'staff';
+    sender: 'customer' | 'agent' | 'staff' | 'system';
     text: string;
     time: string;
+    deliveryState?: 'queued' | 'sent' | 'delivered' | 'failed';
   }>;
 }
 

@@ -8,6 +8,7 @@ import {
   BookingsManagementView,
   type DashboardConversationRecord as ConversationRecord,
 } from '@/components/BookingsManagementView';
+import { ConversationsManagementView } from '@/components/ConversationsManagementView';
 import { computeKoraFeeKobo } from '@/components/DepositCard';
 import { HoldBand } from '@/components/HoldBand';
 import { SwitchboardLogo } from '@/components/SwitchboardLogo';
@@ -243,7 +244,6 @@ export default function DashboardPage() {
   const [paymentSaveNotice, setPaymentSaveNotice] = useState<string | null>(null);
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
-  const [staffReplyInput, setStaffReplyInput] = useState<Record<string, string>>({});
   const [guideModal, setGuideModal] = useState<{
     title: string;
     category: string;
@@ -2339,159 +2339,67 @@ export default function DashboardPage() {
             )}
 
             {(activeNav === 'conversations' || activeNav === 'needs-attention') && (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h1 className="text-2xl font-bold text-text-primary">
-                      {activeNav === 'needs-attention'
-                        ? 'Needs Attention (Human Handoff & Exceptions)'
-                        : 'Customer Conversations'}
-                    </h1>
-                    <p className="text-sm text-text-secondary">
-                      WhatsApp & Web Chat threads • Staff takeover pauses {workspace.assistantName}{' '}
-                      automatically
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleTriggerHumanEscalation}
-                      className="px-3.5 py-2 rounded-lg border border-border bg-surface text-xs font-semibold hover:bg-surface-container-low cursor-pointer"
-                    >
-                      Simulate Escalation
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setChatDrawerOpen(true)}
-                      className="px-3.5 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
-                    >
-                      Open Web Chat
-                    </button>
-                  </div>
-                </div>
-
-                {conversations.length === 0 ? (
-                  <div className="bg-surface rounded-xl p-10 border border-border text-center space-y-3">
-                    <AppIcon name="forum" className="text-[36px] text-primary" />
-                    <h3 className="text-lg font-semibold text-text-primary">
-                      No active conversations yet
-                    </h3>
-                    <p className="text-sm text-text-secondary max-w-md mx-auto">
-                      Test a conversation in the Web Chat simulator or simulate a human escalation
-                      to try staff takeover.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {conversations
-                      .filter((c) => activeNav !== 'needs-attention' || c.status === 'needs_human')
-                      .map((conv) => (
-                        <div
-                          key={conv.id}
-                          className="bg-surface rounded-xl p-5 border border-border space-y-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <span className="font-bold text-text-primary">
-                                {conv.customerName}
-                              </span>
-                              <span className="text-xs font-mono text-text-secondary">
-                                {conv.customerPhone}
-                              </span>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                  conv.status === 'needs_human'
-                                    ? 'bg-error-container text-on-error-container'
-                                    : conv.status === 'staff_takeover'
-                                      ? 'bg-amber-500/15 text-amber-800'
-                                      : 'bg-success/15 text-success'
-                                }`}
-                              >
-                                {conv.status === 'needs_human'
-                                  ? `Needs Human: ${conv.escalationReason || 'Requested staff'}`
-                                  : conv.status === 'staff_takeover'
-                                    ? 'Staff Handling (Agent Paused)'
-                                    : `${workspace.assistantName} Active`}
-                              </span>
-                            </div>
-                            {conv.status === 'staff_takeover' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  saveConversations(
-                                    conversations.map((c) =>
-                                      c.id === conv.id ? { ...c, status: 'agent_active' } : c,
-                                    ),
-                                  );
-                                }}
-                                className="text-xs font-semibold text-primary hover:underline cursor-pointer"
-                              >
-                                Hand back to {workspace.assistantName}
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="space-y-2 bg-surface-container-low p-3.5 rounded-lg">
-                            {conv.messages.map((m) => (
-                              <div key={m.id} className="text-xs">
-                                <strong className="capitalize text-text-primary">
-                                  {m.sender === 'agent' ? workspace.assistantName : m.sender}:
-                                </strong>{' '}
-                                <span className="text-text-secondary">{m.text}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={staffReplyInput[conv.id] || ''}
-                              onChange={(e) =>
-                                setStaffReplyInput((prev) => ({
-                                  ...prev,
-                                  [conv.id]: e.target.value,
-                                }))
-                              }
-                              placeholder="Reply as staff (pauses AI receptionist for this chat)..."
-                              className="flex-1 px-3 py-2 text-xs rounded-lg border border-border bg-white outline-none focus:ring-2 focus:ring-primary"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const text = staffReplyInput[conv.id]?.trim();
-                                if (!text) return;
-                                saveConversations(
-                                  conversations.map((c) =>
-                                    c.id === conv.id
-                                      ? {
-                                          ...c,
-                                          status: 'staff_takeover',
-                                          lastMessage: text,
-                                          messages: [
-                                            ...c.messages,
-                                            {
-                                              id: `st_${Date.now()}`,
-                                              sender: 'staff',
-                                              text,
-                                              time: 'Now',
-                                            },
-                                          ],
-                                        }
-                                      : c,
-                                  ),
-                                );
-                                setStaffReplyInput((prev) => ({ ...prev, [conv.id]: '' }));
-                              }}
-                              className="px-3.5 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
-                            >
-                              Reply as staff
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
+              <ConversationsManagementView
+                workspace={workspace}
+                conversations={conversations}
+                bookings={bookings}
+                userRole={apiState.role}
+                operatorName={apiState.ownerName}
+                whatsappConnected={apiState.whatsappConnected}
+                isLoading={apiState.loading}
+                apiError={apiState.error}
+                initialNeedsHumanOnly={activeNav === 'needs-attention'}
+                onRefresh={() => {
+                  try {
+                    const savedConvs = localStorage.getItem('switchboard_dashboard_conversations');
+                    if (savedConvs) {
+                      setConversations(JSON.parse(savedConvs));
+                    }
+                    const savedBks = localStorage.getItem('switchboard_dashboard_bookings');
+                    if (savedBks) {
+                      setBookings(JSON.parse(savedBks));
+                    }
+                  } catch {
+                    // ignore storage errors
+                  }
+                  fetch('/api/workspace')
+                    .then(async (res) => {
+                      const data = (await res.json()) as WorkspaceApiData;
+                      if (!res.ok || !data.ok) {
+                        setApiState((prev) => ({
+                          ...prev,
+                          connected: false,
+                          error: data.error || 'Unable to reach workspace backend.',
+                        }));
+                        return;
+                      }
+                      setApiState((prev) => ({
+                        ...prev,
+                        connected: true,
+                        error: null,
+                        whatsappConnected: Boolean(data.business?.whatsappPhoneNumberId),
+                        agentEnabled: data.business?.agentEnabled ?? prev.agentEnabled,
+                      }));
+                    })
+                    .catch(() => {
+                      setApiState((prev) => ({
+                        ...prev,
+                        connected: false,
+                        error: 'Network connection interrupted. Displaying cached workspace data.',
+                      }));
+                    });
+                }}
+                onOpenTestChat={() => setChatDrawerOpen(true)}
+                onUpdateConversation={(conversationId, updater) =>
+                  saveConversations(
+                    conversations.map((c) => (c.id === conversationId ? updater(c) : c)),
+                  )
+                }
+                onUpdateBooking={(bookingId, updater) =>
+                  saveBookings(bookings.map((b) => (b.id === bookingId ? updater(b) : b)))
+                }
+                onNavigateSection={(sec) => setActiveNav(sec)}
+              />
             )}
 
             {activeNav !== 'overview' &&
