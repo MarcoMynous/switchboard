@@ -3,6 +3,11 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
+import {
+  type DashboardBookingRecord as BookingRecord,
+  BookingsManagementView,
+  type DashboardConversationRecord as ConversationRecord,
+} from '@/components/BookingsManagementView';
 import { computeKoraFeeKobo } from '@/components/DepositCard';
 import { HoldBand } from '@/components/HoldBand';
 import { SwitchboardLogo } from '@/components/SwitchboardLogo';
@@ -25,45 +30,6 @@ type NavSection =
   | 'team-permissions'
   | 'analytics'
   | 'settings';
-
-interface BookingRecord {
-  id: string;
-  reference: string;
-  customerName: string;
-  customerPhone: string;
-  serviceName: string;
-  staffName: string;
-  slotTime: string;
-  priceKobo: number;
-  depositKobo: number;
-  status: 'held' | 'confirmed' | 'completed' | 'expired' | 'cancelled' | 'no_show';
-  paymentStatus:
-    | 'awaiting_payment'
-    | 'pending_verification'
-    | 'verified'
-    | 'refunded'
-    | 'not_required';
-  holdSecondsRemaining?: number;
-  source: 'whatsapp' | 'web_chat' | 'booking_page' | 'staff';
-  createdAt: string;
-}
-
-interface ConversationRecord {
-  id: string;
-  customerName: string;
-  customerPhone: string;
-  channel: 'whatsapp' | 'web_chat';
-  lastMessage: string;
-  status: 'agent_active' | 'needs_human' | 'staff_takeover' | 'resolved';
-  escalationReason?: string;
-  updatedAt: string;
-  messages: Array<{
-    id: string;
-    sender: 'customer' | 'agent' | 'staff';
-    text: string;
-    time: string;
-  }>;
-}
 
 interface WorkspaceApiData {
   ok: boolean;
@@ -2355,104 +2321,21 @@ export default function DashboardPage() {
                 SUB-VIEWS FOR ALL SIDEBAR DESTINATIONS (Mounted in same shell)
             =============================================================== */}
             {activeNav === 'bookings' && (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h1 className="text-2xl font-bold text-text-primary">
-                      Bookings & Multi-Staff Day Calendar
-                    </h1>
-                    <p className="text-sm text-text-secondary">
-                      Today • {workspace.timezone} • Postgres conflict-free slot protection active
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCreateSimulatedBooking}
-                      className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary cursor-pointer"
-                    >
-                      + Add Walk-In / Test Hold
-                    </button>
-                  </div>
-                </div>
-
-                {bookings.length === 0 ? (
-                  <div className="bg-surface rounded-xl p-10 border border-border text-center space-y-3">
-                    <AppIcon name="calendar_month" className="text-[36px] text-primary" />
-                    <h3 className="text-lg font-semibold text-text-primary">
-                      No bookings on the calendar for today
-                    </h3>
-                    <p className="text-sm text-text-secondary max-w-md mx-auto">
-                      Share your booking link (<code>/b/{workspace.slug}</code>) or add a simulated
-                      booking to test the 15-minute hold band and Kora verification.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleCreateSimulatedBooking}
-                      className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
-                    >
-                      Simulate Customer Slot Hold
-                    </button>
-                  </div>
-                ) : (
-                  <div className="bg-surface rounded-xl border border-border divide-y divide-border">
-                    {bookings.map((bk) => (
-                      <div key={bk.id} className="p-5 space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-text-primary">{bk.customerName}</span>
-                              <span className="text-xs font-mono text-text-secondary">
-                                {bk.customerPhone}
-                              </span>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                  bk.status === 'confirmed'
-                                    ? 'bg-success/15 text-success'
-                                    : bk.status === 'expired' || bk.status === 'cancelled'
-                                      ? 'bg-red-500/15 text-red-700'
-                                      : 'bg-amber-500/15 text-amber-700'
-                                }`}
-                              >
-                                {bk.status}
-                              </span>
-                            </div>
-                            <p className="text-sm text-text-secondary">
-                              {bk.serviceName} • {bk.staffName} • {bk.slotTime}
-                            </p>
-                            <p className="text-xs font-mono text-text-secondary">
-                              Ref: {bk.reference} • Deposit: {formatNairaFromKobo(bk.depositKobo)} (
-                              {bk.paymentStatus})
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {bk.status === 'held' && (
-                              <button
-                                type="button"
-                                onClick={() => handleVerifyKoraDeposit(bk.id)}
-                                className="px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold cursor-pointer"
-                              >
-                                Confirm Kora Payment
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {(bk.status === 'held' || bk.status === 'confirmed') && (
-                          <HoldBand
-                            compact
-                            status={bk.status === 'confirmed' ? 'confirmed' : 'held'}
-                            remainingSeconds={bk.holdSecondsRemaining ?? 900}
-                            totalSeconds={900}
-                            autoTick={bk.status === 'held'}
-                            reference={bk.reference}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <BookingsManagementView
+                workspace={workspace}
+                bookings={bookings}
+                conversations={conversations}
+                userRole={apiState.role}
+                isLoading={apiState.loading}
+                apiError={apiState.error}
+                copiedSlug={copiedSlug}
+                onCopyBookingLink={copyBookingLink}
+                onCreateBooking={(newBk) => saveBookings([newBk, ...bookings])}
+                onUpdateBooking={(bookingId, updater) =>
+                  saveBookings(bookings.map((b) => (b.id === bookingId ? updater(b) : b)))
+                }
+                onNavigateSection={(sec) => setActiveNav(sec)}
+              />
             )}
 
             {(activeNav === 'conversations' || activeNav === 'needs-attention') && (
