@@ -11,7 +11,7 @@ export type IssueStatus = 'open' | 'in_progress' | 'waiting' | 'resolved' | 'clo
 
 export type IssuePriority = 'high' | 'normal' | 'low';
 
-export interface IssueHistoryEvent {
+interface IssueHistoryEvent {
   id: string;
   timestamp: string;
   label: string;

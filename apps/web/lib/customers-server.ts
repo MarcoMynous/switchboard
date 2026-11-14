@@ -37,7 +37,7 @@ export function toE164(input: string, defaultCountryCode = '234'): string | null
 
 export type CustomerSource = 'whatsapp' | 'web_chat' | 'booking_page' | 'staff' | 'unknown';
 
-export interface CustomerBookingSummary {
+interface CustomerBookingSummary {
   id: string;
   reference: string;
   serviceName: string;
@@ -59,7 +59,7 @@ export interface CustomerBookingSummary {
   createdAt: string;
 }
 
-export interface CustomerConversationSummary {
+interface CustomerConversationSummary {
   id: string;
   channel: 'whatsapp' | 'web_chat';
   status: 'agent' | 'needs_human' | 'closed';
@@ -68,7 +68,7 @@ export interface CustomerConversationSummary {
   createdAt: string;
 }
 
-export interface CustomerActivityEvent {
+interface CustomerActivityEvent {
   id: string;
   timestamp: string;
   label: string;

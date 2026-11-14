@@ -39,7 +39,7 @@ export const NAV_SECTION_ROUTES: Record<NavSection, string> = {
   settings: '/dashboard/settings',
 };
 
-export function getNavSectionFromPathname(pathname: string): NavSection {
+function getNavSectionFromPathname(pathname: string): NavSection {
   if (pathname === '/dashboard' || pathname === '/dashboard/overview') {
     return 'overview';
   }
@@ -52,7 +52,7 @@ export function getNavSectionFromPathname(pathname: string): NavSection {
   return 'overview';
 }
 
-export interface WorkspaceApiData {
+interface WorkspaceApiData {
   ok: boolean;
   user: {
     id: string;
@@ -98,7 +98,7 @@ export interface WorkspaceApiData {
   error?: string;
 }
 
-export const DEFAULT_WORKSPACE: OnboardingState = {
+const DEFAULT_WORKSPACE: OnboardingState = {
   businessName: '',
   category: 'barber',
   phone: '',
