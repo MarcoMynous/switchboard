@@ -30,17 +30,10 @@ export function OverviewView() {
     setShowDepositTooltip,
     checklistExpanded,
     setChecklistExpanded,
-    devSandboxOpen,
-    setDevSandboxOpen,
     checklist,
     metrics,
     needsAttentionItems,
     recentActivities,
-    handleCreateSimulatedBooking,
-    handleVerifyKoraDeposit,
-    handleFlagPaymentPendingVerification,
-    handleTriggerHumanEscalation,
-    handleExpireHold,
   } = useDashboard();
 
   return (
@@ -945,108 +938,6 @@ export function OverviewView() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* -------------------------------------------------------------
-                    SECTION EIGHT: DEVELOPER SANDBOX & TESTING (COLLAPSIBLE)
-                ------------------------------------------------------------- */}
-      <div className="rounded-xl border border-dashed border-border/80 bg-surface-container-lowest/60 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-text-secondary">
-            <AppIcon name="tune" className="text-[18px]" />
-            <span className="font-label-md text-xs font-semibold text-text-primary">
-              Developer Sandbox &amp; Testing Controls
-            </span>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setDevSandboxOpen((prev) => !prev)}
-            className="text-xs h-7"
-          >
-            {devSandboxOpen ? 'Hide Developer Controls' : 'Show Developer Controls'}
-          </Button>
-        </div>
-
-        {devSandboxOpen && (
-          <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
-            <p className="text-xs text-text-secondary">
-              These controls allow developers and pair programmers to simulate customer bookings,
-              payment webhook verifications, timeouts, and human escalations in local environments.
-            </p>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleCreateSimulatedBooking}
-                className="text-xs h-8"
-              >
-                <AppIcon name="add_circle" className="text-[14px] text-primary" />
-                <span>Simulate Customer Booking</span>
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleTriggerHumanEscalation}
-                className="text-xs h-8"
-              >
-                <AppIcon name="notification_important" className="text-[14px] text-amber-600" />
-                <span>Simulate Needs-Attention Escalation</span>
-              </Button>
-
-              {bookings.some((b) => b.status === 'held') && (
-                <>
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    onClick={() => {
-                      const held = bookings.find((b) => b.status === 'held');
-                      if (held) handleVerifyKoraDeposit(held.id);
-                    }}
-                    className="text-xs h-8"
-                  >
-                    <AppIcon name="verified" className="text-[14px]" />
-                    <span>Simulate Kora Webhook Verification</span>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const held = bookings.find((b) => b.status === 'held');
-                      if (held) handleFlagPaymentPendingVerification(held.id);
-                    }}
-                    className="text-xs h-8"
-                  >
-                    <AppIcon name="hourglass_empty" className="text-[14px] text-indigo-600" />
-                    <span>Simulate Provider Timeout (Pending)</span>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const held = bookings.find((b) => b.status === 'held');
-                      if (held) handleExpireHold(held.id);
-                    }}
-                    className="text-xs h-8"
-                  >
-                    <AppIcon name="history" className="text-[14px] text-slate-600" />
-                    <span>Expire Hold (15m Elapsed)</span>
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

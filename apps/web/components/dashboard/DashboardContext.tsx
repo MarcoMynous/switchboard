@@ -99,46 +99,15 @@ export interface WorkspaceApiData {
 }
 
 export const DEFAULT_WORKSPACE: OnboardingState = {
-  businessName: 'Fade Republic',
+  businessName: '',
   category: 'barber',
-  phone: '+234 803 123 4567',
-  location: 'KM 10 Idiroko Road, Ota, Ogun State',
+  phone: '',
+  location: '',
   country: 'Nigeria (NG)',
   timezone: 'Africa/Lagos (GMT+1)',
-  instagramOrWeb: 'https://faderepublic.ng',
-  services: [
-    {
-      id: '1',
-      name: 'Classic Fade & Beard Sculpt',
-      duration: 45,
-      price: 5000,
-      depositRequired: true,
-      depositAmount: 1500,
-      description: 'Detailed razor fade, hot towel prep & beard oil.',
-    },
-    {
-      id: '2',
-      name: 'Standard Haircut',
-      duration: 30,
-      price: 3500,
-      depositRequired: true,
-      depositAmount: 1000,
-      description: 'Clean clipper cut and sharp perimeter line-up.',
-    },
-    {
-      id: '3',
-      name: 'VIP Dreadlocks Retwist & Wash',
-      duration: 90,
-      price: 15000,
-      depositRequired: true,
-      depositAmount: 5000,
-      description: 'Organic shampoo wash & deep palm-roll retwist.',
-    },
-  ],
-  staff: [
-    { id: '1', name: 'Tunde Adeyemi', role: 'Lead Barber' },
-    { id: '2', name: 'Emeka Okafor', role: 'Fade Specialist' },
-  ],
+  instagramOrWeb: '',
+  services: [],
+  staff: [],
   selfProvided: false,
   schedule: {
     Monday: { open: true, openTime: '09:00', closeTime: '19:00' },
@@ -159,8 +128,7 @@ export const DEFAULT_WORKSPACE: OnboardingState = {
   cancellationPolicy: 'Full refund if cancelled at least 4 hours before your scheduled slot.',
   koraStatus: 'ready',
   assistantName: 'Maya',
-  greeting:
-    "Hi! Welcome to Fade Republic. I'm Maya, your booking assistant. Which service or barber would you like to book today?",
+  greeting: '',
   tone: 'Friendly',
   capabilities: [
     {
@@ -186,7 +154,7 @@ export const DEFAULT_WORKSPACE: OnboardingState = {
       enabled: true,
     },
   ],
-  slug: 'fade-republic',
+  slug: '',
 };
 
 export function formatNairaFromKobo(kobo: number): string {
@@ -291,13 +259,11 @@ interface DashboardContextValue {
   setNewBookingModalOpen: (open: boolean) => void;
   newBookingForm: NewBookingFormState;
   setNewBookingForm: React.Dispatch<React.SetStateAction<NewBookingFormState>>;
-  handleCreateManualBooking: (e: React.FormEvent) => void;
+  handleCreateManualBooking: (e: React.FormEvent) => Promise<void>;
   showDepositTooltip: boolean;
   setShowDepositTooltip: React.Dispatch<React.SetStateAction<boolean>>;
   checklistExpanded: boolean;
   setChecklistExpanded: React.Dispatch<React.SetStateAction<boolean>>;
-  devSandboxOpen: boolean;
-  setDevSandboxOpen: React.Dispatch<React.SetStateAction<boolean>>;
   checklist: {
     items: Array<{
       id: string;
@@ -339,10 +305,8 @@ interface DashboardContextValue {
     icon: string;
     badgeColor: string;
   }>;
-  handleCreateSimulatedBooking: () => void;
   handleVerifyKoraDeposit: (bookingId: string) => void;
   handleFlagPaymentPendingVerification: (bookingId: string) => void;
-  handleTriggerHumanEscalation: () => void;
   handleExpireHold: (bookingId: string) => void;
   refreshWorkspaceData: () => void;
 }
@@ -365,12 +329,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [workspace, setWorkspace] = useState<OnboardingState>(DEFAULT_WORKSPACE);
   const [apiState, setApiState] = useState<ApiState>({
     loading: true,
-    connected: true,
+    connected: false,
     error: null,
-    ownerName: 'Tunde Adeyemi',
+    ownerName: '',
     role: 'owner',
     whatsappConnected: false,
-    koraConfigured: true,
+    koraConfigured: false,
     agentEnabled: true,
   });
 
@@ -397,26 +361,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   });
   const [showDepositTooltip, setShowDepositTooltip] = useState(false);
   const [checklistExpanded, setChecklistExpanded] = useState(false);
-  const [devSandboxOpen, setDevSandboxOpen] = useState(false);
 
   const refreshWorkspaceData = useCallback(() => {
-    try {
-      const savedDraft = localStorage.getItem('switchboard_onboarding_draft');
-      if (savedDraft) {
-        const parsed = JSON.parse(savedDraft);
-        setWorkspace((prev) => ({ ...prev, ...parsed }));
-      }
-      const savedBookings = localStorage.getItem('switchboard_dashboard_bookings');
-      if (savedBookings) {
-        setBookings(JSON.parse(savedBookings));
-      }
-      const savedConvs = localStorage.getItem('switchboard_dashboard_conversations');
-      if (savedConvs) {
-        setConversations(JSON.parse(savedConvs));
-      }
-    } catch {
-      // ignore storage errors
-    }
+    setApiState((prev) => ({ ...prev, loading: true, error: null }));
 
     fetch('/api/workspace')
       .then(async (res) => {
@@ -439,10 +386,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           ownerName: data.user?.name || prev.ownerName,
           role: data.user?.role || 'owner',
           whatsappConnected: Boolean(data.business?.whatsappPhoneNumberId),
-          koraConfigured: data.business ? data.business.koraConfigured || true : true,
+          koraConfigured: Boolean(data.business?.koraConfigured),
           agentEnabled: data.business?.agentEnabled ?? true,
         }));
 
+        const slug = data.business?.slug;
         if (data.business) {
           const b = data.business;
           setWorkspace((prev) => ({
@@ -473,12 +421,28 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
               Array.isArray(b.capabilities) && b.capabilities.length > 0
                 ? b.capabilities
                 : prev.capabilities,
-            services:
-              Array.isArray(data.services) && data.services.length > 0
-                ? data.services
-                : prev.services,
-            staff: Array.isArray(data.staff) && data.staff.length > 0 ? data.staff : prev.staff,
+            services: Array.isArray(data.services) ? data.services : [],
+            staff: Array.isArray(data.staff) ? data.staff : [],
           }));
+        }
+
+        // Load real bookings & conversations from Postgres
+        const dashUrl = slug ? `/api/dashboard?slug=${encodeURIComponent(slug)}` : '/api/dashboard';
+        try {
+          const dashRes = await fetch(dashUrl);
+          if (dashRes.ok) {
+            const dashData = (await dashRes.json()) as {
+              ok: boolean;
+              bookings?: BookingRecord[];
+              conversations?: ConversationRecord[];
+            };
+            if (dashData.ok) {
+              setBookings(Array.isArray(dashData.bookings) ? dashData.bookings : []);
+              setConversations(Array.isArray(dashData.conversations) ? dashData.conversations : []);
+            }
+          }
+        } catch {
+          // Leave empty if dashboard query fails
         }
       })
       .catch(() => {
@@ -486,7 +450,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           loading: false,
           connected: false,
-          error: 'Network connection interrupted. Displaying cached workspace data.',
+          error: 'Network connection interrupted. Unable to reach Postgres workspace.',
         }));
       });
   }, []);
@@ -497,20 +461,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const saveBookings = useCallback((next: BookingRecord[]) => {
     setBookings(next);
-    try {
-      localStorage.setItem('switchboard_dashboard_bookings', JSON.stringify(next));
-    } catch {
-      // ignore
-    }
   }, []);
 
   const saveConversations = useCallback((next: ConversationRecord[]) => {
     setConversations(next);
-    try {
-      localStorage.setItem('switchboard_dashboard_conversations', JSON.stringify(next));
-    } catch {
-      // ignore
-    }
   }, []);
 
   useEffect(() => {
@@ -555,62 +509,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     };
   }, [bookings, conversations]);
 
-  const handleCreateSimulatedBooking = useCallback(() => {
-    const firstService = workspace.services[0] ?? {
-      name: 'Classic Fade & Beard Sculpt',
-      price: 5000,
-      depositAmount: 1500,
-    };
-    const firstStaff = workspace.staff[0] ?? { name: 'Tunde Adeyemi' };
-    const ulidSuffix = Math.random().toString(36).substring(2, 10).toUpperCase();
-
-    const newBooking: BookingRecord = {
-      id: `bk_${Date.now()}`,
-      reference: `sb_dep_${ulidSuffix}`,
-      customerName: 'Chinedu Eze',
-      customerPhone: '+234 809 442 1180',
-      serviceName: firstService.name,
-      staffName: firstStaff.name,
-      slotTime: 'Today, 2:30 PM (WAT)',
-      priceKobo: firstService.price * 100,
-      depositKobo: workspace.depositAmount * 100,
-      status: 'held',
-      paymentStatus: 'awaiting_payment',
-      holdSecondsRemaining: 900,
-      source: 'whatsapp',
-      createdAt: new Date().toISOString(),
-    };
-
-    const newConv: ConversationRecord = {
-      id: `conv_${Date.now()}`,
-      customerName: 'Chinedu Eze',
-      customerPhone: '+234 809 442 1180',
-      channel: 'whatsapp',
-      lastMessage: `Held Today 2:30 PM with ${firstStaff.name}. Awaiting ₦${workspace.depositAmount.toLocaleString()} Kora deposit.`,
-      status: 'agent_active',
-      updatedAt: 'Just now',
-      messages: [
-        {
-          id: 'm1',
-          sender: 'customer',
-          text: `Hi, can I get a ${firstService.name} this afternoon?`,
-          time: '2:14 PM',
-        },
-        {
-          id: 'm2',
-          sender: 'agent',
-          text: `Hi Chinedu! ${firstStaff.name} has an opening today at 2:30 PM for ${firstService.name} (₦${firstService.price.toLocaleString()}). I have placed a temporary 15-minute hold on that slot for you. Complete the ₦${workspace.depositAmount.toLocaleString()} deposit via Kora (Ref: sb_dep_${ulidSuffix}) to confirm your booking.`,
-          time: '2:14 PM',
-        },
-      ],
-    };
-
-    saveBookings([newBooking, ...bookings]);
-    if (conversations.length === 0) {
-      saveConversations([newConv]);
-    }
-  }, [bookings, conversations.length, saveBookings, saveConversations, workspace]);
-
   const checklist = useMemo(() => {
     const openDaysCount = Object.values(workspace.schedule || {}).filter((d) => d.open).length;
     const minPrice =
@@ -625,7 +523,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             ? ('completed' as const)
             : ('in_progress' as const),
         badgeText: 'Verified',
-        description: `${workspace.businessName} configured with ${workspace.timezone} and public page /b/${workspace.slug}.`,
+        description: `${workspace.businessName || 'Your business'} configured with ${workspace.timezone} and public page /b/${workspace.slug}.`,
         actionLabel: 'Edit Profile',
         onAction: () => setActiveNav('settings'),
       },
@@ -673,7 +571,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       },
       {
         id: 'first_booking',
-        title: 'Connect WhatsApp or Verify First Booking Flow',
+        title: 'Connect WhatsApp or Record First Booking',
         status:
           apiState.whatsappConnected || bookings.length > 0
             ? ('completed' as const)
@@ -681,9 +579,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         badgeText:
           apiState.whatsappConnected || bookings.length > 0 ? 'Active' : 'Recommended Next Step',
         description:
-          'Simulate a customer holding a 15-minute slot with Kora deposit verification, or pair your Meta WhatsApp Business number.',
-        actionLabel: 'Create Test Slot Hold',
-        onAction: () => handleCreateSimulatedBooking(),
+          'Create a booking directly or share your public booking page so customers can hold a 15-minute slot with Kora deposit verification.',
+        actionLabel: 'New Booking',
+        onAction: () => setNewBookingModalOpen(true),
       },
     ];
 
@@ -691,107 +589,102 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const percent = Math.round((completedCount / items.length) * 100);
 
     return { items, completedCount, totalCount: items.length, percent };
-  }, [
-    apiState.agentEnabled,
-    apiState.whatsappConnected,
-    bookings.length,
-    handleCreateSimulatedBooking,
-    setActiveNav,
-    workspace,
-  ]);
+  }, [apiState.agentEnabled, apiState.whatsappConnected, bookings.length, setActiveNav, workspace]);
 
   const handleVerifyKoraDeposit = useCallback(
-    (bookingId: string) => {
-      const next = bookings.map((b) =>
-        b.id === bookingId
-          ? {
-              ...b,
-              status: 'confirmed' as const,
-              paymentStatus: 'verified' as const,
-              holdSecondsRemaining: undefined,
-            }
-          : b,
+    async (bookingId: string) => {
+      try {
+        await fetch('/api/dashboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update_booking',
+            slug: workspace.slug,
+            bookingId,
+            status: 'confirmed',
+            paymentStatus: 'verified',
+          }),
+        });
+      } catch {
+        // ignore network error
+      }
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId
+            ? {
+                ...b,
+                status: 'confirmed' as const,
+                paymentStatus: 'verified' as const,
+                holdSecondsRemaining: undefined,
+              }
+            : b,
+        ),
       );
-      saveBookings(next);
     },
-    [bookings, saveBookings],
+    [workspace.slug],
   );
 
   const handleFlagPaymentPendingVerification = useCallback(
-    (bookingId: string) => {
-      const next = bookings.map((b) =>
-        b.id === bookingId
-          ? {
-              ...b,
-              paymentStatus: 'pending_verification' as const,
-            }
-          : b,
+    async (bookingId: string) => {
+      try {
+        await fetch('/api/dashboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update_booking',
+            slug: workspace.slug,
+            bookingId,
+            paymentStatus: 'pending_verification',
+          }),
+        });
+      } catch {
+        // ignore
+      }
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId
+            ? {
+                ...b,
+                paymentStatus: 'pending_verification' as const,
+              }
+            : b,
+        ),
       );
-      saveBookings(next);
     },
-    [bookings, saveBookings],
+    [workspace.slug],
   );
 
-  const handleTriggerHumanEscalation = useCallback(() => {
-    const escalated: ConversationRecord = {
-      id: `conv_esc_${Date.now()}`,
-      customerName: 'Sade Balogun',
-      customerPhone: '+234 812 900 3341',
-      channel: 'whatsapp',
-      lastMessage: 'Can I book for 3 groomsmen together and pay one combined deposit?',
-      status: 'needs_human',
-      escalationReason: 'Custom group booking & deposit question',
-      updatedAt: '1m ago',
-      messages: [
-        {
-          id: 'e1',
-          sender: 'customer',
-          text: 'Can I book for 3 groomsmen together and pay one combined deposit?',
-          time: '2:18 PM',
-        },
-        {
-          id: 'e2',
-          sender: 'agent',
-          text: "I'm handing this over to a team member right away so they can arrange consecutive slots for your group.",
-          time: '2:18 PM',
-        },
-      ],
-    };
-    saveConversations([escalated, ...conversations]);
-  }, [conversations, saveConversations]);
-
   const handleCreateManualBooking = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
-      const svc = workspace.services[newBookingForm.serviceIndex] ?? {
-        name: 'Classic Fade & Beard Sculpt',
-        price: 5000,
-        depositAmount: 1500,
-      };
-      const stf = workspace.staff[newBookingForm.staffIndex] ?? {
-        name: 'Tunde Adeyemi',
-      };
-      const ulidSuffix = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const svc = workspace.services[newBookingForm.serviceIndex];
+      const stf = workspace.staff[newBookingForm.staffIndex];
+      if (!svc) return;
+
       const depKobo = newBookingForm.requireDeposit ? (workspace.depositAmount || 1500) * 100 : 0;
 
-      const newBooking: BookingRecord = {
-        id: `bk_${Date.now()}`,
-        reference: `sb_dep_${ulidSuffix}`,
-        customerName: newBookingForm.customerName.trim() || 'Walk-in Customer',
-        customerPhone: newBookingForm.customerPhone.trim() || '+234 800 000 0000',
-        serviceName: svc.name,
-        staffName: stf.name,
-        slotTime: newBookingForm.slotTime,
-        priceKobo: svc.price * 100,
-        depositKobo: depKobo,
-        status: newBookingForm.requireDeposit ? 'held' : 'confirmed',
-        paymentStatus: newBookingForm.requireDeposit ? 'awaiting_payment' : 'not_required',
-        holdSecondsRemaining: newBookingForm.requireDeposit ? 900 : undefined,
-        source: 'staff',
-        createdAt: new Date().toISOString(),
-      };
+      const res = await fetch('/api/dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_booking',
+          slug: workspace.slug,
+          customerName: newBookingForm.customerName.trim() || 'Walk-in Customer',
+          customerPhone: newBookingForm.customerPhone.trim(),
+          serviceName: svc.name,
+          staffName: stf?.name,
+          requireDeposit: newBookingForm.requireDeposit,
+          priceKobo: svc.price * 100,
+          depositKobo: depKobo,
+        }),
+      });
 
-      saveBookings([newBooking, ...bookings]);
+      const data = (await res.json()) as { ok: boolean; booking?: BookingRecord };
+      if (!res.ok || !data.ok || !data.booking) {
+        return;
+      }
+
+      setBookings((prev) => [data.booking as BookingRecord, ...prev]);
       setNewBookingModalOpen(false);
       setNewBookingForm({
         customerName: '',
@@ -802,30 +695,38 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         requireDeposit: true,
       });
     },
-    [
-      bookings,
-      newBookingForm,
-      saveBookings,
-      workspace.depositAmount,
-      workspace.services,
-      workspace.staff,
-    ],
+    [newBookingForm, workspace.depositAmount, workspace.services, workspace.slug, workspace.staff],
   );
 
   const handleExpireHold = useCallback(
-    (bookingId: string) => {
-      const next = bookings.map((b) =>
-        b.id === bookingId
-          ? {
-              ...b,
-              status: 'expired' as const,
-              holdSecondsRemaining: 0,
-            }
-          : b,
+    async (bookingId: string) => {
+      try {
+        await fetch('/api/dashboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update_booking',
+            slug: workspace.slug,
+            bookingId,
+            status: 'expired',
+          }),
+        });
+      } catch {
+        // ignore
+      }
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId
+            ? {
+                ...b,
+                status: 'expired' as const,
+                holdSecondsRemaining: 0,
+              }
+            : b,
+        ),
       );
-      saveBookings(next);
     },
-    [bookings, saveBookings],
+    [workspace.slug],
   );
 
   const needsAttentionItems = useMemo(() => {
@@ -1010,11 +911,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setSavingPaymentSettings(true);
       setPaymentSaveNotice(null);
       try {
-        localStorage.setItem('switchboard_onboarding_draft', JSON.stringify(target));
-      } catch {
-        // ignore storage errors
-      }
-      try {
         const res = await fetch('/api/workspace', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1102,16 +998,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setShowDepositTooltip,
     checklistExpanded,
     setChecklistExpanded,
-    devSandboxOpen,
-    setDevSandboxOpen,
     checklist,
     metrics,
     needsAttentionItems,
     recentActivities,
-    handleCreateSimulatedBooking,
     handleVerifyKoraDeposit,
     handleFlagPaymentPendingVerification,
-    handleTriggerHumanEscalation,
     handleExpireHold,
     refreshWorkspaceData,
   };

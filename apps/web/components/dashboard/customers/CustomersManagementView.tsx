@@ -5,11 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
 import { Button } from '@/components/ui/button';
-import type {
-  CustomerBookingSummary,
-  CustomerDirectoryRecord,
-  CustomerSource,
-} from '@/lib/customers-server';
+import type { CustomerDirectoryRecord, CustomerSource } from '@/lib/customers-server';
 import { useDashboard } from '../DashboardContext';
 import { CustomerProfileView } from './CustomerProfileView';
 
@@ -74,16 +70,8 @@ export function CustomersManagementView() {
   const searchParams = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const {
-    workspace,
-    apiState,
-    bookings,
-    conversations,
-    copyBookingLink,
-    copiedSlug,
-    setActiveNav,
-    setNewBookingModalOpen,
-  } = useDashboard();
+  const { workspace, apiState, copyBookingLink, copiedSlug, setActiveNav, setNewBookingModalOpen } =
+    useDashboard();
 
   const [customers, setCustomers] = useState<CustomerDirectoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,123 +149,6 @@ export function CustomersManagementView() {
     router,
   ]);
 
-  const deriveLocalFallbackCustomers = useCallback((): CustomerDirectoryRecord[] => {
-    const map = new Map<string, CustomerDirectoryRecord>();
-    const normalizeLocalPhone = (raw: string) => {
-      const digits = raw.replace(/[^\d]/g, '');
-      if (digits.startsWith('234') && digits.length === 13) return `+${digits}`;
-      if (digits.startsWith('0') && digits.length === 11) return `+234${digits.slice(1)}`;
-      return raw.trim();
-    };
-
-    for (const bk of bookings) {
-      const phone = normalizeLocalPhone(bk.customerPhone);
-      if (!phone) continue;
-      const existing = map.get(phone);
-      const startsIso = bk.createdAt || new Date().toISOString();
-      const mappedStatus: CustomerBookingSummary['status'] =
-        bk.status === 'confirmed' || bk.status === 'completed' || bk.status === 'held'
-          ? bk.status
-          : bk.status === 'expired'
-            ? ('expired' as const)
-            : bk.status === 'cancelled'
-              ? ('cancelled' as const)
-              : ('no_show' as const);
-
-      const bkSummary = {
-        id: bk.id,
-        reference: bk.reference,
-        serviceName: bk.serviceName,
-        staffName: bk.staffName,
-        startsAt: startsIso,
-        endsAt: startsIso,
-        status: mappedStatus,
-        holdExpiresAt: null,
-        source: bk.source,
-        depositKobo: bk.depositKobo,
-        paymentStatus:
-          bk.paymentStatus === 'verified'
-            ? ('verified' as const)
-            : bk.paymentStatus === 'pending_verification'
-              ? ('pending_verification' as const)
-              : bk.paymentStatus === 'not_required'
-                ? ('not_required' as const)
-                : ('awaiting_payment' as const),
-        createdAt: startsIso,
-      };
-
-      if (!existing) {
-        map.set(phone, {
-          id: `local_${phone}`,
-          reference: `cus_${phone.slice(-4)}`,
-          name: bk.customerName,
-          phoneE164: phone,
-          preferredChannel: bk.source === 'whatsapp' ? 'whatsapp' : null,
-          preferredLanguage: null,
-          notes: null,
-          source: bk.source,
-          createdAt: startsIso,
-          updatedAt: startsIso,
-          lastActivityAt: startsIso,
-          confirmedBookingsCount: bk.status === 'confirmed' || bk.status === 'completed' ? 1 : 0,
-          lastBookingAt: bk.status === 'confirmed' || bk.status === 'completed' ? startsIso : null,
-          nextUpcomingBooking: null,
-          verifiedDepositKobo: bk.paymentStatus === 'verified' ? bk.depositKobo : 0,
-          pendingVerificationKobo: bk.paymentStatus === 'pending_verification' ? bk.depositKobo : 0,
-          latestPaymentAt: bk.paymentStatus === 'verified' ? startsIso : null,
-          refundStatus: null,
-          hasOpenAttention: bk.paymentStatus === 'pending_verification',
-          bookings: [bkSummary],
-          conversations: [],
-          activities: [
-            {
-              id: `act_${bk.id}`,
-              timestamp: startsIso,
-              label: bk.status === 'confirmed' ? 'Booking confirmed' : 'Appointment slot held',
-              detail: `${bk.serviceName} with ${bk.staffName}`,
-              kind: 'booking',
-            },
-          ],
-        });
-      } else {
-        existing.bookings.push(bkSummary);
-        if (bk.status === 'confirmed' || bk.status === 'completed') {
-          existing.confirmedBookingsCount += 1;
-          existing.lastBookingAt = startsIso;
-        }
-        if (bk.paymentStatus === 'verified') {
-          existing.verifiedDepositKobo += bk.depositKobo;
-        }
-      }
-    }
-
-    for (const cv of conversations) {
-      // Do not treat anonymous web visitors without a phone as verified phone identities
-      const phone = normalizeLocalPhone(cv.customerPhone);
-      if (!phone || phone.endsWith('0000000')) continue;
-      const existing = map.get(phone);
-      const cvSummary = {
-        id: cv.id,
-        channel: cv.channel,
-        status:
-          cv.status === 'needs_human'
-            ? ('needs_human' as const)
-            : cv.status === 'resolved'
-              ? ('closed' as const)
-              : ('agent' as const),
-        lastMessageAt: null,
-        lastMessagePreview: cv.lastMessage,
-        createdAt: new Date().toISOString(),
-      };
-      if (existing) {
-        existing.conversations.push(cvSummary);
-        if (cv.status === 'needs_human') existing.hasOpenAttention = true;
-      }
-    }
-
-    return Array.from(map.values());
-  }, [bookings, conversations]);
-
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -291,8 +162,8 @@ export function CustomersManagementView() {
 
       if (res.status === 401) {
         setCanPersistToDb(false);
-        setAuthNotice('Sign in to sync and edit persisted Postgres customer profiles.');
-        setCustomers(deriveLocalFallbackCustomers());
+        setAuthNotice('Sign in to view and manage customers from your database.');
+        setCustomers([]);
         return;
       }
 
@@ -314,7 +185,7 @@ export function CustomersManagementView() {
     } finally {
       setLoading(false);
     }
-  }, [deriveLocalFallbackCustomers, workspace.slug]);
+  }, [workspace.slug]);
 
   useEffect(() => {
     void fetchCustomers();
