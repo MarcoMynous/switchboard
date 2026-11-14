@@ -19,6 +19,7 @@ x-node-app: &node-app
     - config_node_modules:/app/packages/config/node_modules
     - env_node_modules:/app/packages/env/node_modules
     - db_node_modules:/app/packages/db/node_modules
+    - booking_node_modules:/app/packages/booking/node_modules
     - pnpm_store:/pnpm/store
 
 services:
@@ -125,4 +126,5 @@ volumes:
   config_node_modules:
   env_node_modules:
   db_node_modules:
+  booking_node_modules:
   pnpm_store:
