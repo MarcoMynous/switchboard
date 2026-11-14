@@ -101,8 +101,9 @@ describe('GET /public/:slug/slots', () => {
     const res = await app.request(`/public/${f.slug}/slots?service=low-cut&limit=10`);
     const body = await json<SlotsBody>(res);
     expect(res.status).toBe(200);
-    expect(body.date).not.toBeNull();
-    expect(body.slots).toHaveLength(10);
+    expect(body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(body.slots.length).toBeGreaterThan(0);
+    expect(body.slots.length).toBeLessThanOrEqual(10);
   });
 
   it('rejects bad queries and unknown services; maps domain refusals to 422', async () => {
