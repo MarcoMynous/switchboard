@@ -1,41 +1,24 @@
 'use client';
 
-import { ConversationsManagementView } from '@/components/dashboard/conversations/ConversationsManagementView';
-import { useDashboard } from '@/components/dashboard/DashboardContext';
+import { Suspense } from 'react';
+import { NeedsAttentionView } from '@/components/dashboard/needs-attention/NeedsAttentionView';
 
 export default function NeedsAttentionPage() {
-  const {
-    workspace,
-    conversations,
-    bookings,
-    apiState,
-    refreshWorkspaceData,
-    setChatDrawerOpen,
-    saveConversations,
-    saveBookings,
-    setActiveNav,
-  } = useDashboard();
-
   return (
-    <ConversationsManagementView
-      workspace={workspace}
-      conversations={conversations}
-      bookings={bookings}
-      userRole={apiState.role}
-      operatorName={apiState.ownerName}
-      whatsappConnected={apiState.whatsappConnected}
-      isLoading={apiState.loading}
-      apiError={apiState.error}
-      initialNeedsHumanOnly
-      onRefresh={refreshWorkspaceData}
-      onOpenTestChat={() => setChatDrawerOpen(true)}
-      onUpdateConversation={(conversationId, updater) =>
-        saveConversations(conversations.map((c) => (c.id === conversationId ? updater(c) : c)))
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          <div className="h-12 rounded-xl bg-surface-container-low animate-pulse" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 rounded-xl bg-surface-container-low animate-pulse" />
+            ))}
+          </div>
+          <div className="h-64 rounded-xl bg-surface-container-low animate-pulse" />
+        </div>
       }
-      onUpdateBooking={(bookingId, updater) =>
-        saveBookings(bookings.map((b) => (b.id === bookingId ? updater(b) : b)))
-      }
-      onNavigateSection={(sec) => setActiveNav(sec)}
-    />
+    >
+      <NeedsAttentionView />
+    </Suspense>
   );
 }
