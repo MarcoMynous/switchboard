@@ -13,7 +13,8 @@ module.exports = {
       url: pages.map((p) => base + p),
       numberOfRuns: 3, // median of 3 to smooth noise
       settings: {
-        preset: 'mobile', // our customers are on phones
+        // No `preset`: Lighthouse's default IS mobile emulation + slow 4G, which is our customers'
+        // reality. ('mobile' is not a valid preset; the choices are perf | experimental | desktop.)
         throttlingMethod: 'simulate',
         ...(bypass && {
           extraHeaders: JSON.stringify({ 'x-vercel-protection-bypass': bypass }),

@@ -308,7 +308,7 @@ export function DepositCard({
       {status === 'underpaid' && (
         <div className="p-4 rounded-xl bg-[#FFFBEB] border border-[#F59E0B]/45 space-y-3">
           <div className="flex items-start gap-2.5">
-            <AppIcon name="warning" className="text-[20px] text-[#B45309] shrink-0 mt-0.5" />
+            <AppIcon name="warning" className="text-[20px] text-[#92400E] shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="text-[13px] font-bold text-[#92400E]">
                 Partial deposit received — {formatNairaFromKobo(shortfallKobo)} shortfall remaining
@@ -327,7 +327,7 @@ export function DepositCard({
           <div className="bg-white rounded-lg border border-[#F59E0B]/30 p-3 flex items-center justify-between text-xs">
             <div>
               <span className="text-[#64748B] block">Remaining balance to confirm</span>
-              <span className="text-base font-mono font-bold text-[#B45309]">
+              <span className="text-base font-mono font-bold text-[#92400E]">
                 {formatNairaFromKobo(shortfallKobo)}
               </span>
             </div>
@@ -338,7 +338,7 @@ export function DepositCard({
                 setCopiedAccount(true);
                 setTimeout(() => setCopiedAccount(false), 2000);
               }}
-              className="px-3 py-1.5 rounded-lg border border-[#F59E0B]/40 text-xs font-semibold text-[#B45309] hover:bg-amber-50 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#F59E0B]/40 text-xs font-semibold text-[#92400E] hover:bg-amber-50 cursor-pointer"
             >
               {copiedAccount ? 'Copied!' : `Copy ${accountNumber}`}
             </button>
@@ -349,7 +349,7 @@ export function DepositCard({
       {/* PENDING VERIFICATION (Invariant I7) */}
       {status === 'pending_verification' && (
         <div className="p-4 rounded-xl bg-[#FFFBEB] border border-[#F59E0B]/40 space-y-2">
-          <p className="text-[13px] font-bold text-[#B45309]">
+          <p className="text-[13px] font-bold text-[#92400E]">
             Verifying your transfer with Kora (Invariant I7)
           </p>
           <p className="text-[12px] text-[#78350F] leading-relaxed">

@@ -149,7 +149,7 @@ export default function Home() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 font-metric-sm text-metric-sm text-success">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 font-metric-sm text-metric-sm text-success-strong">
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" /> LIVE
                         SESSION
                       </span>
@@ -215,7 +215,7 @@ export default function Home() {
                             <span className="h-4 w-1 animate-pulse rounded-full bg-iris-light" />
                             <span className="h-2 w-1 rounded-full bg-iris-light/40" />
                           </div>
-                          <span className="font-metric-sm text-metric-sm text-success">
+                          <span className="font-metric-sm text-metric-sm text-success-strong">
                             STREAMING 24kHz
                           </span>
                         </div>
@@ -261,7 +261,10 @@ export default function Home() {
                             <span className="font-label-md text-label-md uppercase tracking-wider text-iris-light">
                               Deterministic Action Chain
                             </span>
-                            <AppIcon name="verified_user" className="text-[16px] text-success" />
+                            <AppIcon
+                              name="verified_user"
+                              className="text-[16px] text-success-strong"
+                            />
                           </div>
 
                           {/* Verified Step Logs */}
@@ -269,7 +272,7 @@ export default function Home() {
                             <div className="flex items-start gap-2.5 rounded border border-surface/5 bg-surface/5 p-2">
                               <AppIcon
                                 name="check_circle"
-                                className="mt-0.5 text-[18px] text-success"
+                                className="mt-0.5 text-[18px] text-success-strong"
                               />
                               <div>
                                 <div className="font-label-sm text-label-sm text-on-primary">
@@ -283,7 +286,7 @@ export default function Home() {
                             <div className="flex items-start gap-2.5 rounded border border-surface/5 bg-surface/5 p-2">
                               <AppIcon
                                 name="credit_card"
-                                className="mt-0.5 text-[18px] text-success"
+                                className="mt-0.5 text-[18px] text-success-strong"
                               />
                               <div>
                                 <div className="font-label-sm text-label-sm text-on-primary">
@@ -310,11 +313,11 @@ export default function Home() {
                           {/* Outcome Snapshot */}
                           <div className="mt-4 rounded-md border border-success/20 bg-success/10 p-3">
                             <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-1.5 font-label-sm text-label-sm font-semibold text-success">
+                              <span className="flex items-center gap-1.5 font-label-sm text-label-sm font-semibold text-success-strong">
                                 <AppIcon name="task_alt" className="text-[16px]" />
                                 Booking Confirmed via Kora (#BK-8821)
                               </span>
-                              <span className="font-metric-sm text-metric-sm text-success">
+                              <span className="font-metric-sm text-metric-sm text-success-strong">
                                 200 OK
                               </span>
                             </div>
@@ -424,7 +427,7 @@ export default function Home() {
                         reservations immediately without human delay.
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 border-t border-border pt-4 font-label-sm text-label-sm font-medium text-success">
+                    <div className="flex items-center gap-2 border-t border-border pt-4 font-label-sm text-label-sm font-medium text-success-strong">
                       <AppIcon name="lock_clock" className="text-[16px]" />
                       <span>Deterministic Guardrails & Payment Locks</span>
                     </div>
@@ -496,7 +499,7 @@ export default function Home() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1.5 rounded bg-success/10 px-2.5 py-1 font-metric-sm text-metric-sm text-success">
+                      <span className="inline-flex items-center gap-1.5 rounded bg-success/10 px-2.5 py-1 font-metric-sm text-metric-sm text-success-strong">
                         <span className="h-2 w-2 animate-pulse rounded-full bg-success" /> 3 Agents
                         Active
                       </span>
@@ -539,7 +542,7 @@ export default function Home() {
                           <span className="flex items-center gap-2.5">
                             <AppIcon name="calendar_month" className="text-[18px]" /> Bookings
                           </span>
-                          <span className="font-metric-sm text-metric-sm text-success">
+                          <span className="font-metric-sm text-metric-sm text-success-strong">
                             28 Today
                           </span>
                         </div>
@@ -565,7 +568,9 @@ export default function Home() {
                         </div>
                         <div className="font-metric-lg text-metric-lg text-text-primary">
                           1,894{' '}
-                          <span className="font-metric-sm text-metric-sm text-success">+14%</span>
+                          <span className="font-metric-sm text-metric-sm text-success-strong">
+                            +14%
+                          </span>
                         </div>
                         <div className="mt-2 h-1.5 w-full rounded-full bg-surface-container">
                           <div className="h-1.5 w-[91%] rounded-full bg-primary-container" />
@@ -602,7 +607,7 @@ export default function Home() {
                                   </div>
                                 </div>
                               </div>
-                              <span className="rounded-full bg-success/15 px-2 py-0.5 font-metric-sm text-metric-sm text-success">
+                              <span className="rounded-full bg-success/15 px-2 py-0.5 font-metric-sm text-metric-sm text-success-strong">
                                 Active
                               </span>
                             </div>
@@ -631,7 +636,7 @@ export default function Home() {
                                   </div>
                                 </div>
                               </div>
-                              <span className="rounded-full bg-success/15 px-2 py-0.5 font-metric-sm text-metric-sm text-success">
+                              <span className="rounded-full bg-success/15 px-2 py-0.5 font-metric-sm text-metric-sm text-success-strong">
                                 Active
                               </span>
                             </div>
@@ -660,7 +665,7 @@ export default function Home() {
                                   </div>
                                 </div>
                               </div>
-                              <span className="rounded-full bg-success/15 px-2 py-0.5 font-metric-sm text-metric-sm text-success">
+                              <span className="rounded-full bg-success/15 px-2 py-0.5 font-metric-sm text-metric-sm text-success-strong">
                                 Active
                               </span>
                             </div>
@@ -685,7 +690,13 @@ export default function Home() {
                             Auto-refresh: 1s interval
                           </span>
                         </div>
-                        <div className="overflow-x-auto rounded-lg border border-border">
+                        {/* Scrolls sideways on phones: focusable so keyboard users can scroll it (axe scrollable-region-focusable). */}
+                        <section
+                          aria-label="Live activity feed"
+                          // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be focusable for keyboard scrolling (WCAG 2.1.1)
+                          tabIndex={0}
+                          className="overflow-x-auto rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8]/35"
+                        >
                           <table className="w-full text-left font-body-sm text-body-sm">
                             <thead className="border-b border-border bg-surface-container-low font-label-sm text-label-sm text-text-secondary">
                               <tr>
@@ -750,7 +761,7 @@ export default function Home() {
                               </tr>
                             </tbody>
                           </table>
-                        </div>
+                        </section>
                       </div>
                     </div>
                   </div>
@@ -812,7 +823,7 @@ export default function Home() {
                       <span className="font-metric-sm text-metric-sm text-text-secondary">
                         Roundtrip Time (WhatsApp Webhook to AI to Database):
                       </span>
-                      <span className="font-metric-md text-metric-md font-semibold text-success">
+                      <span className="font-metric-md text-metric-md font-semibold text-success-strong">
                         280ms • Verified Pipeline
                       </span>
                     </div>
@@ -984,7 +995,7 @@ export default function Home() {
                         site. Every confirmed slot is proven.
                       </p>
                     </div>
-                    <div className="mt-6 border-t border-border pt-4 font-label-sm text-label-sm font-medium text-success">
+                    <div className="mt-6 border-t border-border pt-4 font-label-sm text-label-sm font-medium text-success-strong">
                       Instant live readiness
                     </div>
                   </div>
@@ -1160,9 +1171,9 @@ export default function Home() {
                         </span>
                         <AppIcon name="chat" className="text-[18px] text-primary" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Customer Request
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Customer messages on WhatsApp asking for a haircut or styling at a preferred
                         time.
@@ -1181,9 +1192,9 @@ export default function Home() {
                         </span>
                         <AppIcon name="event" className="text-[18px] text-primary" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Live Availability Check
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Postgres exclusion check queries barber schedules and places a 15-minute
                         hold band.
@@ -1202,9 +1213,9 @@ export default function Home() {
                         </span>
                         <AppIcon name="account_balance" className="text-[18px] text-primary" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Kora Dynamic Account
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Generates a dedicated Kora bank transfer account number with integer kobo
                         deposit amount.
@@ -1221,17 +1232,17 @@ export default function Home() {
                         <span className="rounded bg-surface-container px-2 py-0.5 font-metric-sm text-metric-sm text-text-secondary">
                           Stage 04
                         </span>
-                        <AppIcon name="verified" className="text-[18px] text-success" />
+                        <AppIcon name="verified" className="text-[18px] text-success-strong" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Dual-Verification
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Webhook arrives, signature verified, and Kora query re-checks transaction
                         status directly.
                       </p>
                     </div>
-                    <div className="mt-4 border-t border-border pt-3 font-metric-sm text-metric-sm text-success">
+                    <div className="mt-4 border-t border-border pt-3 font-metric-sm text-metric-sm text-success-strong">
                       → Webhook + Query PASS
                     </div>
                   </div>
@@ -1239,14 +1250,14 @@ export default function Home() {
                   <div className="flex flex-col justify-between rounded-lg border border-border bg-surface p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
                     <div>
                       <div className="mb-3 flex items-center justify-between">
-                        <span className="rounded bg-success/20 px-2 py-0.5 font-metric-sm text-metric-sm font-semibold text-success">
+                        <span className="rounded bg-success/20 px-2 py-0.5 font-metric-sm text-metric-sm font-semibold text-success-strong">
                           Stage 05
                         </span>
-                        <AppIcon name="check_circle" className="text-[18px] text-success" />
+                        <AppIcon name="check_circle" className="text-[18px] text-success-strong" />
                       </div>
-                      <h4 className="mb-2 font-headline-sm text-[16px] text-text-primary">
+                      <h3 className="mb-2 font-headline-sm text-[16px] text-text-primary">
                         Confirmed Booking
-                      </h4>
+                      </h3>
                       <p className="font-body-sm text-body-sm text-text-secondary">
                         Slot transitions to confirmed, calendar updates, and WhatsApp confirmation
                         is dispatched.
@@ -1296,7 +1307,7 @@ export default function Home() {
                   {/* Metric Highlight Badge */}
                   <div className="flex gap-8 rounded-xl border border-surface/10 bg-surface/5 p-6 backdrop-blur-md">
                     <div>
-                      <div className="font-metric-lg text-metric-lg font-semibold text-success">
+                      <div className="font-metric-lg text-metric-lg font-semibold text-success-strong">
                         0.00%
                       </div>
                       <div className="mt-1 font-label-sm text-label-sm text-secondary-fixed-dim">
@@ -1412,24 +1423,24 @@ export default function Home() {
                       </div>
                       <ul className="mb-8 space-y-3 font-body-sm text-body-sm text-text-secondary">
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> 1 Dedicated
-                          WhatsApp Agent (Maya)
+                          <AppIcon name="check" className="text-[18px] text-success-strong" /> 1
+                          Dedicated WhatsApp Agent (Maya)
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Up to 200
-                          completed bookings/mo
+                          <AppIcon name="check" className="text-[18px] text-success-strong" /> Up to
+                          200 completed bookings/mo
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Kora Bank
-                          Transfer Deposits
+                          <AppIcon name="check" className="text-[18px] text-success-strong" /> Kora
+                          Bank Transfer Deposits
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Postgres
-                          conflict-free hold engine
+                          <AppIcon name="check" className="text-[18px] text-success-strong" />{' '}
+                          Postgres conflict-free hold engine
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Mobile
-                          dashboard access
+                          <AppIcon name="check" className="text-[18px] text-success-strong" />{' '}
+                          Mobile dashboard access
                         </li>
                       </ul>
                     </div>
@@ -1462,23 +1473,23 @@ export default function Home() {
                       </div>
                       <ul className="mb-8 space-y-3 font-body-sm text-body-sm text-text-secondary">
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Multi-Staff
-                          Roster & Chair Management
+                          <AppIcon name="check" className="text-[18px] text-success-strong" />{' '}
+                          Multi-Staff Roster & Chair Management
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Unlimited
-                          WhatsApp & Web Conversations
+                          <AppIcon name="check" className="text-[18px] text-success-strong" />{' '}
+                          Unlimited WhatsApp & Web Conversations
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Live Human
-                          Staff Takeover Inbox
+                          <AppIcon name="check" className="text-[18px] text-success-strong" /> Live
+                          Human Staff Takeover Inbox
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Automated
-                          No-Show Deposit Collection
+                          <AppIcon name="check" className="text-[18px] text-success-strong" />{' '}
+                          Automated No-Show Deposit Collection
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Full
+                          <AppIcon name="check" className="text-[18px] text-success-strong" /> Full
                           Analytics & Daily Revenue Reports
                         </li>
                       </ul>
@@ -1509,24 +1520,24 @@ export default function Home() {
                       </div>
                       <ul className="mb-8 space-y-3 font-body-sm text-body-sm text-text-secondary">
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Unlimited
-                          branches and chairs
+                          <AppIcon name="check" className="text-[18px] text-success-strong" />{' '}
+                          Unlimited branches and chairs
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Custom Kora
-                          Sub-Account Split Payments
+                          <AppIcon name="check" className="text-[18px] text-success-strong" />{' '}
+                          Custom Kora Sub-Account Split Payments
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Centralized
-                          Chain Admin Dashboard
+                          <AppIcon name="check" className="text-[18px] text-success-strong" />{' '}
+                          Centralized Chain Admin Dashboard
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> Dedicated
-                          WhatsApp Verified Business Onboarding
+                          <AppIcon name="check" className="text-[18px] text-success-strong" />{' '}
+                          Dedicated WhatsApp Verified Business Onboarding
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <AppIcon name="check" className="text-[18px] text-success" /> 24/7 SLA &
-                          Direct Account Manager
+                          <AppIcon name="check" className="text-[18px] text-success-strong" /> 24/7
+                          SLA & Direct Account Manager
                         </li>
                       </ul>
                     </div>
@@ -1748,19 +1759,19 @@ export default function Home() {
               <ScrollReveal delay={0.4} duration={0.8} yOffset={20}>
                 <div className="mt-16 flex w-full flex-wrap items-center justify-center gap-8 border-t border-surface/10 pt-10 font-metric-sm text-metric-sm text-secondary-fixed-dim">
                   <div className="flex items-center gap-2">
-                    <AppIcon name="verified" className="text-[18px] text-success" />
+                    <AppIcon name="verified" className="text-[18px] text-success-strong" />
                     <span>Postgres GIST Invariant Enforced</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <AppIcon name="shield" className="text-[18px] text-success" />
+                    <AppIcon name="shield" className="text-[18px] text-success-strong" />
                     <span>Kora Re-Verified Webhooks</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <AppIcon name="bolt" className="text-[18px] text-success" />
+                    <AppIcon name="bolt" className="text-[18px] text-success-strong" />
                     <span>99.99% Uptime Engine</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <AppIcon name="lock" className="text-[18px] text-success" />
+                    <AppIcon name="lock" className="text-[18px] text-success-strong" />
                     <span>Zero Hallucination Protocol</span>
                   </div>
                 </div>
@@ -1791,9 +1802,9 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
+              <h3 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
                 Product
-              </h4>
+              </h3>
               <ul className="space-y-2.5 font-body-sm text-body-sm">
                 <li>
                   <a href="#product" className="transition-colors hover:text-on-primary">
@@ -1819,9 +1830,9 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
+              <h3 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
                 Solutions
-              </h4>
+              </h3>
               <ul className="space-y-2.5 font-body-sm text-body-sm">
                 <li>
                   <a href="#solutions" className="transition-colors hover:text-on-primary">
@@ -1847,9 +1858,9 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
+              <h3 className="mb-4 font-label-md text-label-md uppercase tracking-wider text-on-primary">
                 Company
-              </h4>
+              </h3>
               <ul className="space-y-2.5 font-body-sm text-body-sm">
                 <li>
                   <a href="#how-it-works" className="transition-colors hover:text-on-primary">

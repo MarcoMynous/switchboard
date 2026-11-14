@@ -37,10 +37,20 @@ services:
       timeout: 3s
       retries: 30
 
+  # Syncs the shared node_modules volumes with the lockfile ONCE, before any app starts.
+  # Docker seeds a named volume from the image only the first time, so after a dependency
+  # change the volumes go stale; without this step every app container ran its own
+  # `pnpm install` into the same volumes at the same time. No-op (~seconds) when up to date.
+  deps:
+    <<: *node-app
+    command: pnpm install --frozen-lockfile --prefer-offline
+    restart: "no"
+
   migrate:
     <<: *node-app
     command: pnpm --filter @switchboard/db migrate
     depends_on:
+      deps: { condition: service_completed_successfully }
       postgres: { condition: service_healthy }
     restart: "no"
 
@@ -52,6 +62,8 @@ services:
       PORT: "4010"
       WEBHOOK_TARGET: http://api:4000/webhooks/kora
       WA_WEBHOOK_TARGET: http://api:4000/webhooks/whatsapp
+    depends_on:
+      deps: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4010/health || exit 1"]
       interval: 3s

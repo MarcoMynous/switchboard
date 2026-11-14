@@ -96,14 +96,14 @@ export function HoldBand({
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           {effectiveStatus === 'held' && (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-[#F59E0B]/15 text-[#B45309] dark:text-[#FBBF24]">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-[#F59E0B]/15 text-[#92400E] dark:text-[#FBBF24]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
               Slot held · awaiting deposit
             </span>
           )}
 
           {effectiveStatus === 'pending_verification' && (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-[#F59E0B]/20 text-[#B45309]">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-[#F59E0B]/20 text-[#92400E]">
               <AppIcon name="sync" className="text-[12px] animate-spin" />
               Pending Kora verification (I7)
             </span>
@@ -144,7 +144,7 @@ export function HoldBand({
           {effectiveStatus === 'held' && (
             <span
               className={`text-xs font-bold tabular-nums ${
-                secondsLeft <= 120 ? 'text-[#EF4444]' : isDark ? 'text-[#FBBF24]' : 'text-[#B45309]'
+                secondsLeft <= 120 ? 'text-[#EF4444]' : isDark ? 'text-[#FBBF24]' : 'text-[#92400E]'
               }`}
             >
               {formatHoldCountdown(secondsLeft)} left
@@ -152,7 +152,7 @@ export function HoldBand({
           )}
 
           {effectiveStatus === 'pending_verification' && (
-            <span className="text-xs font-semibold text-[#B45309]">Reconciling…</span>
+            <span className="text-xs font-semibold text-[#92400E]">Reconciling…</span>
           )}
 
           {effectiveStatus === 'confirmed' && (

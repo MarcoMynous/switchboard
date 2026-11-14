@@ -476,7 +476,7 @@ export default function PublicBookingPage() {
                   Open for bookings
                 </span>
               </div>
-              <p className="text-[12px] text-[#64748B] mt-1">
+              <p className="text-[12px] text-text-secondary mt-1">
                 {address} · <span className="font-mono">{phone}</span> · Africa/Lagos (WAT)
               </p>
             </div>
@@ -497,22 +497,22 @@ export default function PublicBookingPage() {
           {/* LEFT COLUMN: Services, Staff, Day Strip & Time Chips */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-xs space-y-7">
             <div>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[#6258E8]/10 text-[#6258E8] font-semibold">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[#6258E8]/10 text-[#5247D8] font-semibold">
                 Real-time slot protection · exclude using gist
               </span>
               <h1 className="text-[24px] font-bold text-[#111827] tracking-tight mt-2">
                 Book an appointment at {businessName}
               </h1>
-              <p className="text-[13px] text-[#64748B] mt-0.5">{cancellationPolicy}</p>
+              <p className="text-[13px] text-text-secondary mt-0.5">{cancellationPolicy}</p>
             </div>
 
             {/* 1. Services List */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-[#64748B]">
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
                   1. Choose service
                 </p>
-                <span className="text-[11px] font-mono text-[#64748B]">
+                <span className="text-[11px] font-mono text-text-secondary">
                   Prices in NGN · Kora verified
                 </span>
               </div>
@@ -543,7 +543,7 @@ export default function PublicBookingPage() {
                               No deposit · confirms directly
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md bg-[#F59E0B]/15 text-[#B45309] text-[10px] font-mono font-semibold">
+                            <span className="px-2 py-0.5 rounded-md bg-[#F59E0B]/15 text-[#92400E] text-[10px] font-mono font-semibold">
                               {svc.depositType === 'percent'
                                 ? `${svc.depositValue}% deposit (${formatNairaFromKobo(svcDepositKobo)})`
                                 : svc.depositType === 'full'
@@ -553,11 +553,11 @@ export default function PublicBookingPage() {
                           )}
                         </div>
                         {svc.description && (
-                          <p className="text-[12px] text-[#64748B] line-clamp-1">
+                          <p className="text-[12px] text-text-secondary line-clamp-1">
                             {svc.description}
                           </p>
                         )}
-                        <p className="text-[11px] font-mono text-[#64748B]">
+                        <p className="text-[11px] font-mono text-text-secondary">
                           {svc.durationMinutes} mins · Free cancel {svc.freeCancelHours}h before
                         </p>
                       </div>
@@ -574,7 +574,7 @@ export default function PublicBookingPage() {
 
             {/* 2. Staff Selector */}
             <div className="space-y-2.5">
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-[#64748B]">
+              <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
                 2. Choose specialist
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -594,14 +594,14 @@ export default function PublicBookingPage() {
                           : 'border-[#E5E7EB] hover:border-slate-300 bg-white'
                       }`}
                     >
-                      <div className="w-9 h-9 rounded-full bg-[#6258E8]/10 text-[#6258E8] flex items-center justify-center font-bold text-xs shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-[#6258E8]/10 text-[#5247D8] flex items-center justify-center font-bold text-xs shrink-0">
                         {stf.name.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="text-[14px] font-semibold text-[#111827] truncate">
                           {stf.name}
                         </p>
-                        <p className="text-[12px] text-[#64748B] truncate">{stf.role}</p>
+                        <p className="text-[12px] text-text-secondary truncate">{stf.role}</p>
                       </div>
                     </button>
                   );
@@ -612,10 +612,10 @@ export default function PublicBookingPage() {
             {/* 3. Interactive 7-Day Strip */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-[#64748B]">
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
                   3. Choose day
                 </p>
-                <span className="text-[11px] font-mono text-[#64748B]">
+                <span className="text-[11px] font-mono text-text-secondary">
                   {selectedDay?.weekdayName} · {selectedDay?.openTime}–{selectedDay?.closeTime} WAT
                 </span>
               </div>
@@ -645,8 +645,8 @@ export default function PublicBookingPage() {
                           !day.open
                             ? 'text-slate-300'
                             : isSelected
-                              ? 'text-white/85'
-                              : 'text-[#64748B]'
+                              ? 'text-white/95'
+                              : 'text-text-secondary'
                         }`}
                       >
                         {day.shortDay}
@@ -659,8 +659,8 @@ export default function PublicBookingPage() {
                           !day.open
                             ? 'text-slate-300'
                             : isSelected
-                              ? 'text-white/80'
-                              : 'text-[#64748B]'
+                              ? 'text-white/95'
+                              : 'text-text-secondary'
                         }`}
                       >
                         {day.open ? day.monthShort : 'Closed'}
@@ -673,7 +673,7 @@ export default function PublicBookingPage() {
 
             {/* 4. Time Slot Chips */}
             <div className="space-y-2.5">
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-[#64748B]">
+              <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
                 4. Choose time chip (WAT)
               </p>
               <div className="grid grid-cols-3 gap-2.5">
@@ -705,7 +705,7 @@ export default function PublicBookingPage() {
           <div className="lg:col-span-5 bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-xs space-y-5 sticky top-6">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-4">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-[#64748B]">
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
                   Appointment summary
                 </p>
                 <h2 className="text-[17px] font-bold text-[#111827] mt-0.5">
@@ -719,18 +719,18 @@ export default function PublicBookingPage() {
 
             <div className="space-y-2.5 text-[13px]">
               <div className="flex justify-between">
-                <span className="text-[#64748B]">Specialist</span>
+                <span className="text-text-secondary">Specialist</span>
                 <span className="font-semibold text-[#111827]">{selectedStaff?.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#64748B]">Date &amp; time</span>
+                <span className="text-text-secondary">Date &amp; time</span>
                 <span className="font-mono font-semibold text-[#111827]">
                   {selectedDay?.shortDay} {selectedDay?.dayNumber} {selectedDay?.monthShort} ·{' '}
                   {selectedSlot}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#64748B]">Total service fee</span>
+                <span className="text-text-secondary">Total service fee</span>
                 <span className="font-mono font-semibold text-[#111827]">
                   {formatNairaFromKobo(selectedService?.priceKobo ?? 0)}
                 </span>
@@ -738,7 +738,7 @@ export default function PublicBookingPage() {
 
               {!isNoDepositService && koraFeeKobo > 0 && (
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-[#64748B]">Kora processing fee</span>
+                  <span className="text-text-secondary">Kora processing fee</span>
                   <span className="font-mono text-[#111827]">
                     {formatNairaFromKobo(koraFeeKobo)}
                   </span>
@@ -751,7 +751,7 @@ export default function PublicBookingPage() {
                 </span>
                 <span
                   className={`font-mono font-bold ${
-                    isNoDepositService ? 'text-[#10B981]' : 'text-[#6258E8]'
+                    isNoDepositService ? 'text-[#10B981]' : 'text-[#5247D8]'
                   }`}
                 >
                   {isNoDepositService ? '₦0 (No deposit)' : formatNairaFromKobo(amountExpectedKobo)}
@@ -833,7 +833,7 @@ export default function PublicBookingPage() {
                 <button
                   type="button"
                   onClick={() => setBookingStatus(null)}
-                  className="w-full py-2 rounded-lg border border-[#E5E7EB] text-xs font-semibold text-[#64748B] hover:text-[#111827] hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="w-full py-2 rounded-lg border border-[#E5E7EB] text-xs font-semibold text-text-secondary hover:text-[#111827] hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Choose a different slot
                 </button>

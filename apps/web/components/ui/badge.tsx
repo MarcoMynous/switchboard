@@ -12,7 +12,7 @@ const BADGE_VARIANTS: Record<BadgeVariant, string> = {
   secondary: 'bg-[#F2F4F8] text-slate-600 border border-slate-200/80',
   outline: 'bg-white/80 text-[#0C1233] border border-slate-200',
   success: 'bg-[#ECFDF5] text-[#059669] border border-[#10B981]/25',
-  warning: 'bg-[#FFFBEB] text-[#B45309] border border-[#F59E0B]/30',
+  warning: 'bg-[#FFFBEB] text-[#92400E] border border-[#F59E0B]/30',
   amber: 'bg-linear-to-r from-[#FFFBEB] to-[#FEF3C7] text-[#92400E] border border-[#F59E0B]/30',
 };
 

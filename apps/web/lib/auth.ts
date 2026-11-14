@@ -11,12 +11,14 @@ import { buildMagicLinkEmail } from './magic-link-email';
 
 const env = parseEnv(webSchema);
 
-const normalizedDatabaseUrl = env.DATABASE_URL.includes('uselibpqcompat=')
-  ? env.DATABASE_URL
-  : env.DATABASE_URL.replace(
-      /([?&])sslmode=(?:require|prefer|verify-ca)\b/g,
-      '$1sslmode=verify-full',
-    );
+// Under SKIP_ENV_VALIDATION=1 (CI `pnpm build`, Playwright's local build) env is unvalidated and
+// DATABASE_URL may be absent. pg connects only on the first query, which a build never makes,
+// so an empty string is safe there. At runtime webSchema guarantees a postgres:// URL.
+const databaseUrl: string = env.DATABASE_URL ?? '';
+
+const normalizedDatabaseUrl = databaseUrl.includes('uselibpqcompat=')
+  ? databaseUrl
+  : databaseUrl.replace(/([?&])sslmode=(?:require|prefer|verify-ca)\b/g, '$1sslmode=verify-full');
 
 const pool = new Pool({
   connectionString: normalizedDatabaseUrl,

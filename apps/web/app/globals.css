@@ -11,8 +11,9 @@
   --color-inverse-surface: #2e3133;
   --color-on-secondary-fixed-variant: #3f4758;
   --color-on-tertiary: #ffffff;
-  --color-text-secondary: #64748b;
-  --color-success: #10b981;
+  --color-text-secondary: #5b6577; /* was #64748b: 4.1:1 on surface-container, fails WCAG AA */
+  --color-success: #10b981; /* fills, dots, tints only: 2.5:1 on white, never use for text */
+  --color-success-strong: #047857; /* success-coloured text on light surfaces: >=4.5:1 */
   --color-on-surface: #191c1e;
   --color-primary-fixed: #e3dfff;
   --color-tertiary-fixed-dim: #ffb787;
@@ -68,6 +69,15 @@
   --font-sans:
     var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-jetbrains-mono), var(--font-geist-mono), monospace;
+}
+
+/* Dark surfaces: swap text tokens to light variants so text stays >= 4.5:1 (WCAG AA).
+   Utilities read these as CSS variables, so the override follows the DOM, not the markup.
+   Add any new dark background class here. */
+[class*="bg-midnight-hero"],
+[class*="bg-[#181F63]"] {
+  --color-success-strong: #34d399;
+  --color-text-secondary: #b4bccb;
 }
 
 @keyframes stepFadeIn {

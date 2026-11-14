@@ -17,12 +17,12 @@ import {
 
 const env = parseEnv(webSchema);
 
-const normalizedDatabaseUrl = env.DATABASE_URL.includes('uselibpqcompat=')
-  ? env.DATABASE_URL
-  : env.DATABASE_URL.replace(
-      /([?&])sslmode=(?:require|prefer|verify-ca)\b/g,
-      '$1sslmode=verify-full',
-    );
+// Absent only under SKIP_ENV_VALIDATION=1 (build); pg never connects during a build. See lib/auth.ts.
+const databaseUrl: string = env.DATABASE_URL ?? '';
+
+const normalizedDatabaseUrl = databaseUrl.includes('uselibpqcompat=')
+  ? databaseUrl
+  : databaseUrl.replace(/([?&])sslmode=(?:require|prefer|verify-ca)\b/g, '$1sslmode=verify-full');
 
 const pool = new Pool({
   connectionString: normalizedDatabaseUrl,

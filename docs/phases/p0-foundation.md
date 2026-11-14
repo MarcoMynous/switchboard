@@ -14,8 +14,8 @@
 - [x] A: Vercel deploy — **changed to one project with `services`** (web, api, mock-kora; root `vercel.json`) instead of two projects. Git auto-deploy disabled in root `vercel.json`. Hono entry verified live: `/api/health` → `{"status":"ok","db":"ok"}`. `/health` rewrite to api added (was 404 from web)
 - [x] B: `apps/web` Next.js (bare placeholder exists so Docker boots), Tailwind v4, shadcn init, tokens from `11-frontend-design.md`, fonts
 - [x] B: `/api/*` rewrite to `API_ORIGIN`
-- [x] B: Landing page placeholder scoring 100/100/100/100 in LHCI
-- [ ] B: Playwright + axe setup, one smoke test — **not in repo yet**: no `apps/web/playwright.config.ts`, no root `test:e2e` script (CI e2e job skips until it exists)
+- [ ] B: Landing page placeholder scoring 100/100/100/100 in LHCI — a11y / best-practices / SEO now **100** (local LHCI, Nov 11). **Performance fails: 53–58** (needs ≥ 95). Script JS 226 KB vs 120 KB budget; TBT 4.8–12 s, with ~2 s main-thread tasks repeating every ~3 s inside React after load. Suspects: GSAP ScrollTrigger on ~30 `ScrollFloat`/`ScrollReveal` blocks (style/layout ≈ 8 s), `<Link>` prefetch of 4 routes, 1,122 DOM nodes. Local numbers were taken on a loaded machine (load avg ~10/8 cores); confirm on CI
+- [x] B (done by A): Playwright + axe setup, one smoke test — `apps/web/playwright.config.ts` (mobile + desktop), `apps/web/e2e/smoke.spec.ts` (landing renders, zero WCAG 2.1 AA axe violations), root `pnpm test:e2e`; CI e2e gate removed. Fixed the contrast failures axe found (success text, secondary grey, dark-section tokens) on `/`, `/auth/*`, `/onboarding`, `/dashboard`
 - [ ] Both: day-1 external tasks from `12-team-and-timeline.md`
 
 ## Exit criteria

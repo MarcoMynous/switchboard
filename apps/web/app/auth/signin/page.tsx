@@ -194,7 +194,7 @@ export default function SignInPage() {
                 </p>
               </div>
               <div className="flex items-center justify-between pt-1">
-                <span className="px-2 py-0.5 rounded-full bg-success/15 text-success font-metric-sm text-[11px] inline-flex items-center gap-1 border border-success/20">
+                <span className="px-2 py-0.5 rounded-full bg-success/15 text-success-strong font-metric-sm text-[11px] inline-flex items-center gap-1 border border-success/20">
                   <AppIcon name="check_circle" className="text-[12px]" />
                   Verified Action • Slot Held
                 </span>
@@ -206,12 +206,12 @@ export default function SignInPage() {
           {/* Trust Badges Footer */}
           <div className="relative z-10 pt-4 flex items-center justify-between text-text-secondary border-t border-surface/10">
             <div className="flex items-center space-x-2">
-              <AppIcon name="verified_user" className="text-[18px] text-success" />
+              <AppIcon name="verified_user" className="text-[18px] text-success-strong" />
               <span className="font-label-md text-label-md text-surface/70">
                 99.99% Availability • SOC 2 Type II Certified
               </span>
             </div>
-            <span className="font-metric-sm text-metric-sm text-surface/40">ISO 27001</span>
+            <span className="font-metric-sm text-metric-sm text-surface/60">ISO 27001</span>
           </div>
         </div>
 
@@ -358,7 +358,7 @@ export default function SignInPage() {
 
             {/* Dynamic Success Toast */}
             {isSuccess && (
-              <div className="mt-4 p-3 rounded-lg bg-surface-container text-success font-body-sm text-body-sm flex items-center justify-between shadow-sm border border-success/30 animate-in fade-in duration-200">
+              <div className="mt-4 p-3 rounded-lg bg-surface-container text-success-strong font-body-sm text-body-sm flex items-center justify-between shadow-sm border border-success/30 animate-in fade-in duration-200">
                 <div className="flex items-center gap-2">
                   <AppIcon name="mark_email_read" className="text-[18px]" />
                   <span>Link sent! Navigating to check inbox...</span>

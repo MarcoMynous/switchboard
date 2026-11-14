@@ -635,11 +635,11 @@ export default function OnboardingPage() {
           <aside className="hidden lg:flex lg:w-[34%] bg-linear-to-b from-[#F4F6FC] via-[#F2F3F8] to-[#FAF8F5] p-8 border-r border-slate-200/80 flex-col justify-between">
             <div className="space-y-7">
               <div className="space-y-1">
-                <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold block">
+                <span className="text-xs uppercase tracking-wider text-text-secondary font-semibold block">
                   Onboarding Wizard
                 </span>
                 <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Get Started</h1>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-text-secondary">
                   Configure your orchestration engine in 6 quick stages.
                 </p>
               </div>
@@ -669,7 +669,7 @@ export default function OnboardingPage() {
                             ? 'bg-[#6258E8] text-white shadow-sm ring-4 ring-[#6258E8]/15'
                             : isDone
                               ? 'bg-[#10B981] text-white'
-                              : 'border border-slate-300 bg-white text-slate-500 group-hover:border-[#6258E8] group-hover:text-[#6258E8]'
+                              : 'border border-slate-300 bg-white text-text-secondary group-hover:border-[#6258E8] group-hover:text-[#6258E8]'
                         }`}
                       >
                         {isDone ? <AppIcon name="check" className="text-[18px]" /> : `0${step.id}`}
@@ -685,7 +685,7 @@ export default function OnboardingPage() {
                         >
                           {step.label}
                         </div>
-                        <div className="text-[13px] text-slate-500">{step.desc}</div>
+                        <div className="text-[13px] text-text-secondary">{step.desc}</div>
                       </div>
                     </button>
                   );
@@ -694,7 +694,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* Sidebar Engine Status */}
-            <div className="pt-6 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+            <div className="pt-6 border-t border-slate-200 flex items-center justify-between text-xs text-text-secondary">
               <span className="font-medium">Switchboard Engine</span>
               <span className="text-xs font-mono font-semibold text-[#10B981] flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#10B981] inline-block animate-pulse" />
@@ -755,7 +755,7 @@ export default function OnboardingPage() {
                     {activeStepMeta.title}
                   </h2>
 
-                  <p className="text-[15px] text-slate-500 max-w-xl leading-relaxed">
+                  <p className="text-[15px] text-text-secondary max-w-xl leading-relaxed">
                     {activeStepMeta.subtitle}
                   </p>
                 </div>
@@ -774,7 +774,7 @@ export default function OnboardingPage() {
                         <span>
                           Official Business Name <span className="text-[#ba1a1a]">*</span>
                         </span>
-                        <span className="text-xs font-normal text-slate-500">
+                        <span className="text-xs font-normal text-text-secondary">
                           Public display name
                         </span>
                       </label>
@@ -819,7 +819,7 @@ export default function OnboardingPage() {
                         <span className="text-sm font-semibold text-[#111827]">
                           Primary Business Category <span className="text-[#ba1a1a]">*</span>
                         </span>
-                        <span className="text-xs text-slate-500 hidden sm:inline">
+                        <span className="text-xs text-text-secondary hidden sm:inline">
                           Loads tailored presets
                         </span>
                       </div>
@@ -844,7 +844,7 @@ export default function OnboardingPage() {
                                 className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
                                   isSelected
                                     ? 'bg-white text-[#6258E8]'
-                                    : 'bg-slate-100 text-slate-500'
+                                    : 'bg-slate-100 text-text-secondary'
                                 }`}
                               >
                                 <AppIcon name={meta.icon} className="text-[22px]" />
@@ -853,7 +853,7 @@ export default function OnboardingPage() {
                                 <p className="text-[15px] font-bold text-[#111827] truncate">
                                   {meta.label}
                                 </p>
-                                <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                                <p className="text-xs text-text-secondary line-clamp-1 mt-0.5">
                                   {meta.sub}
                                 </p>
                               </div>
@@ -942,7 +942,7 @@ export default function OnboardingPage() {
                           >
                             WhatsApp / Phone <span className="text-[#ba1a1a]">*</span>
                           </label>
-                          <span className="text-xs text-slate-500">Booking alerts</span>
+                          <span className="text-xs text-text-secondary">Booking alerts</span>
                         </div>
                         <div className="relative rounded-xl shadow-xs">
                           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -977,7 +977,7 @@ export default function OnboardingPage() {
                           >
                             Shop Address
                           </label>
-                          <span className="text-xs text-slate-500">Shared on booking</span>
+                          <span className="text-xs text-text-secondary">Shared on booking</span>
                         </div>
                         <div className="relative rounded-xl shadow-xs">
                           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -1004,7 +1004,7 @@ export default function OnboardingPage() {
                         >
                           Instagram or Website Link
                         </label>
-                        <span className="text-xs text-slate-500">Optional</span>
+                        <span className="text-xs text-text-secondary">Optional</span>
                       </div>
                       <div className="relative rounded-xl shadow-xs">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -1031,7 +1031,7 @@ export default function OnboardingPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-base font-bold text-[#111827]">Bookable Services</h3>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-text-secondary">
                           Prices in Nigerian Naira (₦) • Stored in integer kobo
                         </p>
                       </div>
@@ -1171,7 +1171,7 @@ export default function OnboardingPage() {
                           <h3 className="text-sm font-bold text-[#111827]">
                             Bookable Staff Roster
                           </h3>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-text-secondary">
                             Each staff member gets conflict-free calendar protection
                           </p>
                         </div>
@@ -1228,7 +1228,7 @@ export default function OnboardingPage() {
                                     updateState({ staff: updated });
                                   }
                                 }}
-                                className="w-full text-xs text-slate-500 outline-none truncate"
+                                className="w-full text-xs text-text-secondary outline-none truncate"
                               />
                             </div>
                             {state.staff.length > 1 ? (
@@ -1404,7 +1404,7 @@ export default function OnboardingPage() {
                           <div className="text-xs font-bold text-[#111827]">
                             Advance Booking Window
                           </div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-[11px] text-text-secondary">
                             How far ahead customers can book
                           </div>
                         </div>
@@ -1428,7 +1428,7 @@ export default function OnboardingPage() {
                       >
                         <div>
                           <div className="text-xs font-bold text-[#111827]">Same-Day Bookings</div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-[11px] text-text-secondary">
                             Allow booking open slots for today
                           </div>
                         </div>
@@ -1477,7 +1477,7 @@ export default function OnboardingPage() {
                             VIA KORA
                           </span>
                         </div>
-                        <p className="text-sm text-slate-500 mt-1 leading-snug">
+                        <p className="text-sm text-text-secondary mt-1 leading-snug">
                           Eliminate no-shows. Customers receive a 15-minute slot hold and pay via
                           Kora bank transfer or card to lock their appointment.
                         </p>
@@ -1502,7 +1502,7 @@ export default function OnboardingPage() {
                         <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-1.5">
                           <label
                             htmlFor="dep-amount"
-                            className="text-xs font-bold text-slate-500 uppercase tracking-wider block"
+                            className="text-xs font-bold text-text-secondary uppercase tracking-wider block"
                           >
                             Default Deposit Amount (₦)
                           </label>
@@ -1524,7 +1524,7 @@ export default function OnboardingPage() {
                         </div>
 
                         <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-1.5">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                          <span className="text-xs font-bold text-text-secondary uppercase tracking-wider block">
                             Automatic Hold Expiry
                           </span>
                           <div className="px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-mono font-bold text-[#111827] flex items-center justify-between">
@@ -1542,7 +1542,7 @@ export default function OnboardingPage() {
                         className="text-sm font-semibold text-[#111827] flex items-center justify-between"
                       >
                         <span>Cancellation & Refund Policy</span>
-                        <span className="text-xs text-slate-500">Shared with customers</span>
+                        <span className="text-xs text-text-secondary">Shared with customers</span>
                       </label>
                       <input
                         id="cancel-policy"
@@ -1577,7 +1577,7 @@ export default function OnboardingPage() {
                             className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
                               cap.enabled
                                 ? 'bg-white text-[#6258E8]'
-                                : 'bg-slate-100 text-slate-500'
+                                : 'bg-slate-100 text-text-secondary'
                             }`}
                           >
                             <AppIcon name={cap.icon} className="text-[22px]" />
@@ -1594,7 +1594,7 @@ export default function OnboardingPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-slate-500 mt-1 leading-snug">
+                            <p className="text-sm text-text-secondary mt-1 leading-snug">
                               {cap.description}
                             </p>
                           </div>
@@ -1603,7 +1603,7 @@ export default function OnboardingPage() {
                             className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-1 transition-colors ${
                               cap.enabled
                                 ? 'bg-[#6258E8] text-white'
-                                : 'bg-slate-200/80 text-slate-500'
+                                : 'bg-slate-200/80 text-text-secondary'
                             }`}
                           >
                             <AppIcon name={cap.enabled ? 'check' : 'add'} className="text-[16px]" />
@@ -1615,7 +1615,9 @@ export default function OnboardingPage() {
                     {/* Assistant Name & Tone Compact Row */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       <div className="p-3 rounded-xl border border-slate-200 bg-white flex items-center gap-3">
-                        <span className="text-xs font-bold text-slate-500 uppercase">Name:</span>
+                        <span className="text-xs font-bold text-text-secondary uppercase">
+                          Name:
+                        </span>
                         <input
                           type="text"
                           value={state.assistantName}
@@ -1647,7 +1649,7 @@ export default function OnboardingPage() {
                     <div className="space-y-1.5">
                       <label
                         htmlFor="assistant-greeting"
-                        className="text-xs font-bold text-slate-500 uppercase tracking-wider block"
+                        className="text-xs font-bold text-text-secondary uppercase tracking-wider block"
                       >
                         Opening Greeting Message
                       </label>
@@ -1701,13 +1703,13 @@ export default function OnboardingPage() {
                           <button
                             type="button"
                             onClick={() => setCurrentStep(1)}
-                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
+                            className="text-xs text-text-secondary hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
                         </div>
                         <div className="font-bold text-sm text-[#111827]">{state.businessName}</div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-text-secondary">
                           {CATEGORY_PRESETS[state.category].label} • {state.phone}
                         </div>
                       </div>
@@ -1720,7 +1722,7 @@ export default function OnboardingPage() {
                           <button
                             type="button"
                             onClick={() => setCurrentStep(2)}
-                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
+                            className="text-xs text-text-secondary hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
@@ -1728,7 +1730,7 @@ export default function OnboardingPage() {
                         <div className="font-bold text-sm text-[#111827]">
                           {state.services.length} Services • {state.staff.length} Staff
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-text-secondary">
                           From ₦{Math.min(...state.services.map((s) => s.price)).toLocaleString()}
                         </div>
                       </div>
@@ -1741,7 +1743,7 @@ export default function OnboardingPage() {
                           <button
                             type="button"
                             onClick={() => setCurrentStep(3)}
-                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
+                            className="text-xs text-text-secondary hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
@@ -1750,7 +1752,7 @@ export default function OnboardingPage() {
                           {Object.values(state.schedule).filter((s) => s.open).length} days open /
                           week
                         </div>
-                        <div className="text-xs text-slate-500">{state.timezone}</div>
+                        <div className="text-xs text-text-secondary">{state.timezone}</div>
                       </div>
 
                       <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-1">
@@ -1761,7 +1763,7 @@ export default function OnboardingPage() {
                           <button
                             type="button"
                             onClick={() => setCurrentStep(4)}
-                            className="text-xs text-slate-500 hover:text-[#6258E8] underline font-medium"
+                            className="text-xs text-text-secondary hover:text-[#6258E8] underline font-medium"
                           >
                             Edit
                           </button>
@@ -1801,7 +1803,7 @@ export default function OnboardingPage() {
                     <div className="text-sm font-bold text-[#111827]">
                       Auto-configured capabilities
                     </div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-text-secondary">
                       Model will specialize based on selected objectives
                     </div>
                   </div>
@@ -1838,7 +1840,7 @@ export default function OnboardingPage() {
                     type="button"
                     variant="ghost"
                     onClick={handleBack}
-                    className="w-full rounded-xl text-sm font-medium text-slate-500"
+                    className="w-full rounded-xl text-sm font-medium text-text-secondary"
                   >
                     <AppIcon name="arrow_back" className="text-[18px]" />
                     <span>Back to Step {currentStep - 1}</span>
@@ -1861,7 +1863,7 @@ export default function OnboardingPage() {
                 Back
               </Button>
 
-              <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium">
+              <div className="flex items-center gap-1.5 text-text-secondary text-xs font-medium">
                 {submitError ? (
                   <span className="text-[#ba1a1a] font-semibold">{submitError}</span>
                 ) : (
@@ -1919,7 +1921,7 @@ export default function OnboardingPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-[#111827] text-base">Test Booking Preview</h3>
-                  <p className="text-xs text-slate-500">Sandbox Mode • No live charges</p>
+                  <p className="text-xs text-text-secondary">Sandbox Mode • No live charges</p>
                 </div>
               </div>
               <button
@@ -1933,25 +1935,25 @@ export default function OnboardingPage() {
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-500">Service:</span>
+                <span className="text-text-secondary">Service:</span>
                 <span className="font-bold text-[#111827]">
                   {state.services[0]?.name || 'Classic Haircut'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Assigned Staff:</span>
+                <span className="text-text-secondary">Assigned Staff:</span>
                 <span className="font-bold text-[#111827]">
                   {state.staff[0]?.name || 'Lead Barber'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Slot Hold Timer:</span>
+                <span className="text-text-secondary">Slot Hold Timer:</span>
                 <span className="font-mono font-bold text-[#6258E8]">
                   {Math.floor(testTimer / 60)}:{(testTimer % 60).toString().padStart(2, '0')}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Kora Required Deposit:</span>
+                <span className="text-text-secondary">Kora Required Deposit:</span>
                 <span className="font-bold text-[#10B981]">
                   ₦{state.depositAmount.toLocaleString()}
                 </span>

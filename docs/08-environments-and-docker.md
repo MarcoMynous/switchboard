@@ -25,6 +25,8 @@ All validated in `packages/env` (Zod). App crashes at boot with a clear message 
 | `DATABASE_URL_UNPOOLED` | same as above | GitHub secret (migrations need direct connection) |
 | `API_ORIGIN` | `http://api:4000` | Vercel service binding (`web` → `api`), see root `vercel.json` |
 | `PUBLIC_APP_URL` | `http://localhost:3000` | Vercel env |
+| `PUBLIC_API_URL` | `http://localhost:4000` | not needed (one Vercel domain); fallback for mock-kora's webhook target |
+| `NEXT_PUBLIC_APP_URL` | unset (optional) | Vercel env, only if a client component needs the app URL. The only client-side var (I8) |
 | `BETTER_AUTH_SECRET` | any 32+ chars | Vercel env |
 | `BETTER_AUTH_URL` | `http://localhost:3000` | Vercel env |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Gmail SMTP credentials for Better Auth magic links | Vercel env |
@@ -36,8 +38,14 @@ All validated in `packages/env` (Zod). App crashes at boot with a clear message 
 | `INNGEST_DEV` | `1` | unset |
 | `INNGEST_BASE_URL` | `http://inngest:8288` | unset |
 | `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` | unset | Vercel env (via Inngest Vercel integration) |
-| `LLM_PROVIDER`, `LLM_MODEL`, provider API key | your key or `mock` | Vercel env |
+| `LLM_PROVIDER`, `LLM_MODEL` | `mock`, empty | Vercel env. `LLM_MODEL` required unless `mock` |
+| `ANTHROPIC_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` / `GROQ_API_KEY` | empty | Vercel env: only the one matching `LLM_PROVIDER` is required |
 | `HOLD_MINUTES` | `15` (`2` handy for testing) | `15` |
+| `MIN_LEAD_MINUTES` | `30` | `30` (earliest bookable slot from now) |
+| `SLOT_STEP_MINUTES` | `15` | `15` (slot grid spacing) |
+| `CHAOS_TOKEN` | `local-chaos` | Vercel env (optional): guards chaos controls |
+| `PORT` | set per service in compose (api `4000`, mock-kora `4010`) | set by Vercel |
+| `WEBHOOK_TARGET`, `WA_WEBHOOK_TARGET` | compose: `http://api:4000/webhooks/kora` / `.../whatsapp` | mock-kora only: where it sends signed webhooks |
 
 ## Docker Compose (local)
 
@@ -50,11 +58,16 @@ See `docker-compose.yml`. Services:
 | `web` | 3000 | `next dev`, source bind-mounted |
 | `inngest` | 8288 | `inngest/inngest` dev server pointed at `http://api:4000/api/inngest` |
 | `mock-kora` | 4010 | Fake Kora + WhatsApp stub + chaos controls |
+| `deps` | — | One-shot: `pnpm install --frozen-lockfile --prefer-offline` into the shared `node_modules` volumes; `migrate` and `mock-kora` wait for it |
 | `migrate` | — | One-shot: runs `db:migrate` then exits; `api` waits for it |
 | `k6` | — | profile `load` only |
 | `lhci` | — | profile `quality` only |
 
-Hot reload: source is bind-mounted; `node_modules` lives in a named volume per app so host and container don't fight.
+Hot reload: source is bind-mounted; `node_modules` lives in a named volume per package so host and container don't fight.
+
+Those volumes are seeded from the image only the first time they're created, so after a dependency change they go stale. The `deps` service brings them up to date once before anything else starts (it needs the network only for packages that changed). If they ever get into a bad state: `docker compose down && docker volume rm $(docker volume ls -q | grep '^switchboard_.*node_modules')`.
+
+Port 5432 taken by another project? Set `POSTGRES_HOST_PORT=5433` in `.env`. Containers still talk to `postgres:5432`; only host tools use the new port.
 
 ```bash
 pnpm docker:up                          # docker compose up -d --build

@@ -749,7 +749,7 @@ export default function DashboardPage() {
           description: `${bk.customerName}'s appointment for ${bk.serviceName} with ${bk.staffName} was secured after deposit verification.`,
           time: bk.slotTime,
           icon: 'event_available',
-          badgeColor: 'text-success bg-emerald-50',
+          badgeColor: 'text-success-strong bg-emerald-50',
         });
         if (bk.depositKobo > 0 && bk.paymentStatus === 'verified') {
           list.push({
@@ -1402,7 +1402,7 @@ export default function DashboardPage() {
                         <span className="font-label-md text-label-md font-semibold text-text-primary">
                           Confirmed Bookings
                         </span>
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-success">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-success-strong">
                           <AppIcon name="event_available" className="text-[18px]" />
                         </div>
                       </div>
@@ -1462,7 +1462,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <div className="mt-4">
-                      <div className="font-metric-lg text-3xl text-success font-bold">
+                      <div className="font-metric-lg text-3xl text-success-strong font-bold">
                         {formatNairaFromKobo(metrics.verifiedDepositKobo)}
                       </div>
                       <div className="font-body-sm text-[12px] text-text-secondary mt-1">
@@ -1527,7 +1527,7 @@ export default function DashboardPage() {
                           className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                             metrics.needsAttentionCount > 0
                               ? 'bg-amber-100 text-amber-700'
-                              : 'bg-emerald-50 text-success'
+                              : 'bg-emerald-50 text-success-strong'
                           }`}
                         >
                           <AppIcon
@@ -1558,7 +1558,7 @@ export default function DashboardPage() {
                             Action needed from your team
                           </span>
                         ) : (
-                          <span className="text-success font-medium">
+                          <span className="text-success-strong font-medium">
                             All caught up • No issues pending
                           </span>
                         )}
@@ -1766,7 +1766,7 @@ export default function DashboardPage() {
 
                       {needsAttentionItems.length === 0 ? (
                         <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
-                          <div className="w-10 h-10 rounded-full bg-emerald-50 text-success flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-full bg-emerald-50 text-success-strong flex items-center justify-center">
                             <AppIcon name="check_circle" className="text-[22px]" />
                           </div>
                           <h4 className="font-label-md text-sm font-semibold text-text-primary">
@@ -2037,7 +2037,7 @@ export default function DashboardPage() {
 
                   {/* Dynamic Progress Bar */}
                   <div className="px-6 pt-3 pb-1 bg-surface-container-lowest">
-                    <Progress value={checklist.percent} />
+                    <Progress value={checklist.percent} aria-label="Setup checklist progress" />
                   </div>
 
                   {checklistExpanded && (
@@ -2084,7 +2084,7 @@ export default function DashboardPage() {
                                   <span
                                     className={`font-metric-sm text-metric-sm px-2 py-0.5 rounded-full ${
                                       isDone
-                                        ? 'text-success bg-success/10'
+                                        ? 'text-success-strong bg-success/10'
                                         : 'bg-secondary-container text-on-secondary-container'
                                     }`}
                                   >
@@ -2462,7 +2462,7 @@ export default function DashboardPage() {
                               </div>
                               <div className="text-xs text-text-secondary">{st.role}</div>
                             </div>
-                            <span className="text-xs font-mono text-success">Active</span>
+                            <span className="text-xs font-mono text-success-strong">Active</span>
                           </div>
                         ))}
                       </div>
@@ -2592,7 +2592,7 @@ export default function DashboardPage() {
                         </div>
 
                         {paymentSaveNotice && (
-                          <div className="px-3.5 py-2 rounded-lg bg-success/10 border border-success/30 text-xs font-medium text-success">
+                          <div className="px-3.5 py-2 rounded-lg bg-success/10 border border-success/30 text-xs font-medium text-success-strong">
                             {paymentSaveNotice}
                           </div>
                         )}
@@ -2845,7 +2845,7 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-text-primary text-sm">
                     {workspace.assistantName} — {workspace.businessName}
                   </h3>
-                  <p className="text-xs text-success">
+                  <p className="text-xs text-success-strong">
                     Web Chat Active • Reads live services & staff
                   </p>
                 </div>

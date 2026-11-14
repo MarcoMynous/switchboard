@@ -4,6 +4,17 @@ import { createLogger, maskPhone } from './logger.ts';
 
 const silent = createLogger({ level: 'silent' });
 
+describe('GET /', () => {
+  it('says hello without touching the DB', async () => {
+    const pool = { query: vi.fn() };
+    const app = createApp({ pool, logger: silent });
+    const res = await app.request('/');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ service: 'switchboard-api', status: 'ok' });
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+});
+
 describe('GET /health and /api/health', () => {
   it('is ok when the DB answers', async () => {
     const pool = { query: vi.fn().mockResolvedValue({ rows: [] }) };
