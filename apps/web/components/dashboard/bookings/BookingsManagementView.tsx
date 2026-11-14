@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
-import type { OnboardingState } from '../app/onboarding/page';
-import { AppIcon } from './AppIcon';
-import { HoldBand } from './HoldBand';
-import { Button } from './ui/button';
+import type { OnboardingState } from '@/app/onboarding/page';
+import { AppIcon } from '@/components/AppIcon';
+import { HoldBand } from '@/components/HoldBand';
+import { Button } from '@/components/ui/button';
 
 type BookingStatus = 'held' | 'confirmed' | 'completed' | 'expired' | 'cancelled' | 'no_show';
 
