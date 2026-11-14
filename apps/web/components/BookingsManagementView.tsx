@@ -7,13 +7,7 @@ import { AppIcon } from './AppIcon';
 import { HoldBand } from './HoldBand';
 import { Button } from './ui/button';
 
-export type BookingStatus =
-  | 'held'
-  | 'confirmed'
-  | 'completed'
-  | 'expired'
-  | 'cancelled'
-  | 'no_show';
+type BookingStatus = 'held' | 'confirmed' | 'completed' | 'expired' | 'cancelled' | 'no_show';
 
 export type PaymentStatus =
   | 'not_required'
