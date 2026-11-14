@@ -1,5 +1,7 @@
-import { PlaceholderSectionView } from '@/components/dashboard/PlaceholderSectionView';
+'use client';
+
+import { AiReceptionistView } from '@/components/dashboard/ai-receptionist/AiReceptionistView';
 
 export default function AiReceptionistPage() {
-  return <PlaceholderSectionView title="AI Receptionist" />;
+  return <AiReceptionistView />;
 }

@@ -555,11 +555,11 @@ export async function POST(request: Request) {
         }
 
         await client.query(
-          `INSERT INTO audit_log (business_id, actor_type, actor_id, action, entity_type, entity_id, after)
-           VALUES ($1, 'user', $2, 'booking.created_manual', 'booking', $3, $4::jsonb)`,
+          `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
+           VALUES ($1, $2, 'booking.created_manual', 'booking', $3, $4::jsonb)`,
           [
             business.id,
-            user.id,
+            `staff:${user.id}`,
             createdBooking.id,
             JSON.stringify({ source: 'staff', status, reference: koraRef }),
           ],
@@ -634,11 +634,11 @@ export async function POST(request: Request) {
         }
 
         await client.query(
-          `INSERT INTO audit_log (business_id, actor_type, actor_id, action, entity_type, entity_id, after)
-           VALUES ($1, 'user', $2, 'booking.updated', 'booking', $3, $4::jsonb)`,
+          `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
+           VALUES ($1, $2, 'booking.updated', 'booking', $3, $4::jsonb)`,
           [
             business.id,
-            user.id,
+            `staff:${user.id}`,
             payload.bookingId,
             JSON.stringify({ status: payload.status, paymentStatus: payload.paymentStatus }),
           ],
