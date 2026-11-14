@@ -27,19 +27,24 @@ export function setup() {
   http.post(`${API}/internal/chaos/reset`, null, {
     headers: { 'x-chaos-token': __ENV.CHAOS_TOKEN || 'local-chaos' },
   });
+  // Slots carry every free staff member; the service id comes from the public catalog.
+  const service = http
+    .get(`${API}/public/${SLUG}`)
+    .json('services')
+    .find((s) => s.slug === 'low-cut');
   const res = http.get(`${API}/public/${SLUG}/slots?service=low-cut&limit=10`);
   const slots = res.json('slots');
   if (slots?.length !== 10) throw new Error(`expected 10 seeded slots, got ${slots?.length}`);
-  return { slots };
+  return { serviceId: service.id, slots };
 }
 
-export default function ({ slots }) {
+export default function ({ serviceId, slots }) {
   const slot = slots[(__VU - 1) % 10]; // 10 customers per slot
   const res = http.post(
     `${API}/public/${SLUG}/holds`,
     JSON.stringify({
-      serviceId: slot.serviceId,
-      staffId: slot.staffId,
+      serviceId,
+      staffId: slot.staffIds[0],
       startsAt: slot.startsAt,
       customer: { name: `Bot ${__VU}`, phone: `+23480000${String(__VU).padStart(5, '0')}` },
       idempotencyKey: `k6-${__VU}`,
