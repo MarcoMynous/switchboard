@@ -60,6 +60,42 @@
       }
     },
     {
+      "source": "/api/ai-receptionist",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/customers",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/customers/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/dashboard",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/needs-attention",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/services-staff",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
       "source": "/health",
       "destination": {
         "service": "api"
