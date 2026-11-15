@@ -37,11 +37,20 @@ jobs:
       - run: npm i -g vercel@latest
 
       # 1. Neon branch for this PR (copy-on-write from main). Check the action's current major.
+      - name: Verify Neon configuration
+        env:
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
+        run: |
+          if [ -z "$NEON_PROJECT_ID" ]; then
+            echo "::error::NEON_PROJECT_ID repository variable (or secret) is required (docs/09-ci-cd.md)."
+            exit 1
+          fi
+
       - name: Create Neon branch
         id: neon
         uses: neondatabase/create-branch-action@v5
         with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
+          project_id: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
           branch_name: pr-${{ github.event.pull_request.number }}
           # No `parent`: branch from the project's default branch (named `main` or `production`
           # depending on how the Neon project was created).
