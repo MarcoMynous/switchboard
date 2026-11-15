@@ -51,10 +51,8 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
-      - run: pnpm install --frozen-lockfile
+        with: { node-version: "${{ env.NODE_VERSION }}" }
       - run: npm i -g vercel@latest
       - name: Deploy to Vercel production (web + api + mock-kora services)
         id: deploy
@@ -64,9 +62,7 @@ jobs:
             exit 1
           fi
           rm -rf .vercel
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          vercel build --prod --token="$VERCEL_TOKEN"
-          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          url=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN")
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
   smoke:
