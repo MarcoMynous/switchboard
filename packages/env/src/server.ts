@@ -94,6 +94,70 @@ export const bookingSchema = z.object({
   SLOT_STEP_MINUTES: intFromString(15),
 });
 
+/**
+ * Interledger Open Payments (server-only, I8).
+ * Disabled by default so existing Kora/booking flows run without Open Payments keys;
+ * when OPEN_PAYMENTS_ENABLED=true, client wallet address, key ID, private key, and token encryption key are required.
+ * Production mode requires OPEN_PAYMENTS_PRODUCTION_APPROVED=true after live ASE verification.
+ */
+export const openPaymentsSchema = z
+  .object({
+    OPEN_PAYMENTS_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+    OPEN_PAYMENTS_ENV: z.enum(['testnet', 'production']).default('testnet'),
+    OPEN_PAYMENTS_PRODUCTION_APPROVED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+    OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS: z.string().optional(),
+    OPEN_PAYMENTS_KEY_ID: z.string().optional(),
+    OPEN_PAYMENTS_PRIVATE_KEY_PEM: z.string().optional(),
+    OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY: z.string().optional(),
+    OPEN_PAYMENTS_NGN_TO_USD_RATE: z.coerce.number().positive().default(0.000625),
+  })
+  .superRefine((e, ctx) => {
+    if (!e.OPEN_PAYMENTS_ENABLED) return;
+    if (!e.OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS'],
+        message: 'required when OPEN_PAYMENTS_ENABLED=true',
+      });
+    }
+    if (!e.OPEN_PAYMENTS_KEY_ID) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPEN_PAYMENTS_KEY_ID'],
+        message: 'required when OPEN_PAYMENTS_ENABLED=true',
+      });
+    }
+    if (!e.OPEN_PAYMENTS_PRIVATE_KEY_PEM) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPEN_PAYMENTS_PRIVATE_KEY_PEM'],
+        message: 'required when OPEN_PAYMENTS_ENABLED=true',
+      });
+    }
+    if (!e.OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY || e.OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY.length < 32) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY'],
+        message: 'must be at least 32 characters when OPEN_PAYMENTS_ENABLED=true',
+      });
+    }
+    if (e.OPEN_PAYMENTS_ENV === 'production' && !e.OPEN_PAYMENTS_PRODUCTION_APPROVED) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPEN_PAYMENTS_PRODUCTION_APPROVED'],
+        message:
+          'production Open Payments requires explicit OPEN_PAYMENTS_PRODUCTION_APPROVED=true',
+      });
+    }
+  });
+export type OpenPaymentsEnv = z.infer<typeof openPaymentsSchema>;
+
 /** Everything apps/api needs at runtime. */
 export const apiSchema = z
   .object({
@@ -108,7 +172,8 @@ export const apiSchema = z
     CHAOS_TOKEN: z.string().min(1).optional(),
   })
   .and(inngestSchema)
-  .and(llmSchema);
+  .and(llmSchema)
+  .and(openPaymentsSchema);
 export type ApiEnv = z.infer<typeof apiSchema>;
 
 const resolveDefaultAppUrl = () =>

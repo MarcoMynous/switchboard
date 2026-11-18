@@ -1,5 +1,9 @@
 import { createDb, createPool } from '@switchboard/db';
 import { apiSchema, parseEnv } from '@switchboard/env';
+import {
+  createRealOpenPaymentsAdapter,
+  type OpenPaymentsAdapter,
+} from '@switchboard/open-payments';
 import { createApp } from './app.ts';
 import { createLogger } from './logger.ts';
 
@@ -15,5 +19,35 @@ export function boot() {
     minLeadMinutes: env.MIN_LEAD_MINUTES,
     slotStepMinutes: env.SLOT_STEP_MINUTES,
   };
-  return { env, logger, pool, app: createApp({ pool, db, bookingConfig, logger }) };
+
+  let cachedAdapter: Promise<OpenPaymentsAdapter | null> | null = null;
+  const getAdapter = () => {
+    if (!env.OPEN_PAYMENTS_ENABLED) return Promise.resolve(null);
+    if (!cachedAdapter) {
+      cachedAdapter = createRealOpenPaymentsAdapter({
+        walletAddressUrl: env.OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS ?? '',
+        privateKeyPem: env.OPEN_PAYMENTS_PRIVATE_KEY_PEM ?? '',
+        keyId: env.OPEN_PAYMENTS_KEY_ID ?? '',
+      });
+    }
+    return cachedAdapter;
+  };
+
+  return {
+    env,
+    logger,
+    pool,
+    app: createApp({
+      pool,
+      db,
+      bookingConfig,
+      logger,
+      publicAppUrl: env.PUBLIC_APP_URL,
+      openPayments: {
+        ngnToUsdRate: env.OPEN_PAYMENTS_NGN_TO_USD_RATE,
+        tokenEncryptionKey: env.OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY ?? env.BETTER_AUTH_SECRET,
+        getAdapter,
+      },
+    }),
+  };
 }

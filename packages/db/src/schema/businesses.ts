@@ -1,4 +1,14 @@
-import { bigint, boolean, index, integer, jsonb, pgEnum, pgTable, text } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 import { id, timestamps } from './_columns.ts';
 import { user } from './auth.ts';
 
@@ -61,6 +71,18 @@ export const businesses = pgTable(
     merchantBearsCost: boolean().notNull().default(false),
     cancellationPolicy: text(),
     koraStatus: text().notNull().default('ready'),
+    /** Interledger Open Payments receiving wallet configuration (private keys remain server-only). */
+    interledgerEnabled: boolean().notNull().default(false),
+    interledgerEnvironment: text().notNull().default('testnet'),
+    interledgerWalletAddress: text(),
+    interledgerAuthServer: text(),
+    interledgerResourceServer: text(),
+    interledgerAssetCode: text(),
+    interledgerAssetScale: integer(),
+    interledgerClientWalletAddress: text(),
+    interledgerKeyId: text(),
+    interledgerStatus: text().notNull().default('not_configured'),
+    interledgerLastCheckedAt: timestamp({ withTimezone: true }),
     /** Step 5: AI receptionist persona & capabilities */
     assistantName: text().notNull().default('Maya'),
     greeting: text(),

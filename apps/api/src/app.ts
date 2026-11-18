@@ -1,10 +1,12 @@
 import type { BookingConfig } from '@switchboard/booking';
 import type { Db, Pool } from '@switchboard/db';
+import type { OpenPaymentsAdapter } from '@switchboard/open-payments';
 import { type Context, Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import { serve } from 'inngest/hono';
 import { createFunctions, inngest } from './inngest.ts';
 import type { Logger } from './logger.ts';
+import { interledgerIntegrationRoutes, interledgerPublicRoutes } from './routes/interledger.ts';
 import { publicRoutes } from './routes/public.ts';
 
 export type AppDeps = {
@@ -12,11 +14,24 @@ export type AppDeps = {
   db: Db;
   bookingConfig: BookingConfig;
   logger: Logger;
+  publicAppUrl?: string;
+  openPayments?: {
+    ngnToUsdRate: number;
+    tokenEncryptionKey: string;
+    getAdapter: () => Promise<OpenPaymentsAdapter | null>;
+  };
 };
 
 type Env = { Variables: { requestId: string } };
 
-export function createApp({ pool, db, bookingConfig, logger }: AppDeps) {
+export function createApp({
+  pool,
+  db,
+  bookingConfig,
+  logger,
+  publicAppUrl = 'http://localhost:3000',
+  openPayments,
+}: AppDeps) {
   const app = new Hono<Env>();
 
   app.use(requestId());
@@ -55,7 +70,30 @@ export function createApp({ pool, db, bookingConfig, logger }: AppDeps) {
   app.route('/public', pub);
   app.route('/api/public', pub);
 
-  const inngestHandler = serve({ client: inngest, functions: createFunctions({ db }) });
+  const getOpenPaymentsAdapter = openPayments?.getAdapter ?? (async () => null);
+  const ilpPub = interledgerPublicRoutes({
+    db,
+    logger,
+    publicAppUrl,
+    ngnToUsdRate: openPayments?.ngnToUsdRate ?? 0.000625,
+    tokenEncryptionKey:
+      openPayments?.tokenEncryptionKey ?? 'switchboard-dev-fallback-encryption-key',
+    getAdapter: getOpenPaymentsAdapter,
+    enqueueVerify: async (paymentId) => {
+      await inngest.send({ name: 'interledger/payment.verify', data: { paymentId } });
+    },
+  });
+  app.route('/public', ilpPub);
+  app.route('/api/public', ilpPub);
+
+  const ilpIntegrations = interledgerIntegrationRoutes({ getAdapter: getOpenPaymentsAdapter });
+  app.route('/integrations/interledger', ilpIntegrations);
+  app.route('/api/integrations/interledger', ilpIntegrations);
+
+  const inngestHandler = serve({
+    client: inngest,
+    functions: createFunctions({ db, logger, getOpenPaymentsAdapter }),
+  });
   app.on(['GET', 'PUT', 'POST'], '/api/inngest', (c) => inngestHandler(c));
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));

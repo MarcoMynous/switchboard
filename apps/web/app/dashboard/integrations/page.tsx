@@ -1,5 +1,5 @@
-import { PlaceholderSectionView } from '@/components/dashboard/PlaceholderSectionView';
+import { IntegrationsView } from '@/components/dashboard/integrations/IntegrationsView';
 
 export default function IntegrationsPage() {
-  return <PlaceholderSectionView title="Integrations" />;
+  return <IntegrationsView />;
 }

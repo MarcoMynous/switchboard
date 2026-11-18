@@ -15,6 +15,7 @@
     "@switchboard/booking": "workspace:*",
     "@switchboard/db": "workspace:*",
     "@switchboard/env": "workspace:*",
+    "@switchboard/open-payments": "workspace:*",
     "@vercel/functions": "3.10.5",
     "date-fns": "4.4.0",
     "drizzle-orm": "0.45.4",

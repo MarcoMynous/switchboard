@@ -1,8 +1,46 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { computeKoraFeeKobo } from '@/components/DepositCard';
 import { formatNairaFromKobo, useDashboard } from '../DashboardContext';
+
+interface PaymentTransactionItem {
+  id: string;
+  bookingId: string | null;
+  provider: 'kora' | 'interledger';
+  providerEnvironment: string;
+  reference: string;
+  amountKobo: number;
+  assetCode: string;
+  assetScale: number;
+  providerExpectedAmount: string | null;
+  providerReceivedAmount: string | null;
+  isSimulated: boolean;
+  status: string;
+  createdAt: string;
+  customerName: string | null;
+  serviceName: string | null;
+  recoveryStatus: string | null;
+}
+
+interface PaymentsSummary {
+  koraVerifiedKobo: number;
+  interledgerByAsset: Array<{
+    assetCode: string;
+    assetScale: number;
+    realMinor: string;
+    simulatedMinor: string;
+  }>;
+}
+
+function formatProviderMinor(value: string, assetCode: string, assetScale: number): string {
+  const num = Number(value) / 10 ** assetScale;
+  return `${num.toLocaleString('en-US', {
+    minimumFractionDigits: Math.min(assetScale, 2),
+    maximumFractionDigits: assetScale,
+  })} ${assetCode}`;
+}
 
 export function PaymentsSettingsView({ title = 'Payments' }: { title?: string }) {
   const {
@@ -12,6 +50,40 @@ export function PaymentsSettingsView({ title = 'Payments' }: { title?: string })
     paymentSaveNotice,
     handleSavePaymentSettings,
   } = useDashboard();
+
+  const [providerFilter, setProviderFilter] = useState<'all' | 'kora' | 'interledger'>('all');
+  const [transactions, setTransactions] = useState<PaymentTransactionItem[]>([]);
+  const [summary, setSummary] = useState<PaymentsSummary>({
+    koraVerifiedKobo: 0,
+    interledgerByAsset: [],
+  });
+  const [loadingTx, setLoadingTx] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingTx(true);
+    const qs = providerFilter === 'all' ? '' : `?provider=${providerFilter}`;
+    fetch(`/api/payments${qs}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then(
+        (data: {
+          ok?: boolean;
+          transactions?: PaymentTransactionItem[];
+          summary?: PaymentsSummary;
+        }) => {
+          if (cancelled || !data.ok) return;
+          setTransactions(data.transactions ?? []);
+          if (data.summary) setSummary(data.summary);
+        },
+      )
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingTx(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [providerFilter]);
 
   return (
     <div
@@ -286,6 +358,141 @@ export function PaymentsSettingsView({ title = 'Payments' }: { title?: string })
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* Provider-Separated Reporting & Transactions Ledger */}
+        <div className="space-y-4 pt-4 border-t border-border">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-text-primary">Transactions</h2>
+              <p className="text-xs text-text-secondary">
+                Verified deposits separated by provider, currency, and testnet simulation status.
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 bg-surface-container-low p-1 rounded-lg border border-border">
+              {(['all', 'kora', 'interledger'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setProviderFilter(f)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                    providerFilter === f
+                      ? 'bg-[#22306B] text-white'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  {f === 'all' ? 'All Providers' : f === 'kora' ? 'Kora' : 'Interledger'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="p-4 rounded-xl border border-border bg-white">
+              <p className="text-[11px] font-semibold uppercase text-text-secondary">
+                Kora Verified Deposits (NGN)
+              </p>
+              <p className="text-xl font-bold text-text-primary mt-1">
+                {formatNairaFromKobo(summary.koraVerifiedKobo)}
+              </p>
+            </div>
+            <div className="p-4 rounded-xl border border-border bg-white">
+              <p className="text-[11px] font-semibold uppercase text-text-secondary">
+                Interledger Verified (Real)
+              </p>
+              <p className="text-xl font-bold text-text-primary mt-1">
+                {summary.interledgerByAsset.some((a) => BigInt(a.realMinor) > 0n)
+                  ? summary.interledgerByAsset
+                      .filter((a) => BigInt(a.realMinor) > 0n)
+                      .map((a) => formatProviderMinor(a.realMinor, a.assetCode, a.assetScale))
+                      .join(' · ')
+                  : '0.00 (Production disabled)'}
+              </p>
+            </div>
+            <div className="p-4 rounded-xl border border-[#F5B700]/40 bg-[#F5B700]/5">
+              <p className="text-[11px] font-semibold uppercase text-[#7A5900]">
+                Interledger Test Wallet (Simulated)
+              </p>
+              <p className="text-xl font-bold text-[#7A5900] mt-1">
+                {summary.interledgerByAsset.some((a) => BigInt(a.simulatedMinor) > 0n)
+                  ? summary.interledgerByAsset
+                      .filter((a) => BigInt(a.simulatedMinor) > 0n)
+                      .map((a) => formatProviderMinor(a.simulatedMinor, a.assetCode, a.assetScale))
+                      .join(' · ')
+                  : '0.00 USD (Simulated)'}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border overflow-x-auto bg-white">
+            {loadingTx ? (
+              <p className="p-4 text-xs text-text-secondary">Loading payment transactions…</p>
+            ) : transactions.length === 0 ? (
+              <p className="p-4 text-xs text-text-secondary">
+                No payment transactions recorded for this filter yet.
+              </p>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-surface-container-low border-b border-border text-text-secondary uppercase text-[10px]">
+                  <tr>
+                    <th className="px-4 py-2.5">Customer & Booking</th>
+                    <th className="px-4 py-2.5">Provider</th>
+                    <th className="px-4 py-2.5">Amount & Asset</th>
+                    <th className="px-4 py-2.5">Status</th>
+                    <th className="px-4 py-2.5">Reference</th>
+                    <th className="px-4 py-2.5">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {transactions.map((tx) => (
+                    <tr key={tx.id}>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-text-primary">
+                          {tx.customerName ?? 'Customer'}
+                        </p>
+                        <p className="text-[11px] text-text-secondary">
+                          {tx.serviceName ?? tx.bookingId ?? '—'}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-semibold text-text-primary">
+                          {tx.provider === 'interledger' ? 'Interledger Open Payments' : 'Kora'}
+                        </span>
+                        {tx.isSimulated && (
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded bg-[#F5B700]/20 text-[#7A5900] text-[10px] font-semibold">
+                            Simulated
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono">
+                        {tx.provider === 'interledger' && tx.providerExpectedAmount
+                          ? formatProviderMinor(
+                              tx.providerReceivedAmount ?? tx.providerExpectedAmount,
+                              tx.assetCode,
+                              tx.assetScale,
+                            )
+                          : formatNairaFromKobo(tx.amountKobo)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 font-semibold">
+                          {tx.status}
+                        </span>
+                        {tx.recoveryStatus && (
+                          <p className="text-[10px] text-amber-700 mt-0.5">{tx.recoveryStatus}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-text-secondary">
+                        {tx.reference}
+                      </td>
+                      <td className="px-4 py-3 text-text-secondary">
+                        {new Date(tx.createdAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>

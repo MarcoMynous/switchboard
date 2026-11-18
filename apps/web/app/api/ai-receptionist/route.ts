@@ -100,10 +100,11 @@ const DEFAULT_CAPABILITIES: ReceptionistConfigPayload['capabilities'] = [
   },
   {
     id: 'payments',
-    title: 'Request Kora Deposits',
-    description: 'Shares Kora deposit checkout details for bookings requiring payment.',
+    title: 'Request Deposit Checkout',
+    description:
+      'Shares secure Kora bank-transfer or Interledger Wallet checkout links for bookings requiring payment.',
     icon: 'payments',
-    badge: 'VIA KORA',
+    badge: 'KORA + ILP',
     enabled: true,
   },
 ];
@@ -561,6 +562,7 @@ export async function POST(request: Request) {
       const [bizRes, svcRes, stfRes, hoursRes, auditRes] = await Promise.all([
         customersPool.query<{
           name: string;
+          slug: string;
           location: string | null;
           phone: string | null;
           timezone: string;
@@ -575,10 +577,13 @@ export async function POST(request: Request) {
           assistant_name: string;
           greeting: string | null;
           tone: string;
+          interledger_enabled: boolean;
+          interledger_wallet_address: string | null;
         }>(
-          `SELECT name, location, phone, timezone, self_provided, schedule, advance_days, allow_same_day,
+          `SELECT name, slug, location, phone, timezone, self_provided, schedule, advance_days, allow_same_day,
                   deposit_required, default_deposit_kobo::text AS default_deposit_kobo,
-                  free_cancel_hours, cancellation_policy, assistant_name, greeting, tone
+                  free_cancel_hours, cancellation_policy, assistant_name, greeting, tone,
+                  interledger_enabled, interledger_wallet_address
            FROM businesses WHERE id = $1 LIMIT 1`,
           [ctx.business.id],
         ),
@@ -753,6 +758,23 @@ export async function POST(request: Request) {
           outcome = 'Authoritative catalog used';
           matchedSource = 'Services & Staff Catalog';
         }
+      } else if (
+        lower.includes('interledger') ||
+        lower.includes('open payments') ||
+        lower.includes('wallet') ||
+        lower.includes('payment method') ||
+        lower.includes('how can i pay') ||
+        lower.includes('how do i pay')
+      ) {
+        const checkoutUrl = `${process.env.PUBLIC_APP_URL ?? 'http://localhost:3000'}/b/${biz.slug}`;
+        const ilpEnabled = Boolean(biz.interledger_enabled && biz.interledger_wallet_address);
+        if (ilpEnabled) {
+          reply = `Yes, ${biz.name} accepts both Bank Transfer (via Kora) and Interledger Wallet for booking deposits. You can complete your deposit securely on our checkout page: ${checkoutUrl}. Never share private wallet keys here—you will authorize the payment directly with your wallet provider, and Switchboard will confirm your appointment once receipt is verified.`;
+        } else {
+          reply = `${biz.name} currently accepts Bank Transfer (via Kora) for booking deposits. Interledger Wallet is not enabled for this business yet. You can complete your booking and deposit securely at ${checkoutUrl}.`;
+        }
+        outcome = 'Payment methods explained (no secrets collected)';
+        matchedSource = 'Business Payment Settings';
       } else if (
         lower.includes('hour') ||
         lower.includes('open') ||

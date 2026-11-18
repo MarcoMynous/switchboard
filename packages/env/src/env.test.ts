@@ -7,6 +7,7 @@ import {
   inngestSchema,
   llmSchema,
   migrateSchema,
+  openPaymentsSchema,
   parseEnv,
   webSchema,
 } from './index.ts';
@@ -103,5 +104,37 @@ describe('authSchema and webSchema', () => {
 describe('clientSchema', () => {
   it('only exposes NEXT_PUBLIC_ keys to the browser (I8)', () => {
     for (const key of Object.keys(clientSchema.shape)) expect(key).toMatch(/^NEXT_PUBLIC_/);
+  });
+});
+
+describe('openPaymentsSchema', () => {
+  it('allows disabled state without keys and requires keys when enabled', () => {
+    const disabled = openPaymentsSchema.safeParse({});
+    expect(disabled.success).toBe(true);
+    if (disabled.success) expect(disabled.data.OPEN_PAYMENTS_ENABLED).toBe(false);
+
+    expect(openPaymentsSchema.safeParse({ OPEN_PAYMENTS_ENABLED: 'true' }).success).toBe(false);
+
+    const enabled = openPaymentsSchema.safeParse({
+      OPEN_PAYMENTS_ENABLED: 'true',
+      OPEN_PAYMENTS_ENV: 'testnet',
+      OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS: 'https://ilp.interledger-test.dev/switchboard-client',
+      OPEN_PAYMENTS_KEY_ID: 'key-123',
+      OPEN_PAYMENTS_PRIVATE_KEY_PEM: '-----BEGIN PRIVATE KEY-----\nTEST\n-----END PRIVATE KEY-----',
+      OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY: 'local-open-payments-token-key-32-chars',
+    });
+    expect(enabled.success).toBe(true);
+  });
+
+  it('blocks production mode unless explicitly approved', () => {
+    const unapproved = openPaymentsSchema.safeParse({
+      OPEN_PAYMENTS_ENABLED: 'true',
+      OPEN_PAYMENTS_ENV: 'production',
+      OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS: 'https://ilp.example.com/client',
+      OPEN_PAYMENTS_KEY_ID: 'key-123',
+      OPEN_PAYMENTS_PRIVATE_KEY_PEM: 'pem',
+      OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY: 'local-open-payments-token-key-32-chars',
+    });
+    expect(unapproved.success).toBe(false);
   });
 });

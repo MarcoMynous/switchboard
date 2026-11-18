@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
 import {
@@ -10,6 +10,7 @@ import {
   type DepositCardStatus,
   formatNairaFromKobo,
 } from '@/components/DepositCard';
+import { InterledgerCheckoutCard } from '@/components/InterledgerCheckoutCard';
 import { SwitchboardIconSvg } from '@/components/SwitchboardLogo';
 
 type ServiceDepositRule = 'fixed' | 'percent' | 'none' | 'full';
@@ -243,6 +244,32 @@ export default function PublicBookingPage() {
   const [bookingStatus, setBookingStatus] = useState<DepositCardStatus | null>(null);
   const [reference, setReference] = useState('sb_dep_01JFADEREP98K2');
   const [amountPaidKobo, setAmountPaidKobo] = useState(0);
+  const [interledgerEnabled, setInterledgerEnabled] = useState(false);
+  const [interledgerWalletAddress, setInterledgerWalletAddress] = useState<string | null>(null);
+  const [interledgerEnvironment, setInterledgerEnvironment] = useState<'testnet' | 'production'>(
+    'testnet',
+  );
+  const [paymentMethod, setPaymentMethod] = useState<'kora' | 'interledger'>('kora');
+
+  const searchParams = useSearchParams();
+  const ilpCallbackParams = useMemo(() => {
+    const paymentId = searchParams.get('ilp_payment');
+    if (!paymentId) return null;
+    return {
+      paymentId,
+      state: searchParams.get('state'),
+      interactRef: searchParams.get('interact_ref'),
+      hash: searchParams.get('hash'),
+      result: searchParams.get('result'),
+    };
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (ilpCallbackParams) {
+      setPaymentMethod('interledger');
+      setBookingStatus((prev) => prev ?? 'held');
+    }
+  }, [ilpCallbackParams]);
 
   const rotateIdempotencyKey = () => {
     setIdempotencyKey(
@@ -331,6 +358,16 @@ export default function PublicBookingPage() {
             if (catalog.business.phone) setPhone(catalog.business.phone);
             if (catalog.business.cancellationPolicy) {
               setCancellationPolicy(catalog.business.cancellationPolicy);
+            }
+            const bizExtra = catalog.business as {
+              interledgerPaymentEnabled?: boolean;
+              interledgerWalletAddress?: string | null;
+              interledgerEnvironment?: 'testnet' | 'production';
+            };
+            if (bizExtra.interledgerPaymentEnabled && bizExtra.interledgerWalletAddress) {
+              setInterledgerEnabled(true);
+              setInterledgerWalletAddress(bizExtra.interledgerWalletAddress);
+              setInterledgerEnvironment(bizExtra.interledgerEnvironment ?? 'testnet');
             }
 
             const mappedServices: ServiceItem[] = catalog.services.map((s) => ({
@@ -1222,31 +1259,103 @@ export default function PublicBookingPage() {
               </form>
             ) : (
               <div className="space-y-4 pt-1">
-                <DepositCard
-                  reference={reference}
-                  businessName={businessName}
-                  customerName={customerName}
-                  customerPhone={customerPhone}
-                  baseDepositKobo={baseDepositKobo}
-                  koraFeeKobo={koraFeeKobo}
-                  amountExpectedKobo={amountExpectedKobo}
-                  amountPaidKobo={amountPaidKobo}
-                  merchantBearsCost={merchantBearsCost}
-                  initialStatus={bookingStatus}
-                  remainingSeconds={holdRemainingSeconds}
-                  freeCancelHours={serviceFreeCancelHours}
-                  pollIntervalMs={3000}
-                  enablePolling={!isNoDepositService}
-                  onStatusChange={(next, paid) => {
-                    setBookingStatus(next);
-                    if (typeof paid === 'number') setAmountPaidKobo(paid);
-                    syncDashboardBooking(reference, next, amountExpectedKobo);
-                  }}
-                  onPickDifferentSlot={() => {
-                    setBookingStatus(null);
-                    rotateIdempotencyKey();
-                  }}
-                />
+                {!isNoDepositService && interledgerEnabled && interledgerWalletAddress && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Choose payment method
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('kora')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          paymentMethod === 'kora'
+                            ? 'border-[#22306B] bg-[#F5F6FA] ring-2 ring-[#22306B]/20'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <p className="text-xs font-bold text-[#111827]">Bank Transfer — Kora</p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          Pay your booking deposit using a bank transfer.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('interledger')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          paymentMethod === 'interledger'
+                            ? 'border-[#22306B] bg-[#F5F6FA] ring-2 ring-[#22306B]/20'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-bold text-[#111827]">Interledger Wallet</p>
+                          {interledgerEnvironment === 'testnet' && (
+                            <span className="px-1.5 py-0.5 rounded bg-[#F5B700]/20 text-[#7A5900] text-[10px] font-semibold">
+                              Testnet
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          Pay securely using a supported wallet.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {paymentMethod === 'interledger' &&
+                !isNoDepositService &&
+                interledgerEnabled &&
+                interledgerWalletAddress ? (
+                  <InterledgerCheckoutCard
+                    slug={slug}
+                    bookingId={reference}
+                    businessName={businessName}
+                    receivingWalletAddress={interledgerWalletAddress}
+                    serviceName={selectedService?.name ?? 'Appointment'}
+                    appointmentLabel={selectedSlot}
+                    depositKobo={baseDepositKobo}
+                    remainingSeconds={holdRemainingSeconds}
+                    environment={interledgerEnvironment}
+                    initialCallbackParams={ilpCallbackParams}
+                    onConfirmed={() => {
+                      setBookingStatus('confirmed');
+                      syncDashboardBooking(reference, 'confirmed', amountExpectedKobo);
+                    }}
+                    onPickDifferentSlot={() => {
+                      setBookingStatus(null);
+                      rotateIdempotencyKey();
+                    }}
+                  />
+                ) : (
+                  <DepositCard
+                    reference={reference}
+                    businessName={businessName}
+                    customerName={customerName}
+                    customerPhone={customerPhone}
+                    baseDepositKobo={baseDepositKobo}
+                    koraFeeKobo={koraFeeKobo}
+                    amountExpectedKobo={amountExpectedKobo}
+                    amountPaidKobo={amountPaidKobo}
+                    merchantBearsCost={merchantBearsCost}
+                    initialStatus={bookingStatus}
+                    remainingSeconds={holdRemainingSeconds}
+                    freeCancelHours={serviceFreeCancelHours}
+                    pollIntervalMs={3000}
+                    enablePolling={!isNoDepositService}
+                    onStatusChange={(next, paid) => {
+                      setBookingStatus(next);
+                      if (typeof paid === 'number') setAmountPaidKobo(paid);
+                      syncDashboardBooking(reference, next, amountExpectedKobo);
+                    }}
+                    onPickDifferentSlot={() => {
+                      setBookingStatus(null);
+                      rotateIdempotencyKey();
+                    }}
+                  />
+                )}
 
                 <button
                   type="button"

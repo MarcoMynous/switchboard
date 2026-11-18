@@ -43,6 +43,13 @@
       "when": 1795001484530,
       "tag": "0005_demo_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795087884530,
+      "tag": "0006_interledger_open_payments",
+      "breakpoints": true
     }
   ]
 }

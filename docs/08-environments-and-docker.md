@@ -44,6 +44,14 @@ All validated in `packages/env` (Zod). App crashes at boot with a clear message 
 | `MIN_LEAD_MINUTES` | `30` | `30` (earliest bookable slot from now) |
 | `SLOT_STEP_MINUTES` | `15` | `15` (slot grid spacing) |
 | `CHAOS_TOKEN` | `local-chaos` | Vercel env (optional): guards chaos controls |
+| `OPEN_PAYMENTS_ENABLED` | `false` (`true` to enable Interledger) | Vercel env |
+| `OPEN_PAYMENTS_ENV` | `testnet` | `testnet` (production gated by `OPEN_PAYMENTS_PRODUCTION_APPROVED`) |
+| `OPEN_PAYMENTS_PRODUCTION_APPROVED` | `false` | `false` until live ASE KYB/compliance is verified |
+| `OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS` | placeholder URL | Vercel env (testnet/live client wallet address) |
+| `OPEN_PAYMENTS_KEY_ID` | placeholder key ID | Vercel env |
+| `OPEN_PAYMENTS_PRIVATE_KEY_PEM` | empty (server-only) | Vercel env (Ed25519 private key PEM) |
+| `OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY` | 32+ char placeholder | Vercel env (AES-256-GCM key for persisted grant tokens) |
+| `OPEN_PAYMENTS_NGN_TO_USD_RATE` | `0.000625` | Vercel env (explicit cross-currency conversion policy) |
 | `PORT` | set per service in compose (api `4000`, mock-kora `4010`) | set by Vercel |
 | `WEBHOOK_TARGET`, `WA_WEBHOOK_TARGET` | compose: `http://api:4000/webhooks/kora` / `.../whatsapp` | mock-kora only: where it sends signed webhooks |
 

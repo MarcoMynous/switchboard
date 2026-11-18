@@ -15,6 +15,9 @@ export interface PublicCatalog {
     advanceDays: number;
     allowSameDay: boolean;
     cancellationPolicy: string | null;
+    interledgerPaymentEnabled: boolean;
+    interledgerEnvironment: 'testnet' | 'production';
+    interledgerWalletAddress: string | null;
   };
   services: {
     id: string;
@@ -78,6 +81,10 @@ export async function getPublicCatalog(db: Executor, slug: string): Promise<Publ
       advanceDays: biz.advanceDays,
       allowSameDay: biz.allowSameDay,
       cancellationPolicy: biz.cancellationPolicy,
+      interledgerPaymentEnabled: Boolean(biz.interledgerEnabled && biz.interledgerWalletAddress),
+      interledgerEnvironment:
+        biz.interledgerEnvironment === 'production' ? 'production' : 'testnet',
+      interledgerWalletAddress: biz.interledgerWalletAddress ?? null,
     },
     services: svcRows.map((s) => ({
       id: s.id,
