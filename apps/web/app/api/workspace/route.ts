@@ -1,5 +1,5 @@
 import { parseEnv, webSchema } from '@switchboard/env';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
@@ -14,6 +14,7 @@ import {
   staffServices,
   workingHours,
 } from '../../../lib/db-schema';
+import { readDemoSessionFromHeaders } from '../../../lib/demo-session';
 
 const env = parseEnv(webSchema);
 
@@ -78,6 +79,125 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const requestedSlug = url.searchParams.get('slug')?.trim();
 
+    const demoSession = readDemoSessionFromHeaders(request.headers);
+    if (demoSession) {
+      const demoRows = await db
+        .select()
+        .from(businesses)
+        .where(
+          and(eq(businesses.isDemo, true), eq(businesses.demoSessionId, demoSession.demoSessionId)),
+        )
+        .limit(1);
+      const demoBiz = demoRows[0];
+      if (demoBiz) {
+        const [serviceRows, staffRows] = await Promise.all([
+          db.select().from(services).where(eq(services.businessId, demoBiz.id)),
+          db.select().from(staff).where(eq(staff.businessId, demoBiz.id)),
+        ]);
+        const staffIds = staffRows.map((s) => s.id);
+        const hoursRows =
+          staffIds.length > 0
+            ? await db.select().from(workingHours).where(inArray(workingHours.staffId, staffIds))
+            : [];
+
+        const formattedServices = serviceRows.map((s) => {
+          const priceNaira = Math.round(Number(s.priceKobo) / 100);
+          return {
+            id: s.id,
+            name: s.name,
+            description: s.description || '',
+            duration: s.durationMin,
+            durationMin: s.durationMin,
+            price: priceNaira,
+            priceKobo: Number(s.priceKobo),
+            depositRequired: s.depositType !== 'none',
+            depositType: s.depositType,
+            depositAmount:
+              s.depositType === 'fixed'
+                ? Math.round(Number(s.depositValue) / 100)
+                : s.depositType === 'full'
+                  ? priceNaira
+                  : s.depositType === 'percent'
+                    ? Number(s.depositValue)
+                    : 0,
+            depositValue: Number(s.depositValue),
+            freeCancelHours: s.freeCancelHours,
+          };
+        });
+
+        const formattedStaff = staffRows.map((member) => ({
+          id: member.id,
+          name: member.name,
+          role:
+            member.roleTitle || (member.role === 'owner' ? 'Lead Specialist' : 'Staff Provider'),
+          dbRole: member.role,
+          active: member.active,
+        }));
+
+        const defaultDepositNaira = Math.round(Number(demoBiz.defaultDepositKobo ?? 150_000) / 100);
+
+        return NextResponse.json({
+          ok: true,
+          isDemo: true,
+          demoEntryOrigin: demoSession.entryOrigin,
+          previousSlug: demoSession.previousSlug ?? null,
+          user: {
+            id: `demo:${demoSession.demoSessionId}`,
+            name: 'Demo Explorer',
+            email: 'demo@switchboard.ng',
+            role: 'owner' as const,
+          },
+          business: {
+            id: demoBiz.id,
+            ownerUserId: null,
+            name: demoBiz.name,
+            businessName: demoBiz.name,
+            slug: demoBiz.slug,
+            vertical: demoBiz.vertical,
+            category: mapVerticalToCategory(demoBiz.vertical),
+            phone: demoBiz.phone || '+234 803 123 4567',
+            location: demoBiz.location || 'KM 10 Idiroko Road, Ota, Ogun State',
+            country: demoBiz.country || 'Nigeria (NG)',
+            timezone: demoBiz.timezone,
+            timezoneLabel: formatTimezoneLabel(demoBiz.timezone),
+            instagramOrWeb: demoBiz.website || '',
+            selfProvided: demoBiz.selfProvided,
+            schedule: demoBiz.schedule ?? null,
+            advanceDays: demoBiz.advanceDays,
+            allowSameDay: demoBiz.allowSameDay,
+            depositRequired: demoBiz.depositRequired,
+            depositType: (demoBiz.depositType === 'percentage' ? 'percentage' : 'fixed') as
+              | 'fixed'
+              | 'percentage',
+            depositAmount: defaultDepositNaira,
+            defaultDepositKobo: Number(demoBiz.defaultDepositKobo ?? 150_000),
+            freeCancelHours: demoBiz.freeCancelHours ?? 4,
+            merchantBearsCost: demoBiz.merchantBearsCost ?? false,
+            cancellationPolicy:
+              demoBiz.cancellationPolicy ||
+              'Full refund if cancelled at least 4 hours before your scheduled slot.',
+            koraStatus: 'ready' as const,
+            assistantName: demoBiz.assistantName || 'Maya',
+            greeting: demoBiz.greeting || '',
+            tone: (['Friendly', 'Professional', 'Casual'].includes(demoBiz.tone)
+              ? demoBiz.tone
+              : 'Friendly') as 'Friendly' | 'Professional' | 'Casual',
+            capabilities: demoBiz.capabilities ?? null,
+            onboardingCompleted: true,
+            whatsappPhoneNumberId: null,
+            plan: demoBiz.plan,
+            koraConfigured: true,
+            agentEnabled: demoBiz.agentEnabled,
+            createdAt: demoBiz.createdAt,
+            updatedAt: demoBiz.updatedAt,
+          },
+          services: formattedServices,
+          staff: formattedStaff,
+          workingHours: hoursRows,
+        });
+      }
+    }
+
     const session = await auth.api.getSession({ headers: request.headers }).catch(() => null);
 
     let businessRow: typeof businesses.$inferSelect | undefined;
@@ -86,7 +206,7 @@ export async function GET(request: Request) {
       const rows = await db
         .select()
         .from(businesses)
-        .where(eq(businesses.slug, requestedSlug))
+        .where(and(eq(businesses.slug, requestedSlug), eq(businesses.isDemo, false)))
         .limit(1);
       businessRow = rows[0];
     }
@@ -95,7 +215,7 @@ export async function GET(request: Request) {
       const ownedRows = await db
         .select()
         .from(businesses)
-        .where(eq(businesses.ownerUserId, session.user.id))
+        .where(and(eq(businesses.ownerUserId, session.user.id), eq(businesses.isDemo, false)))
         .orderBy(desc(businesses.updatedAt))
         .limit(1);
       businessRow = ownedRows[0];
@@ -110,7 +230,7 @@ export async function GET(request: Request) {
           const staffBizRows = await db
             .select()
             .from(businesses)
-            .where(eq(businesses.id, staffRows[0].businessId))
+            .where(and(eq(businesses.id, staffRows[0].businessId), eq(businesses.isDemo, false)))
             .limit(1);
           businessRow = staffBizRows[0];
         }
@@ -121,7 +241,7 @@ export async function GET(request: Request) {
       const slugRows = await db
         .select()
         .from(businesses)
-        .where(eq(businesses.slug, requestedSlug))
+        .where(and(eq(businesses.slug, requestedSlug), eq(businesses.isDemo, false)))
         .limit(1);
       businessRow = slugRows[0];
     }
@@ -355,8 +475,51 @@ interface IncomingWorkspaceBody {
 
 export async function POST(request: Request) {
   try {
+    const demoSession = readDemoSessionFromHeaders(request.headers);
     const session = await auth.api.getSession({ headers: request.headers }).catch(() => null);
     const body = (await request.json()) as IncomingWorkspaceBody;
+
+    if (demoSession) {
+      const [demoBiz] = await db
+        .select()
+        .from(businesses)
+        .where(
+          and(eq(businesses.isDemo, true), eq(businesses.demoSessionId, demoSession.demoSessionId)),
+        )
+        .limit(1);
+      if (!demoBiz) {
+        return NextResponse.json({ ok: false, error: 'Demo session expired.' }, { status: 401 });
+      }
+      const depositRequired = body.depositRequired ?? demoBiz.depositRequired;
+      const depositType = body.depositType === 'percentage' ? 'percentage' : 'fixed';
+      const depositAmountNaira = Number.isFinite(body.depositAmount)
+        ? Math.max(0, Number(body.depositAmount))
+        : Math.round(Number(demoBiz.defaultDepositKobo ?? 150_000) / 100);
+      const defaultDepositKobo = Math.round(depositAmountNaira * 100);
+      const freeCancelHours = Number.isFinite(body.freeCancelHours)
+        ? Math.max(0, Math.min(72, Math.round(Number(body.freeCancelHours))))
+        : demoBiz.freeCancelHours;
+      const [updated] = await db
+        .update(businesses)
+        .set({
+          depositRequired,
+          depositType,
+          defaultDepositKobo,
+          freeCancelHours,
+          merchantBearsCost: body.merchantBearsCost ?? demoBiz.merchantBearsCost,
+          cancellationPolicy: body.cancellationPolicy?.trim() || demoBiz.cancellationPolicy,
+          agentEnabled: body.agentEnabled ?? demoBiz.agentEnabled,
+        })
+        .where(and(eq(businesses.id, demoBiz.id), eq(businesses.isDemo, true)))
+        .returning();
+      return NextResponse.json({
+        ok: true,
+        isDemo: true,
+        business: updated,
+        services: [],
+        staff: [],
+      });
+    }
 
     const rawName = (body.businessName || body.name || 'Fade Republic').trim();
     const rawSlug =

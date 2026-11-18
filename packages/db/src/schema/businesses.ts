@@ -73,9 +73,15 @@ export const businesses = pgTable(
     plan: businessPlan().notNull().default('starter'),
     koraPayoutAccount: jsonb().$type<KoraPayoutAccount>(),
     agentEnabled: boolean().notNull().default(true),
+    /** Isolated Demo Mode workspace marker and session owner (never exposed to real users). */
+    isDemo: boolean().notNull().default(false),
+    demoSessionId: text().unique('businesses_demo_session_id_unique'),
     ...timestamps,
   },
-  (table) => [index('businesses_owner_user_id_idx').on(table.ownerUserId)],
+  (table) => [
+    index('businesses_owner_user_id_idx').on(table.ownerUserId),
+    index('businesses_is_demo_idx').on(table.isDemo),
+  ],
 );
 
 export type Business = typeof businesses.$inferSelect;

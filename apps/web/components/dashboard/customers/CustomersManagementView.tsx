@@ -378,7 +378,7 @@ export function CustomersManagementView() {
   };
 
   return (
-    <div className="space-y-6">
+    <div data-tour="customers-panel" className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -394,7 +394,7 @@ export function CustomersManagementView() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div data-tour="customers-actions" className="flex items-center gap-2 flex-wrap">
           <Button
             type="button"
             variant="outline"
@@ -445,7 +445,10 @@ export function CustomersManagementView() {
       )}
 
       {/* 4 Compact Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div
+        data-tour="customers-summary"
+        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
+      >
         <div className="bg-white rounded-xl border border-border p-4 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-text-secondary">Total Customers</span>

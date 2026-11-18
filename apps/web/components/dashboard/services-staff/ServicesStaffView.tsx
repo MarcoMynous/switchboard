@@ -466,7 +466,7 @@ export function ServicesStaffView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div data-tour="services-staff-actions" className="flex items-center gap-2 flex-wrap">
           <Button
             type="button"
             variant="outline"
@@ -499,7 +499,10 @@ export function ServicesStaffView() {
       </div>
 
       {/* 4 Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div
+        data-tour="services-staff-summary"
+        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
+      >
         <div className="rounded-xl border border-border/60 bg-white p-4 shadow-xs">
           <span className="text-xs font-semibold text-text-secondary">Active Services</span>
           <p className="font-headline-md text-2xl font-bold text-text-primary mt-1.5">

@@ -274,12 +274,21 @@ importers:
 
   apps/web:
     dependencies:
+      '@switchboard/booking':
+        specifier: workspace:*
+        version: link:../../packages/booking
+      '@switchboard/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@switchboard/env':
         specifier: workspace:*
         version: link:../../packages/env
       better-auth:
         specifier: 1.7.16
         version: 1.7.16(@opentelemetry/api@1.10.0)(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@neondatabase/serverless@1.2.0)(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1))(next@16.4.4(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.1.0)
+      driver.js:
+        specifier: 1.14.0
+        version: 1.14.0
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@neondatabase/serverless@1.2.0)(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1)
@@ -3054,6 +3063,9 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  driver.js@1.14.0:
+    resolution: {integrity: sha512-BnCFuNU8QO2rrYiDra43Ortx6D6chqMvEMF1q3fWQfsC3xNyCX4T1P1vZDTXTxGdtcXh2v5r11hxSpNLF3DJVw==}
 
   drizzle-kit@0.31.11:
     resolution: {integrity: sha512-YCYqxTLIB2OCqf6w9/Vef13baBVbwQIPcbT4Y56AfO6B9ajZhDhD8Jkveg/hJvT/iuMloKD/IYYkyMMNhr7Kqg==}
@@ -6406,6 +6418,8 @@ snapshots:
     optional: true
 
   detect-libc@2.1.2: {}
+
+  driver.js@1.14.0: {}
 
   drizzle-kit@0.31.11:
     dependencies:

@@ -22,7 +22,7 @@ function resolveApiOrigin(): string | null {
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ['@switchboard/env'],
+  transpilePackages: ['@switchboard/env', '@switchboard/booking', '@switchboard/db'],
   async rewrites() {
     const apiOrigin = resolveApiOrigin();
     if (!apiOrigin) {

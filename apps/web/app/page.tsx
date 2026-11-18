@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { AppIcon } from '@/components/AppIcon';
+import { DemoEntryButton } from '@/components/DemoEntryButton';
 import { ScrollFloat } from '@/components/ScrollFloat';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { SwitchboardLogo } from '@/components/SwitchboardLogo';
@@ -121,6 +122,7 @@ export default function Home() {
                     <span>Get started</span>
                     <AppIcon name="arrow_forward" className="text-[18px]" />
                   </Link>
+                  <DemoEntryButton />
                   <a
                     href="#how-it-works"
                     className="inline-flex w-full items-center justify-center gap-2 rounded border border-surface/10 bg-surface/5 px-6 py-3.5 font-label-md text-label-md text-on-primary backdrop-blur-sm transition-all hover:bg-surface/10 sm:w-auto"

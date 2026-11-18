@@ -10,8 +10,11 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@switchboard/booking": "workspace:*",
+    "@switchboard/db": "workspace:*",
     "@switchboard/env": "workspace:*",
     "better-auth": "1.7.16",
+    "driver.js": "1.14.0",
     "drizzle-orm": "0.45.4",
     "lucide-react": "1.68.0",
     "next": "16.4.4",

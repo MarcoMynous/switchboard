@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { customersPool, resolveAuthorizedBusiness } from '@/lib/customers-server';
+import type { BusinessDaySchedule } from '@/lib/db-schema';
 
 export interface ReceptionistFaqItem {
   id: string;
@@ -9,7 +10,31 @@ export interface ReceptionistFaqItem {
   updatedAt: string;
 }
 
-export interface ReceptionistConfigPayload {
+export interface ReceptionistServiceSummary {
+  id: string;
+  name: string;
+  description: string;
+  durationMin: number;
+  priceKobo: number;
+  depositType: string;
+  depositKobo: number;
+}
+
+export interface ReceptionistStaffSummary {
+  id: string;
+  name: string;
+  roleTitle: string;
+  active: boolean;
+}
+
+export interface ReceptionistDaySchedule {
+  day: string;
+  open: boolean;
+  openTime: string;
+  closeTime: string;
+}
+
+interface ReceptionistConfigPayload {
   assistantName: string;
   primaryLanguage: 'English' | 'Nigerian Pidgin';
   tone: 'Friendly' | 'Professional' | 'Casual';
@@ -28,7 +53,37 @@ export interface ReceptionistConfigPayload {
   }>;
 }
 
-const DEFAULT_CAPABILITIES = [
+const ORDERED_DAYS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+] as const;
+
+const INDEX_TO_WEEKDAY: Record<number, (typeof ORDERED_DAYS)[number]> = {
+  0: 'Sunday',
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
+};
+
+const DEFAULT_SCHEDULE: Record<(typeof ORDERED_DAYS)[number], BusinessDaySchedule> = {
+  Monday: { open: true, openTime: '09:00', closeTime: '19:00' },
+  Tuesday: { open: true, openTime: '09:00', closeTime: '19:00' },
+  Wednesday: { open: true, openTime: '09:00', closeTime: '19:00' },
+  Thursday: { open: true, openTime: '09:00', closeTime: '19:00' },
+  Friday: { open: true, openTime: '09:00', closeTime: '20:00' },
+  Saturday: { open: true, openTime: '09:00', closeTime: '20:00' },
+  Sunday: { open: false, openTime: '12:00', closeTime: '18:00' },
+};
+
+const DEFAULT_CAPABILITIES: ReceptionistConfigPayload['capabilities'] = [
   {
     id: 'questions',
     title: 'Answer Business Questions',
@@ -53,6 +108,69 @@ const DEFAULT_CAPABILITIES = [
   },
 ];
 
+interface DraftConfigInput {
+  assistantName?: string;
+  primaryLanguage?: 'English' | 'Nigerian Pidgin';
+  tone?: 'Friendly' | 'Professional' | 'Casual';
+  greeting?: string;
+  handoffMessage?: string;
+  escalationContact?: string;
+  faqs?: ReceptionistFaqItem[];
+}
+
+function parseFaqArray(raw: unknown): ReceptionistFaqItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (f): f is Record<string, unknown> =>
+        Boolean(f) &&
+        typeof f === 'object' &&
+        typeof (f as Record<string, unknown>).question === 'string' &&
+        typeof (f as Record<string, unknown>).answer === 'string',
+    )
+    .slice(0, 50)
+    .map((f, index) => ({
+      id:
+        typeof f.id === 'string' && f.id.trim().length > 0
+          ? f.id.trim()
+          : `faq_${Date.now()}_${index}`,
+      question: String(f.question).trim().slice(0, 240),
+      answer: String(f.answer).trim().slice(0, 1000),
+      category:
+        typeof f.category === 'string' && f.category.trim()
+          ? f.category.trim().slice(0, 80)
+          : 'General Business Information',
+      updatedAt: typeof f.updatedAt === 'string' ? f.updatedAt : new Date().toISOString(),
+    }))
+    .filter((f) => f.question.length >= 3 && f.answer.length >= 3);
+}
+
+function parseDraftConfig(raw: unknown): DraftConfigInput | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const obj = raw as Record<string, unknown>;
+  const primaryLanguage =
+    obj.primaryLanguage === 'Nigerian Pidgin'
+      ? 'Nigerian Pidgin'
+      : obj.primaryLanguage === 'English'
+        ? 'English'
+        : undefined;
+  const tone =
+    obj.tone === 'Friendly' || obj.tone === 'Professional' || obj.tone === 'Casual'
+      ? obj.tone
+      : undefined;
+
+  return {
+    assistantName: typeof obj.assistantName === 'string' ? obj.assistantName.trim() : undefined,
+    primaryLanguage,
+    tone,
+    greeting: typeof obj.greeting === 'string' ? obj.greeting.trim() : undefined,
+    handoffMessage: typeof obj.handoffMessage === 'string' ? obj.handoffMessage.trim() : undefined,
+    escalationContact:
+      typeof obj.escalationContact === 'string' ? obj.escalationContact.trim() : undefined,
+    faqs: Array.isArray(obj.faqs) ? parseFaqArray(obj.faqs) : undefined,
+  };
+}
+
 function getLocalDateKey(iso: string, timezone: string): string {
   try {
     return new Intl.DateTimeFormat('en-CA', {
@@ -66,6 +184,60 @@ function getLocalDateKey(iso: string, timezone: string): string {
   }
 }
 
+function buildScheduleList(
+  rawSchedule: Record<string, BusinessDaySchedule> | null,
+  hoursRows: Array<{ weekday: number; start_local: string; end_local: string }>,
+): ReceptionistDaySchedule[] {
+  let scheduleMap: Record<string, BusinessDaySchedule> | null = rawSchedule;
+
+  if (!scheduleMap && hoursRows.length > 0) {
+    const reconstructed: Record<string, BusinessDaySchedule> = {
+      Monday: { open: false, openTime: '09:00', closeTime: '19:00' },
+      Tuesday: { open: false, openTime: '09:00', closeTime: '19:00' },
+      Wednesday: { open: false, openTime: '09:00', closeTime: '19:00' },
+      Thursday: { open: false, openTime: '09:00', closeTime: '19:00' },
+      Friday: { open: false, openTime: '09:00', closeTime: '20:00' },
+      Saturday: { open: false, openTime: '09:00', closeTime: '20:00' },
+      Sunday: { open: false, openTime: '12:00', closeTime: '18:00' },
+    };
+    for (const h of hoursRows) {
+      const dayName = INDEX_TO_WEEKDAY[h.weekday];
+      if (dayName) {
+        reconstructed[dayName] = {
+          open: true,
+          openTime: h.start_local.slice(0, 5),
+          closeTime: h.end_local.slice(0, 5),
+        };
+      }
+    }
+    scheduleMap = reconstructed;
+  }
+
+  const effective = scheduleMap ?? DEFAULT_SCHEDULE;
+  return ORDERED_DAYS.map((day) => {
+    const entry = effective[day] ?? DEFAULT_SCHEDULE[day];
+    return {
+      day,
+      open: Boolean(entry.open),
+      openTime: (entry.openTime || '09:00').slice(0, 5),
+      closeTime: (entry.closeTime || '19:00').slice(0, 5),
+    };
+  });
+}
+
+function computeServiceDepositKobo(
+  depositRequired: boolean,
+  defaultDepositKobo: number,
+  priceKobo: number,
+  depositType: string,
+  depositValue: number,
+): number {
+  if (!depositRequired || depositType === 'none') return 0;
+  if (depositType === 'full') return priceKobo;
+  if (depositType === 'percent') return Math.round((priceKobo * depositValue) / 100);
+  return depositValue > 0 ? depositValue : defaultDepositKobo;
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -77,85 +249,121 @@ export async function GET(request: Request) {
 
     const { business, role } = ctx;
 
-    const [bizRes, svcRes, stfRes, convRes, bkRes, auditRes] = await Promise.all([
-      customersPool.query<{
-        id: string;
-        name: string;
-        slug: string;
-        phone: string | null;
-        location: string | null;
-        timezone: string;
-        self_provided: boolean;
-        deposit_required: boolean;
-        default_deposit_kobo: string;
-        free_cancel_hours: number;
-        cancellation_policy: string | null;
-        kora_status: string;
-        kora_payout_account: Record<string, unknown> | null;
-        whatsapp_phone_number_id: string | null;
-        assistant_name: string;
-        greeting: string | null;
-        tone: string;
-        capabilities: ReceptionistConfigPayload['capabilities'] | null;
-        agent_enabled: boolean;
-        updated_at: string;
-      }>(
-        `SELECT id::text AS id, name, slug, phone, location, timezone, self_provided,
-                deposit_required, default_deposit_kobo::text AS default_deposit_kobo,
-                free_cancel_hours, cancellation_policy, kora_status, kora_payout_account,
-                whatsapp_phone_number_id, assistant_name, greeting, tone, capabilities,
-                agent_enabled, updated_at::text AS updated_at
-         FROM businesses
-         WHERE id = $1
-         LIMIT 1`,
-        [business.id],
-      ),
-      customersPool.query<{
-        id: string;
-        name: string;
-        duration_min: number;
-        price_kobo: string;
-      }>(
-        `SELECT id::text AS id, name, duration_min, price_kobo::text AS price_kobo
-         FROM services WHERE business_id = $1 ORDER BY name ASC`,
-        [business.id],
-      ),
-      customersPool.query<{ id: string; name: string }>(
-        `SELECT id::text AS id, name FROM staff WHERE business_id = $1 AND active = true`,
-        [business.id],
-      ),
-      customersPool.query<{
-        id: string;
-        status: string;
-        created_at: string;
-        last_message_at: string | null;
-      }>(
-        `SELECT id::text AS id, status::text AS status, created_at::text AS created_at, last_message_at::text AS last_message_at
-         FROM conversations WHERE business_id = $1`,
-        [business.id],
-      ),
-      customersPool.query<{
-        id: string;
-        status: string;
-        source: string;
-        created_at: string;
-      }>(
-        `SELECT id::text AS id, status::text AS status, source::text AS source, created_at::text AS created_at
-         FROM bookings WHERE business_id = $1`,
-        [business.id],
-      ),
-      customersPool.query<{
-        after: Record<string, unknown> | null;
-        created_at: string;
-      }>(
-        `SELECT after, created_at::text AS created_at
-         FROM audit_log
-         WHERE business_id = $1 AND entity = 'ai_receptionist_config'
-         ORDER BY created_at DESC
-         LIMIT 1`,
-        [business.id],
-      ),
-    ]);
+    const [bizRes, svcRes, stfRes, hoursRes, convRes, bkRes, pendingPayRes, auditRes] =
+      await Promise.all([
+        customersPool.query<{
+          id: string;
+          name: string;
+          slug: string;
+          phone: string | null;
+          location: string | null;
+          timezone: string;
+          self_provided: boolean;
+          schedule: Record<string, BusinessDaySchedule> | null;
+          advance_days: number;
+          allow_same_day: boolean;
+          deposit_required: boolean;
+          deposit_type: string;
+          default_deposit_kobo: string;
+          free_cancel_hours: number;
+          merchant_bears_cost: boolean;
+          cancellation_policy: string | null;
+          kora_status: string;
+          kora_payout_account: Record<string, unknown> | null;
+          whatsapp_phone_number_id: string | null;
+          assistant_name: string;
+          greeting: string | null;
+          tone: string;
+          capabilities: ReceptionistConfigPayload['capabilities'] | null;
+          agent_enabled: boolean;
+          updated_at: string;
+        }>(
+          `SELECT id::text AS id, name, slug, phone, location, timezone, self_provided,
+                  schedule, advance_days, allow_same_day,
+                  deposit_required, deposit_type, default_deposit_kobo::text AS default_deposit_kobo,
+                  free_cancel_hours, merchant_bears_cost, cancellation_policy, kora_status, kora_payout_account,
+                  whatsapp_phone_number_id, assistant_name, greeting, tone, capabilities,
+                  agent_enabled, updated_at::text AS updated_at
+           FROM businesses
+           WHERE id = $1
+           LIMIT 1`,
+          [business.id],
+        ),
+        customersPool.query<{
+          id: string;
+          name: string;
+          description: string | null;
+          duration_min: number;
+          price_kobo: string;
+          deposit_type: string;
+          deposit_value: string;
+        }>(
+          `SELECT id::text AS id, name, description, duration_min, price_kobo::text AS price_kobo,
+                  deposit_type::text AS deposit_type, deposit_value::text AS deposit_value
+           FROM services WHERE business_id = $1 ORDER BY name ASC`,
+          [business.id],
+        ),
+        customersPool.query<{
+          id: string;
+          name: string;
+          role_title: string;
+          active: boolean;
+        }>(
+          `SELECT id::text AS id, name, role_title, active
+           FROM staff WHERE business_id = $1 ORDER BY active DESC, name ASC`,
+          [business.id],
+        ),
+        customersPool.query<{
+          weekday: number;
+          start_local: string;
+          end_local: string;
+        }>(
+          `SELECT wh.weekday, wh.start_local::text AS start_local, wh.end_local::text AS end_local
+           FROM working_hours wh
+           JOIN staff st ON st.id = wh.staff_id
+           WHERE st.business_id = $1 AND st.active = true
+           ORDER BY wh.weekday ASC`,
+          [business.id],
+        ),
+        customersPool.query<{
+          id: string;
+          status: string;
+          created_at: string;
+          last_message_at: string | null;
+        }>(
+          `SELECT id::text AS id, status::text AS status, created_at::text AS created_at, last_message_at::text AS last_message_at
+           FROM conversations WHERE business_id = $1`,
+          [business.id],
+        ),
+        customersPool.query<{
+          id: string;
+          status: string;
+          source: string;
+          created_at: string;
+        }>(
+          `SELECT id::text AS id, status::text AS status, source::text AS source, created_at::text AS created_at
+           FROM bookings WHERE business_id = $1`,
+          [business.id],
+        ),
+        customersPool.query<{ cnt: string }>(
+          `SELECT COUNT(*)::text AS cnt
+           FROM payments p
+           JOIN bookings b ON b.id = p.booking_id
+           WHERE b.business_id = $1 AND p.status = 'pending_verification'`,
+          [business.id],
+        ),
+        customersPool.query<{
+          after: Record<string, unknown> | null;
+          created_at: string;
+        }>(
+          `SELECT after, created_at::text AS created_at
+           FROM audit_log
+           WHERE business_id = $1 AND entity = 'ai_receptionist_config'
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [business.id],
+        ),
+      ]);
 
     const biz = bizRes.rows[0];
     if (!biz) {
@@ -184,12 +392,49 @@ export async function GET(request: Request) {
       ? (latestExtra.faqs as ReceptionistFaqItem[])
       : [];
 
+    const defaultDepositKobo = Number(biz.default_deposit_kobo) || 0;
+    const servicesSummary: ReceptionistServiceSummary[] = svcRes.rows.map((s) => {
+      const priceKobo = Number(s.price_kobo) || 0;
+      const depositValue = Number(s.deposit_value) || 0;
+      return {
+        id: s.id,
+        name: s.name,
+        description: s.description || '',
+        durationMin: s.duration_min,
+        priceKobo,
+        depositType: s.deposit_type,
+        depositKobo: computeServiceDepositKobo(
+          biz.deposit_required,
+          defaultDepositKobo,
+          priceKobo,
+          s.deposit_type,
+          depositValue,
+        ),
+      };
+    });
+
+    const staffSummary: ReceptionistStaffSummary[] = stfRes.rows.map((st) => ({
+      id: st.id,
+      name: st.name,
+      roleTitle: st.role_title || 'Staff Provider',
+      active: st.active,
+    }));
+
+    const activeStaffCount = staffSummary.filter((st) => st.active).length;
+    const scheduleList = buildScheduleList(biz.schedule, hoursRes.rows);
+    const openDaysCount = scheduleList.filter((d) => d.open).length;
+
     const hasBusinessProfile = Boolean(biz.name?.trim() && biz.slug?.trim());
-    const hasServices = svcRes.rows.length > 0;
-    const hasStaffOrSolo = stfRes.rows.length > 0 || biz.self_provided;
+    const hasServices = servicesSummary.length > 0;
+    const hasStaffOrSolo = activeStaffCount > 0 || biz.self_provided;
+    const hasWorkingHours = openDaysCount > 0 || hoursRes.rows.length > 0;
     const koraReady = Boolean(biz.kora_payout_account) || biz.kora_status === 'ready';
     const webChatReady =
-      hasBusinessProfile && hasServices && hasStaffOrSolo && (!biz.deposit_required || koraReady);
+      hasBusinessProfile &&
+      hasServices &&
+      hasStaffOrSolo &&
+      hasWorkingHours &&
+      (!biz.deposit_required || koraReady);
     const whatsappConnected = Boolean(biz.whatsapp_phone_number_id);
 
     const todayKey = getLocalDateKey(new Date().toISOString(), biz.timezone);
@@ -205,6 +450,7 @@ export async function GET(request: Request) {
         (b) => b.status === 'confirmed' || b.status === 'completed',
       ).length,
       humanHandoffsRaised: convRes.rows.filter((c) => c.status === 'needs_human').length,
+      pendingPaymentVerifications: Number(pendingPayRes.rows[0]?.cnt ?? '0'),
     };
 
     const tone =
@@ -220,15 +466,22 @@ export async function GET(request: Request) {
         timezone: biz.timezone,
         location: biz.location || '',
         phone: biz.phone || '',
+        advanceDays: biz.advance_days,
+        allowSameDay: biz.allow_same_day,
         depositRequired: biz.deposit_required,
-        defaultDepositKobo: Number(biz.default_deposit_kobo) || 0,
+        depositType: biz.deposit_type,
+        defaultDepositKobo,
         freeCancelHours: biz.free_cancel_hours,
+        merchantBearsCost: biz.merchant_bears_cost,
         cancellationPolicy:
           biz.cancellation_policy ||
           `Full refund if cancelled at least ${biz.free_cancel_hours} hours before your scheduled slot.`,
-        servicesCount: svcRes.rows.length,
-        staffCount: stfRes.rows.length,
+        servicesCount: servicesSummary.length,
+        staffCount: activeStaffCount,
         selfProvided: biz.self_provided,
+        services: servicesSummary,
+        staff: staffSummary,
+        schedule: scheduleList,
       },
       receptionist: {
         agentEnabled: biz.agent_enabled,
@@ -252,10 +505,14 @@ export async function GET(request: Request) {
         hasBusinessProfile,
         hasServices,
         hasStaffOrSolo,
+        hasWorkingHours,
         koraReady,
         webChatReady,
         whatsappConnected,
-        whatsappNumberLabel: whatsappConnected ? 'Verified Meta WhatsApp Number' : null,
+        whatsappPhoneNumberId: biz.whatsapp_phone_number_id || null,
+        whatsappNumberLabel: whatsappConnected
+          ? `Connected (${biz.whatsapp_phone_number_id})`
+          : null,
       },
       activity,
     });
@@ -291,29 +548,62 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
+      if (message.length > 500) {
+        return NextResponse.json(
+          { ok: false, error: 'Test message must be 500 characters or fewer.' },
+          { status: 400 },
+        );
+      }
 
-      // Read authoritative Postgres data without creating any customer/booking/conversation rows
-      const [bizRes, svcRes, stfRes, auditRes] = await Promise.all([
+      const draft = parseDraftConfig(body.draft);
+
+      // Read authoritative Postgres data without creating any customer/booking/conversation/payment rows
+      const [bizRes, svcRes, stfRes, hoursRes, auditRes] = await Promise.all([
         customersPool.query<{
           name: string;
           location: string | null;
+          phone: string | null;
+          timezone: string;
+          self_provided: boolean;
+          schedule: Record<string, BusinessDaySchedule> | null;
+          advance_days: number;
+          allow_same_day: boolean;
           deposit_required: boolean;
           default_deposit_kobo: string;
+          free_cancel_hours: number;
+          cancellation_policy: string | null;
           assistant_name: string;
+          greeting: string | null;
           tone: string;
         }>(
-          `SELECT name, location, deposit_required, default_deposit_kobo::text AS default_deposit_kobo,
-                  assistant_name, tone
+          `SELECT name, location, phone, timezone, self_provided, schedule, advance_days, allow_same_day,
+                  deposit_required, default_deposit_kobo::text AS default_deposit_kobo,
+                  free_cancel_hours, cancellation_policy, assistant_name, greeting, tone
            FROM businesses WHERE id = $1 LIMIT 1`,
           [ctx.business.id],
         ),
-        customersPool.query<{ name: string; duration_min: number; price_kobo: string }>(
-          `SELECT name, duration_min, price_kobo::text AS price_kobo
-           FROM services WHERE business_id = $1 ORDER BY name ASC LIMIT 5`,
+        customersPool.query<{
+          name: string;
+          duration_min: number;
+          price_kobo: string;
+          deposit_type: string;
+          deposit_value: string;
+        }>(
+          `SELECT name, duration_min, price_kobo::text AS price_kobo,
+                  deposit_type::text AS deposit_type, deposit_value::text AS deposit_value
+           FROM services WHERE business_id = $1 ORDER BY name ASC LIMIT 8`,
           [ctx.business.id],
         ),
-        customersPool.query<{ name: string }>(
-          `SELECT name FROM staff WHERE business_id = $1 AND active = true LIMIT 5`,
+        customersPool.query<{ name: string; role_title: string }>(
+          `SELECT name, role_title FROM staff WHERE business_id = $1 AND active = true ORDER BY name ASC LIMIT 6`,
+          [ctx.business.id],
+        ),
+        customersPool.query<{ weekday: number; start_local: string; end_local: string }>(
+          `SELECT wh.weekday, wh.start_local::text AS start_local, wh.end_local::text AS end_local
+           FROM working_hours wh
+           JOIN staff st ON st.id = wh.staff_id
+           WHERE st.business_id = $1 AND st.active = true
+           ORDER BY wh.weekday ASC`,
           [ctx.business.id],
         ),
         customersPool.query<{ after: Record<string, unknown> | null }>(
@@ -332,85 +622,187 @@ export async function POST(request: Request) {
         );
       }
 
+      const savedExtra = auditRes.rows[0]?.after ?? {};
+      const effectiveAssistantName = draft?.assistantName?.trim() || biz.assistant_name || 'Maya';
+      const effectiveLanguage =
+        draft?.primaryLanguage ??
+        (savedExtra.primaryLanguage === 'Nigerian Pidgin' ? 'Nigerian Pidgin' : 'English');
+      const effectiveHandoffMessage =
+        draft?.handoffMessage?.trim() ||
+        (typeof savedExtra.handoffMessage === 'string' && savedExtra.handoffMessage.trim()
+          ? savedExtra.handoffMessage.trim()
+          : "I'll ask someone from the team to help with this. Your request has been passed along.");
+      const effectiveEscalationContact =
+        draft?.escalationContact?.trim() ??
+        (typeof savedExtra.escalationContact === 'string'
+          ? savedExtra.escalationContact.trim()
+          : biz.phone || '');
+      const effectiveFaqs: ReceptionistFaqItem[] = Array.isArray(draft?.faqs)
+        ? draft.faqs
+        : Array.isArray(savedExtra.faqs)
+          ? (savedExtra.faqs as ReceptionistFaqItem[])
+          : [];
+
       const lower = message.toLowerCase();
-      const firstSvc = svcRes.rows[0];
-      const firstStaff = stfRes.rows[0];
-      const depositNaira = Math.round((Number(biz.default_deposit_kobo) || 0) / 100);
-      const faqs = Array.isArray(auditRes.rows[0]?.after?.faqs)
-        ? (auditRes.rows[0]?.after?.faqs as ReceptionistFaqItem[])
-        : [];
-      const matchedFaq = faqs.find((f) => {
-        const words = f.question
-          .toLowerCase()
-          .split(/\s+/)
-          .filter((w) => w.length > 3);
-        return words.some((w) => lower.includes(w));
+      const defaultDepositKobo = Number(biz.default_deposit_kobo) || 0;
+      const defaultDepositNaira = Math.round(defaultDepositKobo / 100);
+      const scheduleList = buildScheduleList(biz.schedule, hoursRes.rows);
+      const openDays = scheduleList.filter((d) => d.open);
+
+      const matchedFaq = effectiveFaqs.find((f) => {
+        const qLower = f.question.toLowerCase();
+        if (lower.includes(qLower) || qLower.includes(lower)) return true;
+        const words = qLower.split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+        return words.length > 0 && words.some((w) => lower.includes(w));
       });
+
+      const matchedService =
+        svcRes.rows.find((s) => lower.includes(s.name.toLowerCase())) ?? svcRes.rows[0];
+      const firstStaff = stfRes.rows[0];
 
       let reply = '';
       let outcome = 'Response received';
+      let matchedSource = 'Identity & Greeting';
 
       if (
         lower.includes('human') ||
         lower.includes('person') ||
+        lower.includes('customer care') ||
+        lower.includes('manager') ||
         lower.includes('refund') ||
-        lower.includes('dispute')
+        lower.includes('dispute') ||
+        lower.includes('complain')
       ) {
-        reply =
-          "I'll ask someone from the team to help with this. Your request has been passed along to our staff inbox.";
-        outcome = 'Human escalation test completed';
+        const contactSuffix = effectiveEscalationContact
+          ? ` Escalation contact: ${effectiveEscalationContact}.`
+          : '';
+        reply = `${effectiveHandoffMessage}${contactSuffix} [Test Mode: Conversation would transition to needs_human in Conversations & Needs Attention.]`;
+        outcome = 'Human escalation triggered (Test Mode)';
+        matchedSource = 'Human Handoff Rules';
       } else if (matchedFaq) {
         reply = matchedFaq.answer;
         outcome = 'FAQ knowledge matched';
+        matchedSource = `FAQ (${matchedFaq.category})`;
       } else if (
         lower.includes('book') ||
         lower.includes('appointment') ||
         lower.includes('slot') ||
         lower.includes('tomorrow') ||
-        lower.includes('today')
+        lower.includes('today') ||
+        lower.includes('hold') ||
+        lower.includes('wan do') ||
+        lower.includes('abeg') ||
+        svcRes.rows.some((s) => lower.includes(s.name.toLowerCase()))
       ) {
-        if (!firstSvc) {
-          reply = `I don't see any services configured yet for ${biz.name}. Please add a service first so I can check availability.`;
+        if (!matchedService) {
+          reply = `I don't see any services configured yet for ${biz.name}. Please add a service in Services & Staff first so I can check live availability.`;
           outcome = 'Configuration issue detected';
+          matchedSource = 'Services & Staff Catalog';
+        } else if (stfRes.rows.length === 0 && !biz.self_provided) {
+          reply = `No active staff providers are configured for ${biz.name} yet. Add a staff member or enable solo provider mode to check slots.`;
+          outcome = 'Configuration issue detected';
+          matchedSource = 'Services & Staff Catalog';
         } else {
-          const priceNaira = Math.round(Number(firstSvc.price_kobo) / 100);
+          const priceKobo = Number(matchedService.price_kobo) || 0;
+          const priceNaira = Math.round(priceKobo / 100);
+          const depKobo = computeServiceDepositKobo(
+            biz.deposit_required,
+            defaultDepositKobo,
+            priceKobo,
+            matchedService.deposit_type,
+            Number(matchedService.deposit_value) || 0,
+          );
+          const depNaira = Math.round(depKobo / 100);
           const staffLabel = firstStaff ? ` with ${firstStaff.name}` : '';
-          reply = `I checked our live schedule for ${firstSvc.name} (${firstSvc.duration_min} mins, ₦${priceNaira.toLocaleString('en-NG')})${staffLabel}. ${
-            biz.deposit_required
-              ? `A 15-minute hold can be placed, and a verified ₦${depositNaira.toLocaleString('en-NG')} Kora deposit is required to confirm.`
-              : 'Would you like me to hold a slot for you?'
-          }`;
-          outcome = 'Availability verified (Test Mode)';
+          const pidginPrefix =
+            effectiveLanguage === 'Nigerian Pidgin'
+              ? `No wahala! I don check our live schedule for ${matchedService.name}`
+              : `I checked our live schedule for ${matchedService.name}`;
+
+          reply = `${pidginPrefix} (${matchedService.duration_min} mins, ₦${priceNaira.toLocaleString('en-NG')})${staffLabel}. Available times: 10:00 AM, 2:00 PM, or 4:30 PM (${biz.timezone}). ${
+            depKobo > 0
+              ? `Selecting a time places a 15-minute temporary hold and requires a verified ₦${depNaira.toLocaleString('en-NG')} Kora deposit before the booking is confirmed.`
+              : 'Selecting a time places a 15-minute temporary hold before confirmation.'
+          } [Test Mode: No live hold or Kora charge created.]`;
+          outcome = 'Availability & 15m hold simulated (Test Mode)';
+          matchedSource = 'Booking Engine & Services Catalog';
         }
-      } else if (lower.includes('price') || lower.includes('cost') || lower.includes('service')) {
+      } else if (
+        lower.includes('price') ||
+        lower.includes('cost') ||
+        lower.includes('how much') ||
+        lower.includes('service') ||
+        lower.includes('menu')
+      ) {
         if (svcRes.rows.length === 0) {
-          reply = `Services haven't been added for ${biz.name} yet. I can connect you with a team member to help.`;
+          reply = `Services haven't been added for ${biz.name} yet. Add services in Services & Staff so I can quote accurate prices.`;
           outcome = 'Configuration issue detected';
+          matchedSource = 'Services & Staff Catalog';
         } else {
           const summary = svcRes.rows
             .map(
               (s) =>
-                `${s.name} (₦${Math.round(Number(s.price_kobo) / 100).toLocaleString('en-NG')})`,
+                `${s.name} (${s.duration_min}m — ₦${Math.round(Number(s.price_kobo) / 100).toLocaleString('en-NG')})`,
             )
             .join(', ');
-          reply = `Here are our current services at ${biz.name}: ${summary}.${
+          reply = `Here are our authoritative services at ${biz.name}: ${summary}.${
             biz.deposit_required
-              ? ` Bookings require a ₦${depositNaira.toLocaleString('en-NG')} Kora deposit to confirm.`
-              : ''
+              ? ` Bookings require a ₦${defaultDepositNaira.toLocaleString('en-NG')} Kora deposit within a 15-minute hold to confirm.`
+              : ' No deposit is required to book.'
           }`;
-          outcome = 'Response received';
+          outcome = 'Authoritative catalog used';
+          matchedSource = 'Services & Staff Catalog';
         }
+      } else if (
+        lower.includes('hour') ||
+        lower.includes('open') ||
+        lower.includes('close') ||
+        lower.includes('schedule') ||
+        lower.includes('where') ||
+        lower.includes('location') ||
+        lower.includes('address')
+      ) {
+        const hoursText =
+          openDays.length > 0
+            ? openDays.map((d) => `${d.day.slice(0, 3)} ${d.openTime}–${d.closeTime}`).join(', ')
+            : 'No open days configured yet';
+        const locText = biz.location ? ` We are located at ${biz.location}.` : '';
+        reply = `${biz.name} opening hours (${biz.timezone}): ${hoursText}.${locText} Bookings can be made up to ${biz.advance_days} days in advance.`;
+        outcome = 'Authoritative schedule & location used';
+        matchedSource = 'Working Hours & Business Profile';
+      } else if (
+        lower.includes('cancel') ||
+        lower.includes('policy') ||
+        lower.includes('deposit') ||
+        lower.includes('kora')
+      ) {
+        const policyText =
+          biz.cancellation_policy ||
+          `Full refund if cancelled at least ${biz.free_cancel_hours} hours before your scheduled slot.`;
+        reply = `${
+          biz.deposit_required
+            ? `A ₦${defaultDepositNaira.toLocaleString('en-NG')} deposit via Kora is required within the 15-minute hold window before a booking is confirmed.`
+            : 'Deposits are not currently required.'
+        } Cancellation policy: ${policyText}`;
+        outcome = 'Authoritative policy used';
+        matchedSource = 'Payment & Cancellation Policy';
       } else {
-        reply = `Welcome to ${biz.name}! I'm ${biz.assistant_name || 'Maya'}. ${
-          biz.location ? `We're located at ${biz.location}. ` : ''
-        }Ask me about our services, pricing, opening hours, or booking an appointment.`;
-        outcome = 'Response received';
+        const baseGreeting =
+          draft?.greeting?.trim() ||
+          biz.greeting ||
+          (effectiveLanguage === 'Nigerian Pidgin'
+            ? `How far! Welcome to ${biz.name}. Na ${effectiveAssistantName} I be, your booking assistant. You wan book appointment or ask question?`
+            : `Hi! Welcome to ${biz.name}. I'm ${effectiveAssistantName}, your booking assistant. Would you like to book an appointment or ask a question?`);
+        reply = baseGreeting;
+        outcome = 'Greeting & identity verified';
+        matchedSource = 'Identity & Greeting';
       }
 
       return NextResponse.json({
         ok: true,
         reply,
         outcome,
+        matchedSource,
         isTestSession: true,
       });
     }
@@ -424,7 +816,14 @@ export async function POST(request: Request) {
     }
 
     if (action === 'toggle_agent') {
-      const nextEnabled = Boolean(body.agentEnabled);
+      if (typeof body.agentEnabled !== 'boolean') {
+        return NextResponse.json(
+          { ok: false, error: 'Invalid toggle request payload.' },
+          { status: 400 },
+        );
+      }
+
+      const nextEnabled = body.agentEnabled;
 
       if (nextEnabled) {
         const [bizRes, svcCountRes, stfCountRes] = await Promise.all([
@@ -455,7 +854,7 @@ export async function POST(request: Request) {
         const stfCount = Number(stfCountRes.rows[0]?.cnt ?? '0');
         const koraReady = Boolean(biz?.kora_payout_account) || biz?.kora_status === 'ready';
 
-        if (!biz || !biz.name || !biz.slug) {
+        if (!biz?.name || !biz.slug) {
           return NextResponse.json(
             {
               ok: false,
@@ -545,9 +944,12 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
+
+      const lowerGreeting = greeting.toLowerCase();
       if (
-        greeting.toLowerCase().includes('confirmed without payment') ||
-        greeting.toLowerCase().includes('no deposit needed even if required')
+        lowerGreeting.includes('confirmed without payment') ||
+        lowerGreeting.includes('no deposit needed even if required') ||
+        lowerGreeting.includes('guaranteed without deposit')
       ) {
         return NextResponse.json(
           { ok: false, error: 'Welcome message cannot override deposit or confirmation rules.' },
@@ -573,30 +975,11 @@ export async function POST(request: Request) {
         );
       }
 
-      const rawFaqs = Array.isArray(body.faqs) ? body.faqs : [];
-      const sanitizedFaqs: ReceptionistFaqItem[] = rawFaqs
-        .filter(
-          (f): f is Record<string, unknown> =>
-            Boolean(f) &&
-            typeof f === 'object' &&
-            typeof (f as Record<string, unknown>).question === 'string' &&
-            typeof (f as Record<string, unknown>).answer === 'string',
-        )
-        .map((f) => ({
-          id: typeof f.id === 'string' && f.id ? f.id : `faq_${Date.now()}`,
-          question: String(f.question).trim().slice(0, 240),
-          answer: String(f.answer).trim().slice(0, 1000),
-          category:
-            typeof f.category === 'string' && f.category.trim()
-              ? f.category.trim().slice(0, 80)
-              : 'General Business Information',
-          updatedAt: typeof f.updatedAt === 'string' ? f.updatedAt : new Date().toISOString(),
-        }))
-        .filter((f) => f.question.length >= 3 && f.answer.length >= 3);
-
-      const capabilities = Array.isArray(body.capabilities)
-        ? body.capabilities
-        : DEFAULT_CAPABILITIES;
+      const sanitizedFaqs = parseFaqArray(body.faqs);
+      const capabilities =
+        Array.isArray(body.capabilities) && body.capabilities.length > 0
+          ? body.capabilities
+          : DEFAULT_CAPABILITIES;
 
       const client = await customersPool.connect();
       try {

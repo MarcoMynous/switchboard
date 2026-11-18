@@ -766,6 +766,7 @@ export function BookingsManagementView({
             type="button"
             variant="default"
             size="sm"
+            data-tour="bookings-new-btn"
             onClick={() => {
               setManualStep(1);
               setManualModalOpen(true);
@@ -819,7 +820,10 @@ export function BookingsManagementView({
       {/* =====================================================================
           ROW 2: BOOKING SUMMARY CARDS (4 CLICKABLE CARDS)
       ===================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div
+        data-tour="bookings-summary"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
         <button
           type="button"
           onClick={() => {
@@ -831,6 +835,7 @@ export function BookingsManagementView({
               ? 'border-primary ring-2 ring-primary/15 shadow-sm'
               : 'border-border/70 hover:border-primary/40 shadow-xs'
           }`}
+          data-tour="confirmed-bookings"
         >
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-semibold text-text-primary">Confirmed</span>
@@ -853,6 +858,7 @@ export function BookingsManagementView({
               ? 'border-amber-500 ring-2 ring-amber-500/15 shadow-sm'
               : 'border-border/70 hover:border-amber-400 shadow-xs'
           }`}
+          data-tour="active-holds"
         >
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-semibold text-text-primary">Awaiting Payment</span>

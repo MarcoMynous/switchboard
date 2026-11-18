@@ -91,13 +91,18 @@ export const businesses = pgTable(
     plan: businessPlan('plan').notNull().default('starter'),
     koraPayoutAccount: jsonb('kora_payout_account').$type<Record<string, unknown>>(),
     agentEnabled: boolean('agent_enabled').notNull().default(true),
+    isDemo: boolean('is_demo').notNull().default(false),
+    demoSessionId: text('demo_session_id').unique('businesses_demo_session_id_unique'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index('businesses_owner_user_id_idx').on(table.ownerUserId)],
+  (table) => [
+    index('businesses_owner_user_id_idx').on(table.ownerUserId),
+    index('businesses_is_demo_idx').on(table.isDemo),
+  ],
 );
 
 export const staff = pgTable(

@@ -1,6 +1,7 @@
 import { parseEnv, webSchema } from '@switchboard/env';
 import { Pool } from 'pg';
 import { auth } from './auth';
+import { readDemoSessionFromHeaders } from './demo-session';
 
 const env = parseEnv(webSchema);
 const databaseUrl: string = env.DATABASE_URL ?? '';
@@ -114,26 +115,63 @@ export interface AuthorizedBusinessContext {
     timezone: string;
   };
   role: 'owner' | 'staff';
+  isDemo?: boolean;
+  demoSessionId?: string;
+  demoEntryOrigin?: 'landing' | 'dashboard';
+  previousSlug?: string | null;
 }
 
 export async function resolveAuthorizedBusiness(
   request: Request,
   requestedSlug?: string | null,
 ): Promise<AuthorizedBusinessContext | null> {
+  // Server-side demo isolation: signed HTTP-only demo cookie scopes strictly to is_demo = true.
+  const demoSession = readDemoSessionFromHeaders(request.headers);
+  if (demoSession) {
+    const demoRes = await customersPool.query<{
+      id: string;
+      name: string;
+      slug: string;
+      timezone: string;
+    }>(
+      `SELECT id, name, slug, timezone
+       FROM businesses
+       WHERE is_demo = true AND demo_session_id = $1
+       LIMIT 1`,
+      [demoSession.demoSessionId],
+    );
+    const demoBiz = demoRes.rows[0];
+    if (demoBiz) {
+      return {
+        user: {
+          id: `demo:${demoSession.demoSessionId}`,
+          name: 'Demo Explorer',
+          email: 'demo@switchboard.ng',
+        },
+        business: demoBiz,
+        role: 'owner',
+        isDemo: true,
+        demoSessionId: demoSession.demoSessionId,
+        demoEntryOrigin: demoSession.entryOrigin,
+        previousSlug: demoSession.previousSlug ?? null,
+      };
+    }
+  }
+
   const session = await auth.api.getSession({ headers: request.headers }).catch(() => null);
   if (!session?.user?.id) return null;
 
   const userId = session.user.id;
   const userName = session.user.name || session.user.email.split('@')[0] || 'Team Member';
 
-  // Owner lookup (optionally scoped by slug)
+  // Owner lookup (optionally scoped by slug; strictly excludes demo businesses)
   const ownerRes = requestedSlug
     ? await customersPool.query<{ id: string; name: string; slug: string; timezone: string }>(
-        `SELECT id, name, slug, timezone FROM businesses WHERE owner_user_id = $1 AND slug = $2 LIMIT 1`,
+        `SELECT id, name, slug, timezone FROM businesses WHERE owner_user_id = $1 AND slug = $2 AND is_demo = false LIMIT 1`,
         [userId, requestedSlug],
       )
     : await customersPool.query<{ id: string; name: string; slug: string; timezone: string }>(
-        `SELECT id, name, slug, timezone FROM businesses WHERE owner_user_id = $1 ORDER BY updated_at DESC LIMIT 1`,
+        `SELECT id, name, slug, timezone FROM businesses WHERE owner_user_id = $1 AND is_demo = false ORDER BY updated_at DESC LIMIT 1`,
         [userId],
       );
 
@@ -145,13 +183,13 @@ export async function resolveAuthorizedBusiness(
     };
   }
 
-  // Staff lookup
+  // Staff lookup (strictly excludes demo businesses)
   const staffRes = requestedSlug
     ? await customersPool.query<{ id: string; name: string; slug: string; timezone: string }>(
         `SELECT b.id, b.name, b.slug, b.timezone
          FROM staff s
          JOIN businesses b ON b.id = s.business_id
-         WHERE s.user_id = $1 AND s.active = true AND b.slug = $2
+         WHERE s.user_id = $1 AND s.active = true AND b.slug = $2 AND b.is_demo = false
          LIMIT 1`,
         [userId, requestedSlug],
       )
@@ -159,7 +197,7 @@ export async function resolveAuthorizedBusiness(
         `SELECT b.id, b.name, b.slug, b.timezone
          FROM staff s
          JOIN businesses b ON b.id = s.business_id
-         WHERE s.user_id = $1 AND s.active = true
+         WHERE s.user_id = $1 AND s.active = true AND b.is_demo = false
          ORDER BY b.updated_at DESC
          LIMIT 1`,
         [userId],

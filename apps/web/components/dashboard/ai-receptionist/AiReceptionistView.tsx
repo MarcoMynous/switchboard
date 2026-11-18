@@ -2,12 +2,17 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReceptionistFaqItem } from '@/app/api/ai-receptionist/route';
+import type {
+  ReceptionistDaySchedule,
+  ReceptionistFaqItem,
+  ReceptionistServiceSummary,
+  ReceptionistStaffSummary,
+} from '@/app/api/ai-receptionist/route';
 import { AppIcon } from '@/components/AppIcon';
 import { Button } from '@/components/ui/button';
 import { useDashboard } from '../DashboardContext';
 
-type SectionTab = 'overview' | 'identity' | 'knowledge' | 'capabilities' | 'handoff' | 'test_chat';
+type SectionTab = 'identity' | 'knowledge' | 'capabilities' | 'handoff' | 'channels' | 'test_chat';
 
 interface AiReceptionistApiResponse {
   ok: boolean;
@@ -19,13 +24,20 @@ interface AiReceptionistApiResponse {
     timezone: string;
     location: string;
     phone: string;
+    advanceDays: number;
+    allowSameDay: boolean;
     depositRequired: boolean;
+    depositType: string;
     defaultDepositKobo: number;
     freeCancelHours: number;
+    merchantBearsCost: boolean;
     cancellationPolicy: string;
     servicesCount: number;
     staffCount: number;
     selfProvided: boolean;
+    services: ReceptionistServiceSummary[];
+    staff: ReceptionistStaffSummary[];
+    schedule: ReceptionistDaySchedule[];
   };
   receptionist: {
     agentEnabled: boolean;
@@ -51,9 +63,11 @@ interface AiReceptionistApiResponse {
     hasBusinessProfile: boolean;
     hasServices: boolean;
     hasStaffOrSolo: boolean;
+    hasWorkingHours: boolean;
     koraReady: boolean;
     webChatReady: boolean;
     whatsappConnected: boolean;
+    whatsappPhoneNumberId: string | null;
     whatsappNumberLabel: string | null;
   };
   activity: {
@@ -61,6 +75,7 @@ interface AiReceptionistApiResponse {
     bookingRequestsInitiated: number;
     confirmedFromAi: number;
     humanHandoffsRaised: number;
+    pendingPaymentVerifications: number;
   };
   error?: string;
 }
@@ -74,13 +89,18 @@ const FAQ_CATEGORIES = [
   'General Business Information',
 ];
 
-const TABS: Array<{ id: SectionTab; label: string; icon: string }> = [
-  { id: 'overview', label: 'Overview', icon: 'dashboard' },
-  { id: 'identity', label: 'Identity & Greeting', icon: 'badge' },
-  { id: 'knowledge', label: 'Business Knowledge', icon: 'menu_book' },
-  { id: 'capabilities', label: 'Booking Capabilities', icon: 'event_available' },
-  { id: 'handoff', label: 'Human Handoff', icon: 'support_agent' },
-  { id: 'test_chat', label: 'Test Chat', icon: 'chat' },
+const SECTIONS: Array<{
+  id: SectionTab;
+  number: string;
+  label: string;
+  icon: string;
+}> = [
+  { id: 'identity', number: '1', label: 'Identity & Greeting', icon: 'badge' },
+  { id: 'knowledge', number: '2', label: 'Business Knowledge', icon: 'menu_book' },
+  { id: 'capabilities', number: '3', label: 'Booking Capabilities', icon: 'event_available' },
+  { id: 'handoff', number: '4', label: 'Human Handoff', icon: 'support_agent' },
+  { id: 'channels', number: '5', label: 'Channels', icon: 'hub' },
+  { id: 'test_chat', number: '6', label: 'Test Chat', icon: 'chat' },
 ];
 
 function formatDateTime(iso: string | null, timezone: string): string {
@@ -100,10 +120,14 @@ function formatDateTime(iso: string | null, timezone: string): string {
   }
 }
 
+function formatNaira(kobo: number): string {
+  return `₦${Math.round(kobo / 100).toLocaleString('en-NG')}`;
+}
+
 export function AiReceptionistView() {
   const { workspace, setActiveNav, refreshWorkspaceData } = useDashboard();
 
-  const [activeTab, setActiveTab] = useState<SectionTab>('overview');
+  const [activeTab, setActiveTab] = useState<SectionTab>('identity');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
@@ -118,18 +142,17 @@ export function AiReceptionistView() {
   const [handoffMessage, setHandoffMessage] = useState('');
   const [escalationContact, setEscalationContact] = useState('');
   const [faqs, setFaqs] = useState<ReceptionistFaqItem[]>([]);
-  const [capabilities, setCapabilities] = useState<
-    AiReceptionistApiResponse['receptionist']['capabilities']
-  >([]);
 
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
   const [toggleFeedback, setToggleFeedback] = useState<string | null>(null);
+  const [copiedPublicUrl, setCopiedPublicUrl] = useState(false);
 
   // FAQ form & search
   const [faqSearch, setFaqSearch] = useState('');
+  const [faqCategoryFilter, setFaqCategoryFilter] = useState<string>('All');
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
   const [faqModalOpen, setFaqModalOpen] = useState(false);
   const [faqQuestion, setFaqQuestion] = useState('');
@@ -137,10 +160,17 @@ export function AiReceptionistView() {
   const [faqCategory, setFaqCategory] = useState(
     FAQ_CATEGORIES[0] ?? 'General Business Information',
   );
+  const [faqValidationError, setFaqValidationError] = useState<string | null>(null);
 
   // Test chat state (strictly isolated)
   const [testMessages, setTestMessages] = useState<
-    Array<{ id: string; sender: 'customer' | 'agent' | 'system'; text: string; outcome?: string }>
+    Array<{
+      id: string;
+      sender: 'customer' | 'agent' | 'system';
+      text: string;
+      outcome?: string;
+      matchedSource?: string;
+    }>
   >([]);
   const [testInput, setTestInput] = useState('');
   const [testSending, setTestSending] = useState(false);
@@ -175,9 +205,7 @@ export function AiReceptionistView() {
       setHandoffMessage(json.receptionist.handoffMessage);
       setEscalationContact(json.receptionist.escalationContact);
       setFaqs(json.receptionist.faqs);
-      setCapabilities(json.receptionist.capabilities);
       setDirty(false);
-      setSaveState('idle');
     } catch {
       setLoadError("We couldn't load your receptionist settings.");
     } finally {
@@ -189,8 +217,38 @@ export function AiReceptionistView() {
     void loadConfig();
   }, [loadConfig]);
 
+  const validationIssue = useMemo(() => {
+    const trimmedName = assistantName.trim();
+    const trimmedGreeting = greeting.trim();
+    const trimmedHandoff = handoffMessage.trim();
+
+    if (trimmedName.length < 2 || trimmedName.length > 40) {
+      return 'Assistant name must be between 2 and 40 characters.';
+    }
+    if (trimmedGreeting.length < 10 || trimmedGreeting.length > 600) {
+      return 'Welcome message must be between 10 and 600 characters.';
+    }
+    if (
+      trimmedGreeting.toLowerCase().includes('confirmed without payment') ||
+      trimmedGreeting.toLowerCase().includes('no deposit needed even if required') ||
+      trimmedGreeting.toLowerCase().includes('guaranteed without deposit')
+    ) {
+      return 'Welcome message cannot override deposit or confirmation rules.';
+    }
+    if (trimmedHandoff.length < 10 || trimmedHandoff.length > 400) {
+      return 'Handoff message must be between 10 and 400 characters.';
+    }
+    return null;
+  }, [assistantName, greeting, handoffMessage]);
+
   const handleSave = async () => {
-    if (!data || data.role !== 'owner') return;
+    if (data?.role !== 'owner') return;
+    if (validationIssue) {
+      setSaveState('error');
+      setSaveError(validationIssue);
+      return;
+    }
+
     setSaveState('saving');
     setSaveError(null);
     try {
@@ -200,15 +258,14 @@ export function AiReceptionistView() {
         body: JSON.stringify({
           action: 'save_config',
           slug: data.business.slug,
-          assistantName,
+          assistantName: assistantName.trim(),
           primaryLanguage,
           tone,
-          greeting,
-          shortIntro,
-          handoffMessage,
-          escalationContact,
+          greeting: greeting.trim(),
+          shortIntro: shortIntro.trim(),
+          handoffMessage: handoffMessage.trim(),
+          escalationContact: escalationContact.trim(),
           faqs,
-          capabilities,
         }),
       });
       const json = (await res.json()) as { ok: boolean; error?: string };
@@ -228,7 +285,7 @@ export function AiReceptionistView() {
   };
 
   const handleToggleAgent = async () => {
-    if (!data || data.role !== 'owner') return;
+    if (data?.role !== 'owner') return;
     const nextEnabled = !data.receptionist.agentEnabled;
     setToggling(true);
     setToggleFeedback(null);
@@ -250,12 +307,12 @@ export function AiReceptionistView() {
       if (nextEnabled) {
         setToggleFeedback(
           data.readiness.whatsappConnected
-            ? 'AI receptionist enabled for WhatsApp and web chat.'
-            : 'AI receptionist enabled for web chat. WhatsApp is not connected yet.',
+            ? 'AI receptionist enabled (`agent_enabled = true`) for Web Chat and WhatsApp.'
+            : 'AI receptionist enabled (`agent_enabled = true`) for Web Chat. Connect WhatsApp in Integrations when ready.',
         );
       } else {
         setToggleFeedback(
-          'AI receptionist paused. Existing bookings, holds, and payment verification remain active.',
+          'AI receptionist paused (`agent_enabled = false`). Existing bookings, 15-minute holds, and Kora payment verification remain active.',
         );
       }
       await loadConfig();
@@ -282,12 +339,22 @@ export function AiReceptionistView() {
           action: 'test_chat',
           slug: data.business.slug,
           message: msg,
+          draft: {
+            assistantName: assistantName.trim(),
+            primaryLanguage,
+            tone,
+            greeting: greeting.trim(),
+            handoffMessage: handoffMessage.trim(),
+            escalationContact: escalationContact.trim(),
+            faqs,
+          },
         }),
       });
       const json = (await res.json()) as {
         ok: boolean;
         reply?: string;
         outcome?: string;
+        matchedSource?: string;
         error?: string;
       };
       if (!res.ok || !json.ok || !json.reply) {
@@ -309,6 +376,7 @@ export function AiReceptionistView() {
           sender: 'agent',
           text: json.reply as string,
           outcome: json.outcome,
+          matchedSource: json.matchedSource,
         },
       ]);
     } catch {
@@ -325,22 +393,40 @@ export function AiReceptionistView() {
     }
   };
 
+  const handleCopyPublicLink = async () => {
+    if (!data) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const link = `${origin}/b/${data.business.slug}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedPublicUrl(true);
+      setTimeout(() => setCopiedPublicUrl(false), 2000);
+    } catch {
+      setCopiedPublicUrl(false);
+    }
+  };
+
   const filteredFaqs = useMemo(() => {
     const q = faqSearch.trim().toLowerCase();
-    if (!q) return faqs;
-    return faqs.filter(
-      (f) =>
+    return faqs.filter((f) => {
+      if (faqCategoryFilter !== 'All' && f.category !== faqCategoryFilter) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         f.question.toLowerCase().includes(q) ||
         f.answer.toLowerCase().includes(q) ||
-        f.category.toLowerCase().includes(q),
-    );
-  }, [faqSearch, faqs]);
+        f.category.toLowerCase().includes(q)
+      );
+    });
+  }, [faqCategoryFilter, faqSearch, faqs]);
 
   const openAddFaqModal = () => {
     setEditingFaqId(null);
     setFaqQuestion('');
     setFaqAnswer('');
     setFaqCategory(FAQ_CATEGORIES[0] ?? 'General Business Information');
+    setFaqValidationError(null);
     setFaqModalOpen(true);
   };
 
@@ -349,20 +435,37 @@ export function AiReceptionistView() {
     setFaqQuestion(item.question);
     setFaqAnswer(item.answer);
     setFaqCategory(item.category);
+    setFaqValidationError(null);
     setFaqModalOpen(true);
   };
 
   const handleSaveFaqModal = (e: React.FormEvent) => {
     e.preventDefault();
-    if (faqQuestion.trim().length < 3 || faqAnswer.trim().length < 3) return;
+    const q = faqQuestion.trim();
+    const a = faqAnswer.trim();
+    if (q.length < 3 || a.length < 3) {
+      setFaqValidationError('Both question and answer must be at least 3 characters.');
+      return;
+    }
+    const lowerAnswer = a.toLowerCase();
+    if (
+      lowerAnswer.includes('confirmed without payment') ||
+      lowerAnswer.includes('no deposit needed even if required')
+    ) {
+      setFaqValidationError(
+        'FAQ answer cannot contradict backend deposit or confirmation requirements.',
+      );
+      return;
+    }
+
     if (editingFaqId) {
       setFaqs((prev) =>
         prev.map((f) =>
           f.id === editingFaqId
             ? {
                 ...f,
-                question: faqQuestion.trim(),
-                answer: faqAnswer.trim(),
+                question: q,
+                answer: a,
                 category: faqCategory,
                 updatedAt: new Date().toISOString(),
               }
@@ -373,8 +476,8 @@ export function AiReceptionistView() {
       setFaqs((prev) => [
         {
           id: `faq_${Date.now()}`,
-          question: faqQuestion.trim(),
-          answer: faqAnswer.trim(),
+          question: q,
+          answer: a,
           category: faqCategory,
           updatedAt: new Date().toISOString(),
         },
@@ -382,6 +485,7 @@ export function AiReceptionistView() {
       ]);
     }
     setDirty(true);
+    setSaveState('idle');
     setFaqModalOpen(false);
   };
 
@@ -424,14 +528,27 @@ export function AiReceptionistView() {
   const isOwner = data.role === 'owner';
   const timezone = data.business.timezone || 'Africa/Lagos';
   const depositNaira = Math.round(data.business.defaultDepositKobo / 100);
+  const openDays = data.business.schedule.filter((d) => d.open);
   const overallStatus = !data.readiness.webChatReady
     ? { label: 'Setup Required', badge: 'bg-amber-100 text-amber-900 border-amber-300' }
     : data.receptionist.agentEnabled
       ? { label: 'Active', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
       : { label: 'Paused', badge: 'bg-slate-100 text-slate-700 border-slate-300' };
 
+  const webChatStatusLabel = !data.readiness.webChatReady
+    ? 'Setup Required'
+    : data.receptionist.agentEnabled
+      ? 'Active'
+      : 'Paused';
+
+  const whatsappStatusLabel = !data.readiness.whatsappConnected
+    ? 'Setup Required'
+    : data.receptionist.agentEnabled
+      ? 'Active'
+      : 'Connected (Paused)';
+
   return (
-    <div className="flex flex-col w-full space-y-6 max-w-6xl">
+    <div data-tour="ai-receptionist-panel" className="flex flex-col w-full space-y-6 max-w-6xl">
       {/* Page Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-border/50">
         <div className="space-y-1">
@@ -456,8 +573,8 @@ export function AiReceptionistView() {
             )}
           </div>
           <p className="text-sm text-text-secondary">
-            Customize how your assistant welcomes customers, answers questions, and helps manage
-            bookings.
+            Configure your assistant&apos;s identity, business knowledge, booking capabilities,
+            human handoff rules, channels, and isolated test chat.
           </p>
         </div>
 
@@ -470,7 +587,7 @@ export function AiReceptionistView() {
             className="h-9 text-xs"
           >
             <AppIcon name="chat" className="text-[16px]" />
-            <span>Test Receptionist</span>
+            <span>Test Chat</span>
           </Button>
           <Button
             type="button"
@@ -480,7 +597,7 @@ export function AiReceptionistView() {
             className="h-9 text-xs"
           >
             <AppIcon name="forum" className="text-[16px]" />
-            <span>View Conversations</span>
+            <span>Conversations</span>
           </Button>
           {isOwner && (
             <Button
@@ -498,96 +615,148 @@ export function AiReceptionistView() {
       </div>
 
       {saveError && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">
-          {saveError}
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800 flex items-center justify-between gap-3"
+        >
+          <span>{saveError}</span>
+          <button
+            type="button"
+            onClick={() => setSaveError(null)}
+            className="font-semibold underline shrink-0"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
       {toggleFeedback && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-900">
-          {toggleFeedback}
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-900 flex items-center justify-between gap-3">
+          <span>{toggleFeedback}</span>
+          <button
+            type="button"
+            onClick={() => setToggleFeedback(null)}
+            className="font-semibold underline shrink-0"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* Assistant Summary Card */}
-      <div className="rounded-xl border border-border/60 bg-white p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center shrink-0">
-            <AppIcon name="smart_toy" className="text-[24px]" />
+      {/* Assistant Activation & Today's Activity Summary */}
+      <div className="rounded-xl border border-border/60 bg-white p-5 shadow-xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center shrink-0">
+              <AppIcon name="smart_toy" className="text-[24px]" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-headline-sm text-lg font-bold text-text-primary">
+                  {assistantName || data.receptionist.assistantName}
+                </h2>
+                <span className="text-xs text-text-secondary">
+                  • {tone} • {primaryLanguage}
+                </span>
+              </div>
+              <p className="text-xs text-text-secondary">
+                Business: <strong className="text-text-primary">{data.business.name}</strong> • Last
+                saved {formatDateTime(data.receptionist.updatedAt, timezone)}
+              </p>
+              <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
+                    data.readiness.webChatReady && data.receptionist.agentEnabled
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : data.readiness.webChatReady
+                        ? 'bg-slate-100 text-slate-700 border-slate-300'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}
+                >
+                  Web Chat: {webChatStatusLabel}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
+                    data.readiness.whatsappConnected && data.receptionist.agentEnabled
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : data.readiness.whatsappConnected
+                        ? 'bg-slate-100 text-slate-700 border-slate-300'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}
+                >
+                  WhatsApp: {whatsappStatusLabel}
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-headline-sm text-lg font-bold text-text-primary">
-                {data.receptionist.assistantName}
-              </h2>
-              <span className="text-xs text-text-secondary">• AI Booking Receptionist</span>
-            </div>
-            <p className="text-xs text-text-secondary">
-              Business: <strong className="text-text-primary">{data.business.name}</strong> • Last
-              updated {formatDateTime(data.receptionist.updatedAt, timezone)}
-            </p>
-            <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
-                  data.readiness.webChatReady
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    : 'bg-amber-50 text-amber-800 border-amber-200'
-                }`}
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab('channels')}
+              className="h-8 text-xs"
+            >
+              Channel Readiness
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab('test_chat')}
+              className="h-8 text-xs"
+            >
+              Open Test Chat
+            </Button>
+            {isOwner && (
+              <Button
+                type="button"
+                variant={data.receptionist.agentEnabled ? 'outline' : 'default'}
+                size="sm"
+                disabled={toggling}
+                onClick={() => void handleToggleAgent()}
+                className="h-8 text-xs"
               >
-                Web Chat: {data.readiness.webChatReady ? 'Available' : 'Setup Required'}
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
-                  data.readiness.whatsappConnected
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    : 'bg-amber-50 text-amber-800 border-amber-200'
-                }`}
-              >
-                WhatsApp: {data.readiness.whatsappConnected ? 'Active' : 'Setup Required'}
-              </span>
-            </div>
+                {toggling
+                  ? 'Updating...'
+                  : data.receptionist.agentEnabled
+                    ? 'Pause Receptionist'
+                    : 'Enable Receptionist'}
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setActiveTab('identity')}
-            className="h-8 text-xs"
-          >
-            Edit Assistant
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setActiveTab('test_chat')}
-            className="h-8 text-xs"
-          >
-            Test Chat
-          </Button>
-          {isOwner && (
-            <Button
-              type="button"
-              variant={data.receptionist.agentEnabled ? 'outline' : 'default'}
-              size="sm"
-              disabled={toggling}
-              onClick={() => void handleToggleAgent()}
-              className="h-8 text-xs"
-            >
-              {toggling
-                ? 'Updating...'
-                : data.receptionist.agentEnabled
-                  ? 'Pause Receptionist'
-                  : 'Enable Receptionist'}
-            </Button>
-          )}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-border/50">
+          <div className="rounded-lg bg-surface-container-lowest border border-border/40 px-3.5 py-2.5">
+            <span className="text-[11px] text-text-secondary block">Conversations today</span>
+            <span className="font-headline-sm text-lg font-bold text-text-primary">
+              {data.activity.conversationsToday}
+            </span>
+          </div>
+          <div className="rounded-lg bg-surface-container-lowest border border-border/40 px-3.5 py-2.5">
+            <span className="text-[11px] text-text-secondary block">AI booking requests</span>
+            <span className="font-headline-sm text-lg font-bold text-text-primary">
+              {data.activity.bookingRequestsInitiated}
+            </span>
+          </div>
+          <div className="rounded-lg bg-surface-container-lowest border border-border/40 px-3.5 py-2.5">
+            <span className="text-[11px] text-text-secondary block">Confirmed from AI chats</span>
+            <span className="font-headline-sm text-lg font-bold text-emerald-700">
+              {data.activity.confirmedFromAi}
+            </span>
+          </div>
+          <div className="rounded-lg bg-surface-container-lowest border border-border/40 px-3.5 py-2.5">
+            <span className="text-[11px] text-text-secondary block">Human handoffs active</span>
+            <span className="font-headline-sm text-lg font-bold text-amber-700">
+              {data.activity.humanHandoffsRaised}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Section Navigation */}
+      {/* Six-Section Navigation */}
       <div className="md:hidden">
         <select
           aria-label="Select AI Receptionist section"
@@ -595,235 +764,69 @@ export function AiReceptionistView() {
           onChange={(e) => setActiveTab(e.target.value as SectionTab)}
           className="w-full h-10 rounded-lg border border-border bg-white px-3 text-sm font-medium text-text-primary"
         >
-          {TABS.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
+          {SECTIONS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.number}. {s.label}
             </option>
           ))}
         </select>
       </div>
 
       <div className="hidden md:flex items-center gap-1.5 border-b border-border/60 pb-2 overflow-x-auto">
-        {TABS.map((t) => {
-          const active = activeTab === t.id;
+        {SECTIONS.map((s) => {
+          const active = activeTab === s.id;
           return (
             <button
-              key={t.id}
+              key={s.id}
               type="button"
-              onClick={() => setActiveTab(t.id)}
+              onClick={() => setActiveTab(s.id)}
               className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                 active
                   ? 'bg-primary text-white'
                   : 'text-text-secondary hover:bg-surface-container-low hover:text-text-primary'
               }`}
             >
-              <AppIcon name={t.icon} className="text-[16px]" />
-              <span>{t.label}</span>
+              <AppIcon name={s.icon} className="text-[16px]" />
+              <span>
+                {s.number}. {s.label}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* Tab 1: Overview */}
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          {/* Activity Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-border/60 bg-white p-4">
-              <span className="text-xs text-text-secondary">Conversations today</span>
-              <p className="font-headline-md text-2xl font-bold text-text-primary mt-1">
-                {data.activity.conversationsToday}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-white p-4">
-              <span className="text-xs text-text-secondary">Booking requests initiated</span>
-              <p className="font-headline-md text-2xl font-bold text-text-primary mt-1">
-                {data.activity.bookingRequestsInitiated}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-white p-4">
-              <span className="text-xs text-text-secondary">Confirmed from AI chats</span>
-              <p className="font-headline-md text-2xl font-bold text-text-primary mt-1">
-                {data.activity.confirmedFromAi}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-white p-4">
-              <span className="text-xs text-text-secondary">Human handoffs raised</span>
-              <p className="font-headline-md text-2xl font-bold text-text-primary mt-1">
-                {data.activity.humanHandoffsRaised}
-              </p>
-            </div>
-          </div>
-
-          {/* Customer Channels */}
-          <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4">
-            <div>
-              <h3 className="font-headline-sm text-base font-bold text-text-primary">
-                Where can customers reach {data.receptionist.assistantName}?
-              </h3>
-              <p className="text-xs text-text-secondary">
-                Manage where your receptionist is available.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-border/60 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AppIcon name="public" className="text-[20px] text-primary" />
-                    <span className="font-semibold text-sm text-text-primary">Web Chat</span>
-                  </div>
-                  <span
-                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
-                      data.readiness.webChatReady
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        : 'bg-amber-50 text-amber-800 border-amber-200'
-                    }`}
-                  >
-                    {data.readiness.webChatReady ? 'Active' : 'Setup Required'}
-                  </span>
-                </div>
-                <p className="text-xs text-text-secondary">
-                  Public booking page: <code>/b/{data.business.slug}</code>
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setActiveTab('test_chat')}
-                    className="h-8 text-xs"
-                  >
-                    Test Chat
-                  </Button>
-                  <Link
-                    href={`/b/${data.business.slug}`}
-                    target="_blank"
-                    className="text-xs font-semibold text-primary hover:underline"
-                  >
-                    Open Booking Page
-                  </Link>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border/60 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AppIcon name="chat" className="text-[20px] text-emerald-600" />
-                    <span className="font-semibold text-sm text-text-primary">WhatsApp</span>
-                  </div>
-                  <span
-                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
-                      data.readiness.whatsappConnected
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        : 'bg-amber-50 text-amber-800 border-amber-200'
-                    }`}
-                  >
-                    {data.readiness.whatsappConnected ? 'Active' : 'Setup Required'}
-                  </span>
-                </div>
-                <p className="text-xs text-text-secondary">
-                  {data.readiness.whatsappConnected
-                    ? data.readiness.whatsappNumberLabel
-                    : 'Connect your business WhatsApp account to start receiving customer messages.'}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveNav('integrations')}
-                  className="h-8 text-xs"
-                >
-                  {data.readiness.whatsappConnected ? 'Manage Integration' : 'Go to Integrations'}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Booking Rules Summary (read-only authoritative summary) */}
-          <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="font-headline-sm text-base font-bold text-text-primary">
-                  Booking Rules
-                </h3>
-                <p className="text-xs text-text-secondary">
-                  These rules keep appointments and payments consistent and are enforced by the
-                  backend.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveNav('payments')}
-                  className="h-7 text-xs"
-                >
-                  Payments
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveNav('services-staff')}
-                  className="h-7 text-xs"
-                >
-                  Services &amp; Staff
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveNav('working-hours')}
-                  className="h-7 text-xs"
-                >
-                  Working Hours
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-              <div className="rounded-lg bg-surface-container-lowest border border-border/40 p-3">
-                <span className="font-semibold text-text-primary block">Temporary Hold</span>
-                <span className="text-text-secondary mt-1 block">15 minutes</span>
-              </div>
-              <div className="rounded-lg bg-surface-container-lowest border border-border/40 p-3">
-                <span className="font-semibold text-text-primary block">Deposit Policy</span>
-                <span className="text-text-secondary mt-1 block">
-                  {data.business.depositRequired
-                    ? `₦${depositNaira.toLocaleString('en-NG')} required before confirmation`
-                    : 'No deposit required'}
-                </span>
-              </div>
-              <div className="rounded-lg bg-surface-container-lowest border border-border/40 p-3">
-                <span className="font-semibold text-text-primary block">Confirmation</span>
-                <span className="text-text-secondary mt-1 block">
-                  Only after verified Kora payment for deposit-required bookings
-                </span>
-              </div>
-              <div className="rounded-lg bg-surface-container-lowest border border-border/40 p-3">
-                <span className="font-semibold text-text-primary block">Availability</span>
-                <span className="text-text-secondary mt-1 block">
-                  Calculated from staff schedules and existing bookings
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: Identity & Greeting */}
+      {/* SECTION 1: Identity & Greeting */}
       {activeTab === 'identity' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 rounded-xl border border-border/60 bg-white p-5 space-y-4">
-            <div>
-              <h3 className="font-headline-sm text-base font-bold text-text-primary">
-                How should your receptionist introduce itself?
-              </h3>
-              <p className="text-xs text-text-secondary">
-                Give your assistant a name and choose how it communicates with customers.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-headline-sm text-base font-bold text-text-primary">
+                  1. Identity &amp; Greeting
+                </h3>
+                <p className="text-xs text-text-secondary">
+                  Configure your assistant&apos;s name, tone, supported language, and opening
+                  message.
+                </p>
+              </div>
+              {isOwner && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const defaultWelcome =
+                      primaryLanguage === 'Nigerian Pidgin'
+                        ? `How far! Welcome to ${data.business.name}. Na ${assistantName || 'Maya'} I be, your booking assistant. You wan book appointment or ask question?`
+                        : `Hi! Welcome to ${data.business.name}. I'm ${assistantName || 'Maya'}, your booking assistant. Would you like to book an appointment or ask a question?`;
+                    setGreeting(defaultWelcome);
+                    setDirty(true);
+                  }}
+                  className="h-8 text-xs shrink-0"
+                >
+                  Use Default Greeting
+                </Button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -839,15 +842,20 @@ export function AiReceptionistView() {
                   onChange={(e) => {
                     setAssistantName(e.target.value);
                     setDirty(true);
+                    setSaveState('idle');
                   }}
                   maxLength={40}
+                  placeholder="e.g. Maya"
                   className="w-full h-9 rounded-lg border border-border bg-white px-3 text-sm text-text-primary"
                 />
+                <p className="text-[11px] text-text-secondary">
+                  2–40 characters ({assistantName.trim().length}/40)
+                </p>
               </div>
 
               <div className="space-y-1.5">
                 <label htmlFor="ai-lang" className="text-xs font-semibold text-text-primary block">
-                  Primary Language
+                  Supported Language
                 </label>
                 <select
                   id="ai-lang"
@@ -856,12 +864,17 @@ export function AiReceptionistView() {
                   onChange={(e) => {
                     setPrimaryLanguage(e.target.value as 'English' | 'Nigerian Pidgin');
                     setDirty(true);
+                    setSaveState('idle');
                   }}
                   className="w-full h-9 rounded-lg border border-border bg-white px-3 text-sm text-text-primary"
                 >
-                  <option value="English">English</option>
+                  <option value="English">English (Nigerian-English friendly)</option>
                   <option value="Nigerian Pidgin">Nigerian Pidgin</option>
                 </select>
+                <p className="text-[11px] text-text-secondary">
+                  Understands Nigerian booking phrases (&ldquo;low cut&rdquo;, &ldquo;I wan
+                  book&rdquo;, &ldquo;abeg&rdquo;) in both modes.
+                </p>
               </div>
             </div>
 
@@ -869,35 +882,63 @@ export function AiReceptionistView() {
               <span className="text-xs font-semibold text-text-primary block">
                 Communication Tone
               </span>
-              <div className="flex items-center gap-2 flex-wrap">
-                {(['Friendly', 'Professional', 'Casual'] as const).map((option) => (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {(
+                  [
+                    {
+                      id: 'Friendly',
+                      desc: 'Warm, welcoming, and conversational',
+                    },
+                    {
+                      id: 'Professional',
+                      desc: 'Polite, concise, and structured',
+                    },
+                    {
+                      id: 'Casual',
+                      desc: 'Relaxed, direct, and easygoing',
+                    },
+                  ] as const
+                ).map((option) => (
                   <button
-                    key={option}
+                    key={option.id}
                     type="button"
                     disabled={!isOwner}
                     onClick={() => {
-                      setTone(option);
+                      setTone(option.id);
                       setDirty(true);
+                      setSaveState('idle');
                     }}
-                    className={`px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-                      tone === option
+                    className={`p-3 rounded-lg border text-left transition-colors ${
+                      tone === option.id
                         ? 'bg-primary text-white border-primary'
                         : 'bg-white text-text-primary border-border hover:bg-surface-container-low'
                     }`}
                   >
-                    {option}
+                    <span className="text-xs font-bold block">{option.id}</span>
+                    <span
+                      className={`text-[11px] mt-0.5 block ${
+                        tone === option.id ? 'text-white/85' : 'text-text-secondary'
+                      }`}
+                    >
+                      {option.desc}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label
-                htmlFor="ai-greeting"
-                className="text-xs font-semibold text-text-primary block"
-              >
-                Welcome Message
-              </label>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="ai-greeting"
+                  className="text-xs font-semibold text-text-primary block"
+                >
+                  Welcome Message
+                </label>
+                <span className="text-[11px] text-text-secondary">
+                  {greeting.trim().length}/600
+                </span>
+              </div>
               <textarea
                 id="ai-greeting"
                 rows={3}
@@ -906,16 +947,26 @@ export function AiReceptionistView() {
                 onChange={(e) => {
                   setGreeting(e.target.value);
                   setDirty(true);
+                  setSaveState('idle');
                 }}
                 maxLength={600}
                 className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text-primary"
               />
+              <p className="text-[11px] text-text-secondary">
+                Shown when a customer opens Web Chat or starts a new WhatsApp conversation. Cannot
+                override deposit or booking confirmation rules.
+              </p>
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="ai-intro" className="text-xs font-semibold text-text-primary block">
-                Short Introduction (Optional)
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="ai-intro" className="text-xs font-semibold text-text-primary block">
+                  Short Role Tagline (Optional)
+                </label>
+                <span className="text-[11px] text-text-secondary">
+                  {shortIntro.trim().length}/200
+                </span>
+              </div>
               <input
                 id="ai-intro"
                 type="text"
@@ -924,79 +975,280 @@ export function AiReceptionistView() {
                 onChange={(e) => {
                   setShortIntro(e.target.value);
                   setDirty(true);
+                  setSaveState('idle');
                 }}
                 maxLength={200}
                 className="w-full h-9 rounded-lg border border-border bg-white px-3 text-sm text-text-primary"
               />
             </div>
+
+            {validationIssue && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                {validationIssue}
+              </div>
+            )}
           </div>
 
-          {/* Preview */}
-          <div className="rounded-xl border border-border/60 bg-white p-5 space-y-3 h-fit">
+          {/* Live Greeting Preview */}
+          <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4 h-fit">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-              Web Chat Welcome Preview
+              Customer Welcome Preview
             </h4>
-            <div className="rounded-xl bg-surface-container-lowest border border-border/50 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[11px] font-bold">
-                  {assistantName.slice(0, 1).toUpperCase() || 'A'}
+            <div className="rounded-xl bg-surface-container-lowest border border-border/50 p-4 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
+                  {assistantName.trim().slice(0, 1).toUpperCase() || 'M'}
                 </div>
-                <span className="text-xs font-semibold text-text-primary">
-                  {assistantName || 'Assistant'} • {tone}
-                </span>
+                <div>
+                  <span className="text-xs font-semibold text-text-primary block">
+                    {assistantName.trim() || 'Assistant'} • {data.business.name}
+                  </span>
+                  <span className="text-[11px] text-text-secondary block">
+                    {tone} tone • {primaryLanguage}
+                  </span>
+                </div>
               </div>
+              {shortIntro.trim() && (
+                <p className="text-[11px] text-text-secondary italic border-l-2 border-primary/40 pl-2">
+                  {shortIntro.trim()}
+                </p>
+              )}
               <div className="rounded-lg bg-white border border-border/50 p-3 text-xs text-text-primary leading-relaxed">
-                {greeting || 'Enter a welcome message to preview how customers are greeted.'}
+                {greeting.trim() || 'Enter a welcome message to preview how customers are greeted.'}
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 3: Business Knowledge */}
-      {activeTab === 'knowledge' && (
-        <div className="space-y-5">
-          <div className="rounded-xl border border-border/60 bg-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-headline-sm text-base font-bold text-text-primary">
-                Authoritative Business Records
-              </h3>
-              <p className="text-xs text-text-secondary mt-0.5">
-                {assistantName} reads directly from your saved business profile:{' '}
-                <strong className="text-text-primary">
-                  {data.business.servicesCount} services
-                </strong>
-                ,{' '}
-                <strong className="text-text-primary">
-                  {data.business.selfProvided
-                    ? 'solo operator'
-                    : `${data.business.staffCount} staff`}
-                </strong>
-                , working hours, and deposit rules.
-              </p>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setActiveNav('services-staff')}
-              className="h-8 text-xs shrink-0"
+              onClick={() => setActiveTab('test_chat')}
+              className="w-full h-8 text-xs"
             >
-              Manage Services &amp; Staff
+              Try in Test Chat
             </Button>
           </div>
+        </div>
+      )}
 
+      {/* SECTION 2: Business Knowledge */}
+      {activeTab === 'knowledge' && (
+        <div className="space-y-6">
+          {/* Read-Only Authoritative Summaries */}
           <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-headline-sm text-base font-bold text-text-primary">
-                  Frequently Asked Questions
+                  2. Business Knowledge — Authoritative Database Records (Read-Only)
                 </h3>
-                <p className="text-xs text-text-secondary">
-                  Add helpful answers to questions your customers ask frequently.
+                <p className="text-xs text-text-secondary mt-0.5">
+                  {assistantName} reads prices, durations, schedules, and deposit rules directly
+                  from your database records so they are never duplicated or out of sync.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveNav('services-staff')}
+                  className="h-8 text-xs"
+                >
+                  Services &amp; Staff
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveNav('working-hours')}
+                  className="h-8 text-xs"
+                >
+                  Working Hours
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveNav('payments')}
+                  className="h-8 text-xs"
+                >
+                  Payments
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Authoritative Services & Prices */}
+              <div className="rounded-xl border border-border/50 bg-surface-container-lowest p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AppIcon name="content_cut" className="text-[18px] text-primary" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                      Services &amp; Prices ({data.business.services.length})
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveNav('services-staff')}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Edit Catalog
+                  </button>
+                </div>
+
+                {data.business.services.length === 0 ? (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    No services configured yet. Add services in Services &amp; Staff so your
+                    receptionist can quote accurate prices and durations.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border/40 rounded-lg border border-border/40 bg-white overflow-hidden">
+                    {data.business.services.map((svc) => (
+                      <div
+                        key={svc.id}
+                        className="px-3 py-2.5 flex items-center justify-between gap-2 text-xs"
+                      >
+                        <div>
+                          <span className="font-semibold text-text-primary block">{svc.name}</span>
+                          <span className="text-[11px] text-text-secondary">
+                            {svc.durationMin} mins •{' '}
+                            {svc.depositKobo > 0
+                              ? `${formatNaira(svc.depositKobo)} deposit`
+                              : 'No deposit'}
+                          </span>
+                        </div>
+                        <span className="font-bold text-text-primary shrink-0">
+                          {formatNaira(svc.priceKobo)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Authoritative Staff & Working Hours */}
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border/50 bg-surface-container-lowest p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AppIcon name="badge" className="text-[18px] text-primary" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                        Bookable Staff ({data.business.staffCount})
+                      </h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveNav('services-staff')}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      Manage Staff
+                    </button>
+                  </div>
+                  {data.business.staff.length === 0 ? (
+                    <p className="text-xs text-text-secondary">
+                      {data.business.selfProvided
+                        ? 'Solo operator mode enabled (owner provides services).'
+                        : 'No staff members added yet.'}
+                    </p>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {data.business.staff.map((st) => (
+                        <span
+                          key={st.id}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs ${
+                            st.active
+                              ? 'bg-white border-border/60 text-text-primary'
+                              : 'bg-slate-100 border-slate-200 text-slate-500'
+                          }`}
+                        >
+                          <span className="font-semibold">{st.name}</span>
+                          <span className="text-[11px] text-text-secondary">({st.roleTitle})</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-border/50 bg-surface-container-lowest p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AppIcon name="schedule" className="text-[18px] text-primary" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                        Schedule &amp; Policies ({timezone})
+                      </h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveNav('working-hours')}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      Edit Hours
+                    </button>
+                  </div>
+                  <div className="text-xs text-text-secondary space-y-1.5">
+                    <p>
+                      <strong className="text-text-primary">
+                        Open Days ({openDays.length}/7):
+                      </strong>{' '}
+                      {openDays.length > 0
+                        ? openDays
+                            .map((d) => `${d.day.slice(0, 3)} ${d.openTime}–${d.closeTime}`)
+                            .join(', ')
+                        : 'No open hours configured'}
+                    </p>
+                    <p>
+                      <strong className="text-text-primary">Booking Window:</strong> Up to{' '}
+                      {data.business.advanceDays} days ahead •{' '}
+                      {data.business.allowSameDay
+                        ? 'Same-day bookings allowed'
+                        : 'No same-day bookings'}
+                    </p>
+                    <p>
+                      <strong className="text-text-primary">Deposit Policy:</strong>{' '}
+                      {data.business.depositRequired
+                        ? `₦${depositNaira.toLocaleString('en-NG')} default Kora deposit required within a 15-minute slot hold`
+                        : 'No deposit required'}
+                    </p>
+                    <p>
+                      <strong className="text-text-primary">Cancellation Policy:</strong>{' '}
+                      {data.business.cancellationPolicy}
+                    </p>
+                    {data.business.location && (
+                      <p>
+                        <strong className="text-text-primary">Location:</strong>{' '}
+                        {data.business.location}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Editable FAQs */}
+          <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-headline-sm text-base font-bold text-text-primary">
+                  Editable Frequently Asked Questions ({faqs.length})
+                </h3>
+                <p className="text-xs text-text-secondary">
+                  Add approved answers for parking, directions, preparation tips, or shop rules.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  aria-label="Filter FAQs by category"
+                  value={faqCategoryFilter}
+                  onChange={(e) => setFaqCategoryFilter(e.target.value)}
+                  className="h-8 rounded-lg border border-border bg-white px-2.5 text-xs text-text-primary"
+                >
+                  <option value="All">All Categories</option>
+                  {FAQ_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   value={faqSearch}
@@ -1016,15 +1268,17 @@ export function AiReceptionistView() {
               <div className="py-10 text-center space-y-2.5 border border-dashed border-border/60 rounded-xl">
                 <AppIcon name="help_outline" className="text-[28px] text-text-secondary mx-auto" />
                 <h4 className="font-headline-sm text-sm font-bold text-text-primary">
-                  {faqSearch ? 'No FAQs match your search.' : 'No FAQs added yet.'}
+                  {faqSearch || faqCategoryFilter !== 'All'
+                    ? 'No FAQs match your filter.'
+                    : 'No custom FAQs added yet.'}
                 </h4>
                 <p className="text-xs text-text-secondary max-w-md mx-auto">
-                  Add answers to common customer questions to help your receptionist respond
-                  accurately.
+                  Add answers to common customer questions (parking, what to bring, late arrival
+                  rules) so {assistantName} responds consistently.
                 </p>
-                {isOwner && !faqSearch && (
+                {isOwner && !faqSearch && faqCategoryFilter === 'All' && (
                   <Button type="button" size="sm" onClick={openAddFaqModal} className="h-8 text-xs">
-                    Add FAQ
+                    Add First FAQ
                   </Button>
                 )}
               </div>
@@ -1059,6 +1313,7 @@ export function AiReceptionistView() {
                             onClick={() => {
                               setFaqs((prev) => prev.filter((item) => item.id !== faq.id));
                               setDirty(true);
+                              setSaveState('idle');
                             }}
                             className="h-7 text-xs text-rose-600"
                           >
@@ -1076,101 +1331,220 @@ export function AiReceptionistView() {
         </div>
       )}
 
-      {/* Tab 4: Booking Capabilities */}
+      {/* SECTION 3: Booking Capabilities */}
       {activeTab === 'capabilities' && (
-        <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4">
-          <div>
-            <h3 className="font-headline-sm text-base font-bold text-text-primary">
-              What can your receptionist help customers do?
-            </h3>
-            <p className="text-xs text-text-secondary">
-              Backend booking and Kora verification rules always govern what is confirmed.
-            </p>
+        <div className="space-y-5">
+          <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-headline-sm text-base font-bold text-text-primary">
+                  3. Booking Capabilities &amp; Readiness
+                </h3>
+                <p className="text-xs text-text-secondary">
+                  Readiness is computed directly from your live catalog, working hours, Kora payment
+                  setup, and assistant activation state (<code>agent_enabled</code>).
+                </p>
+              </div>
+              <span
+                className={`text-xs font-semibold px-2.5 py-1 rounded-full border shrink-0 ${overallStatus.badge}`}
+              >
+                Assistant State: {data.receptionist.agentEnabled ? 'Enabled' : 'Paused'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                {
+                  name: 'Slot Availability Search (find_slots)',
+                  desc: 'Computes real bookable slots in Africa/Lagos from active staff working hours and existing bookings.',
+                  state: !data.receptionist.agentEnabled
+                    ? 'Paused'
+                    : data.readiness.hasServices &&
+                        data.readiness.hasStaffOrSolo &&
+                        data.readiness.hasWorkingHours
+                      ? 'Ready'
+                      : 'Setup Required',
+                  actionLabel: !data.readiness.hasServices
+                    ? 'Add Services'
+                    : !data.readiness.hasWorkingHours
+                      ? 'Set Working Hours'
+                      : null,
+                  onAction: !data.readiness.hasServices
+                    ? () => setActiveNav('services-staff')
+                    : !data.readiness.hasWorkingHours
+                      ? () => setActiveNav('working-hours')
+                      : undefined,
+                },
+                {
+                  name: 'Temporary Slot Holds (hold_slot — 15m Lock)',
+                  desc: 'Places a 15-minute held booking protected by Postgres EXCLUDE USING gist so a staff member can never be double-booked.',
+                  state: !data.receptionist.agentEnabled
+                    ? 'Paused'
+                    : data.readiness.hasServices &&
+                        data.readiness.hasStaffOrSolo &&
+                        data.readiness.hasWorkingHours
+                      ? 'Ready'
+                      : 'Setup Required',
+                  actionLabel: !data.readiness.hasStaffOrSolo ? 'Assign Staff' : null,
+                  onAction: !data.readiness.hasStaffOrSolo
+                    ? () => setActiveNav('services-staff')
+                    : undefined,
+                },
+                {
+                  name: 'Kora Deposit Collection (request_deposit)',
+                  desc: data.business.depositRequired
+                    ? `Generates integer-kobo Kora deposit instructions (₦${depositNaira.toLocaleString('en-NG')} default) required before confirmation.`
+                    : 'Deposits are currently marked optional in Payment Settings.',
+                  state: !data.receptionist.agentEnabled
+                    ? 'Paused'
+                    : !data.business.depositRequired
+                      ? 'Optional'
+                      : data.readiness.koraReady
+                        ? 'Ready'
+                        : 'Setup Required',
+                  actionLabel:
+                    data.business.depositRequired && !data.readiness.koraReady
+                      ? 'Configure Kora'
+                      : 'Payment Rules',
+                  onAction: () => setActiveNav('payments'),
+                },
+                {
+                  name: 'Backend-Confirmed Bookings (get_booking_status)',
+                  desc: 'Confirms a booking only after a Kora charge.success webhook and transaction re-verification. Ambiguous timeouts become pending_verification.',
+                  state: !data.receptionist.agentEnabled
+                    ? 'Paused'
+                    : !data.business.depositRequired || data.readiness.koraReady
+                      ? 'Ready'
+                      : 'Setup Required',
+                  actionLabel: null,
+                },
+                {
+                  name: 'Business Q&A (list_services + Approved FAQs)',
+                  desc: `Answers service, pricing, and policy questions using ${data.business.servicesCount} DB services and ${faqs.length} custom FAQs.`,
+                  state: !data.receptionist.agentEnabled
+                    ? 'Paused'
+                    : data.readiness.hasBusinessProfile && data.readiness.hasServices
+                      ? 'Ready'
+                      : 'Setup Required',
+                  actionLabel: 'Edit Knowledge',
+                  onAction: () => setActiveTab('knowledge'),
+                },
+                {
+                  name: 'Human Staff Escalation (handoff_to_staff)',
+                  desc: 'Transitions conversations to needs_human and routes them to Conversations and Needs Attention.',
+                  state: 'Ready',
+                  actionLabel: 'Handoff Rules',
+                  onAction: () => setActiveTab('handoff'),
+                },
+              ].map((cap) => (
+                <div
+                  key={cap.name}
+                  className="rounded-xl border border-border/60 p-4 flex flex-col justify-between gap-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-text-primary">{cap.name}</h4>
+                      <p className="text-xs text-text-secondary mt-1 leading-relaxed">{cap.desc}</p>
+                    </div>
+                    <span
+                      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
+                        cap.state === 'Ready'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : cap.state === 'Paused' || cap.state === 'Optional'
+                            ? 'bg-slate-100 text-slate-700 border-slate-200'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}
+                    >
+                      {cap.state}
+                    </span>
+                  </div>
+                  {cap.actionLabel && cap.onAction && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={cap.onAction}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        {cap.actionLabel} →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              {
-                name: 'Answer Business Questions',
-                desc: 'Uses approved services, working hours, policies, and FAQs.',
-                state: data.receptionist.agentEnabled ? 'Ready' : 'Disabled',
-              },
-              {
-                name: 'Find Available Appointments',
-                desc: 'Requests live available slots from the booking engine.',
-                state:
-                  data.readiness.hasServices && data.readiness.hasStaffOrSolo
-                    ? 'Ready'
-                    : 'Setup Required',
-              },
-              {
-                name: 'Hold Appointment Slots',
-                desc: 'Places conflict-free 15-minute holds enforced by Postgres.',
-                state:
-                  data.readiness.hasServices && data.readiness.hasStaffOrSolo
-                    ? 'Ready'
-                    : 'Setup Required',
-              },
-              {
-                name: 'Request Deposits',
-                desc: 'Shares Kora deposit instructions when deposits are required.',
-                state: data.readiness.koraReady ? 'Ready' : 'Setup Required',
-              },
-              {
-                name: 'Confirm Bookings',
-                desc: 'Communicates confirmation only after verified Kora payment.',
-                state: data.readiness.koraReady ? 'Ready' : 'Setup Required',
-              },
-              {
-                name: 'Escalate to Human Staff',
-                desc: 'Hands over requests to Conversations and Needs Attention.',
-                state: 'Ready',
-              },
-            ].map((cap) => (
-              <div
-                key={cap.name}
-                className="rounded-xl border border-border/60 p-4 flex items-start justify-between gap-3"
-              >
-                <div>
-                  <h4 className="text-sm font-semibold text-text-primary">{cap.name}</h4>
-                  <p className="text-xs text-text-secondary mt-1">{cap.desc}</p>
-                </div>
-                <span
-                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
-                    cap.state === 'Ready'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      : cap.state === 'Disabled'
-                        ? 'bg-slate-100 text-slate-700 border-slate-200'
-                        : 'bg-amber-50 text-amber-800 border-amber-200'
-                  }`}
-                >
-                  {cap.state}
+          {/* Non-Negotiable Booking Engine Guardrails */}
+          <div className="rounded-xl border border-border/60 bg-white p-5 space-y-3">
+            <h4 className="font-headline-sm text-sm font-bold text-text-primary">
+              Enforced Booking &amp; Payment Invariants
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="rounded-lg bg-surface-container-lowest border border-border/40 p-3">
+                <span className="font-semibold text-text-primary block">No Double-Booking</span>
+                <span className="text-text-secondary mt-1 block">
+                  Postgres <code>EXCLUDE USING gist</code> blocks overlapping held or confirmed
+                  slots per staff member.
                 </span>
               </div>
-            ))}
+              <div className="rounded-lg bg-surface-container-lowest border border-border/40 p-3">
+                <span className="font-semibold text-text-primary block">15-Minute Hold Window</span>
+                <span className="text-text-secondary mt-1 block">
+                  Unpaid holds expire automatically after 15 minutes to free up the calendar.
+                </span>
+              </div>
+              <div className="rounded-lg bg-surface-container-lowest border border-border/40 p-3">
+                <span className="font-semibold text-text-primary block">
+                  Verified Kora Confirmation
+                </span>
+                <span className="text-text-secondary mt-1 block">
+                  Confirmed only after a Kora <code>charge.success</code> webhook plus transaction
+                  re-verification.
+                </span>
+              </div>
+              <div className="rounded-lg bg-surface-container-lowest border border-border/40 p-3">
+                <span className="font-semibold text-text-primary block">
+                  Template-Locked Replies
+                </span>
+                <span className="text-text-secondary mt-1 block">
+                  The assistant never free-texts &ldquo;confirmed&rdquo; unless the database booking
+                  row is <code>confirmed</code>.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Tab 5: Human Handoff */}
+      {/* SECTION 4: Human Handoff */}
       {activeTab === 'handoff' && (
         <div className="rounded-xl border border-border/60 bg-white p-5 space-y-5">
-          <div>
-            <h3 className="font-headline-sm text-base font-bold text-text-primary">
-              When should {assistantName} ask for help?
-            </h3>
-            <p className="text-xs text-text-secondary">
-              Customer requests that need human judgment are passed to Conversations and Needs
-              Attention.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-headline-sm text-base font-bold text-text-primary">
+                4. Human Handoff &amp; Escalation
+              </h3>
+              <p className="text-xs text-text-secondary">
+                When a customer needs human judgment, {assistantName} transitions the conversation
+                to <code>needs_human</code>, pauses automated replies, and alerts your team.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-semibold">
+                {data.activity.humanHandoffsRaised} Needs Human
+              </span>
+              <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-900 border border-indigo-200 font-semibold">
+                {data.activity.pendingPaymentVerifications} Pending Verification
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             {[
-              'Customer explicitly requests a person',
-              'Customer disputes a payment or asks for a refund',
-              'Booking change requires staff approval',
-              'Answer is not covered by approved business information',
+              'Customer explicitly asks to speak with a person or manager',
+              'Customer disputes a payment, transfer, or asks for a refund',
+              'Custom booking request or price negotiation outside catalog rules',
+              'Medical, allergy, or sensitive question outside approved FAQs',
             ].map((cond) => (
               <div
                 key={cond}
@@ -1182,50 +1556,74 @@ export function AiReceptionistView() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="ai-escalation-contact"
-                className="text-xs font-semibold text-text-primary block"
-              >
-                Escalation Contact
-              </label>
-              <input
-                id="ai-escalation-contact"
-                type="text"
-                disabled={!isOwner}
-                value={escalationContact}
-                onChange={(e) => {
-                  setEscalationContact(e.target.value);
-                  setDirty(true);
-                }}
-                className="w-full h-9 rounded-lg border border-border bg-white px-3 text-sm text-text-primary"
-              />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 pt-2">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="ai-escalation-contact"
+                  className="text-xs font-semibold text-text-primary block"
+                >
+                  Escalation Contact (Phone / WhatsApp / Desk)
+                </label>
+                <input
+                  id="ai-escalation-contact"
+                  type="text"
+                  disabled={!isOwner}
+                  value={escalationContact}
+                  onChange={(e) => {
+                    setEscalationContact(e.target.value);
+                    setDirty(true);
+                    setSaveState('idle');
+                  }}
+                  maxLength={80}
+                  placeholder="e.g. +234 803 123 4567"
+                  className="w-full h-9 rounded-lg border border-border bg-white px-3 text-sm text-text-primary"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="ai-handoff-msg"
+                    className="text-xs font-semibold text-text-primary block"
+                  >
+                    Customer Handoff Message
+                  </label>
+                  <span className="text-[11px] text-text-secondary">
+                    {handoffMessage.trim().length}/400
+                  </span>
+                </div>
+                <textarea
+                  id="ai-handoff-msg"
+                  rows={3}
+                  disabled={!isOwner}
+                  value={handoffMessage}
+                  onChange={(e) => {
+                    setHandoffMessage(e.target.value);
+                    setDirty(true);
+                    setSaveState('idle');
+                  }}
+                  maxLength={400}
+                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text-primary"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-surface-container-lowest border border-border/50 p-4 space-y-2 h-fit">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary block">
+                Handoff Message Preview
+              </span>
+              <div className="rounded-lg bg-white border border-border/50 p-3 text-xs text-text-primary leading-relaxed">
+                {handoffMessage.trim() ||
+                  "I'll ask someone from the team to help with this. Your request has been passed along."}
+                {escalationContact.trim()
+                  ? ` Escalation contact: ${escalationContact.trim()}.`
+                  : ''}
+              </div>
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label
-              htmlFor="ai-handoff-msg"
-              className="text-xs font-semibold text-text-primary block"
-            >
-              Handoff Message
-            </label>
-            <textarea
-              id="ai-handoff-msg"
-              rows={2}
-              disabled={!isOwner}
-              value={handoffMessage}
-              onChange={(e) => {
-                setHandoffMessage(e.target.value);
-                setDirty(true);
-              }}
-              maxLength={400}
-              className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text-primary"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border/40">
+          <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-border/40">
             <Button
               type="button"
               variant="outline"
@@ -1233,7 +1631,8 @@ export function AiReceptionistView() {
               onClick={() => setActiveNav('conversations')}
               className="h-8 text-xs"
             >
-              Open Conversations
+              <AppIcon name="forum" className="text-[15px]" />
+              <span>Open Conversations</span>
             </Button>
             <Button
               type="button"
@@ -1242,7 +1641,8 @@ export function AiReceptionistView() {
               onClick={() => setActiveNav('needs-attention')}
               className="h-8 text-xs"
             >
-              Open Needs Attention
+              <AppIcon name="notification_important" className="text-[15px]" />
+              <span>Open Needs Attention</span>
             </Button>
             <Button
               type="button"
@@ -1251,28 +1651,235 @@ export function AiReceptionistView() {
               onClick={() => setActiveNav('team-permissions')}
               className="h-8 text-xs"
             >
-              Team &amp; Permissions
+              <AppIcon name="group" className="text-[15px]" />
+              <span>Team &amp; Permissions</span>
             </Button>
           </div>
         </div>
       )}
 
-      {/* Tab 6: Isolated Test Chat */}
+      {/* SECTION 5: Channels */}
+      {activeTab === 'channels' && (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4">
+            <div>
+              <h3 className="font-headline-sm text-base font-bold text-text-primary">
+                5. Customer Channels — Web Chat &amp; WhatsApp Readiness
+              </h3>
+              <p className="text-xs text-text-secondary">
+                Web Chat and WhatsApp share the same booking engine and Kora deposit guardrails,
+                with independent channel readiness.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Web Chat Card */}
+              <div className="rounded-xl border border-border/60 p-5 space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                        <AppIcon name="public" className="text-[20px]" />
+                      </div>
+                      <div>
+                        <span className="font-semibold text-sm text-text-primary block">
+                          Web Chat &amp; Public Booking Page
+                        </span>
+                        <span className="text-[11px] text-text-secondary">
+                          Embedded on <code>/b/{data.business.slug}</code>
+                        </span>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+                        data.readiness.webChatReady && data.receptionist.agentEnabled
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : data.readiness.webChatReady
+                            ? 'bg-slate-100 text-slate-700 border-slate-300'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}
+                    >
+                      {webChatStatusLabel}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs border-t border-border/40 pt-3">
+                    {[
+                      {
+                        label: 'Business profile & public slug',
+                        ready: data.readiness.hasBusinessProfile,
+                      },
+                      {
+                        label: `Service catalog (${data.business.servicesCount} configured)`,
+                        ready: data.readiness.hasServices,
+                      },
+                      {
+                        label: data.business.selfProvided
+                          ? 'Solo provider enabled'
+                          : `Active staff (${data.business.staffCount} configured)`,
+                        ready: data.readiness.hasStaffOrSolo,
+                      },
+                      {
+                        label: `Working hours (${openDays.length} open days)`,
+                        ready: data.readiness.hasWorkingHours,
+                      },
+                      {
+                        label: data.business.depositRequired
+                          ? 'Kora deposit checkout ready'
+                          : 'Deposits optional',
+                        ready: !data.business.depositRequired || data.readiness.koraReady,
+                      },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between">
+                        <span className="text-text-secondary">{item.label}</span>
+                        <span
+                          className={`font-semibold ${
+                            item.ready ? 'text-emerald-700' : 'text-amber-700'
+                          }`}
+                        >
+                          {item.ready ? 'Ready' : 'Action needed'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-border/40">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleCopyPublicLink()}
+                    className="h-8 text-xs"
+                  >
+                    <AppIcon name="content_copy" className="text-[14px]" />
+                    <span>{copiedPublicUrl ? 'Copied Link!' : 'Copy Booking Link'}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveTab('test_chat')}
+                    className="h-8 text-xs"
+                  >
+                    Test Chat
+                  </Button>
+                  <Link
+                    href={`/b/${data.business.slug}`}
+                    target="_blank"
+                    className="text-xs font-semibold text-primary hover:underline ml-auto"
+                  >
+                    Open Booking Page ↗
+                  </Link>
+                </div>
+              </div>
+
+              {/* WhatsApp Cloud API Card */}
+              <div className="rounded-xl border border-border/60 p-5 space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                        <AppIcon name="chat" className="text-[20px]" />
+                      </div>
+                      <div>
+                        <span className="font-semibold text-sm text-text-primary block">
+                          WhatsApp Business (Meta Cloud API)
+                        </span>
+                        <span className="text-[11px] text-text-secondary">
+                          {data.readiness.whatsappConnected
+                            ? data.readiness.whatsappNumberLabel
+                            : 'Not connected to a Meta phone number ID yet'}
+                        </span>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+                        data.readiness.whatsappConnected && data.receptionist.agentEnabled
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : data.readiness.whatsappConnected
+                            ? 'bg-slate-100 text-slate-700 border-slate-300'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}
+                    >
+                      {whatsappStatusLabel}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs border-t border-border/40 pt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-secondary">Meta Phone Number ID</span>
+                      <span
+                        className={`font-semibold ${
+                          data.readiness.whatsappConnected ? 'text-emerald-700' : 'text-amber-700'
+                        }`}
+                      >
+                        {data.readiness.whatsappPhoneNumberId || 'Not linked'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-secondary">Webhook redelivery deduplication</span>
+                      <span className="font-semibold text-emerald-700">Enforced</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-secondary">24h customer-service window</span>
+                      <span className="font-semibold text-emerald-700">Tracked per thread</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-border/40">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveNav('integrations')}
+                    className="h-8 text-xs"
+                  >
+                    <AppIcon name="extension" className="text-[15px]" />
+                    <span>
+                      {data.readiness.whatsappConnected
+                        ? 'Manage in Integrations'
+                        : 'Connect in Integrations'}
+                    </span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveNav('conversations')}
+                    className="h-8 text-xs"
+                  >
+                    View WhatsApp Threads
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 6: Isolated Test Chat */}
       {activeTab === 'test_chat' && (
         <div className="rounded-xl border border-border/60 bg-white overflow-hidden">
           <div className="p-4 border-b border-border/50 bg-surface-container-lowest flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-headline-sm text-base font-bold text-text-primary">
-                  Test your receptionist
+                  6. Test Chat — {assistantName.trim() || 'Assistant'}
                 </h3>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
                   Isolated Test Mode
                 </span>
+                {dirty && (
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                    Testing Unsaved Draft Settings
+                  </span>
+                )}
               </div>
               <p className="text-xs text-text-secondary mt-0.5">
-                Test sessions never create real customer bookings, payments, or conversation
-                metrics.
+                Reads your real services, staff schedules, policies, and current draft settings
+                without creating live bookings, holds, or Kora charges.
               </p>
             </div>
             <Button
@@ -1289,8 +1896,11 @@ export function AiReceptionistView() {
           <div className="p-4 border-b border-border/40 flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-semibold text-text-secondary">Quick scenarios:</span>
             {[
+              'Hello!',
               'What services and prices do you offer?',
               'Can I book an appointment tomorrow at 2 PM?',
+              'What are your opening hours and location?',
+              'What is your deposit and cancellation policy?',
               'I want to speak to a human about a refund',
             ].map((prompt) => (
               <button
@@ -1305,10 +1915,15 @@ export function AiReceptionistView() {
             ))}
           </div>
 
-          <div className="p-4 space-y-3 min-h-[260px] max-h-[380px] overflow-y-auto bg-surface-container-lowest/40">
+          <div className="p-4 space-y-3 min-h-[280px] max-h-[400px] overflow-y-auto bg-surface-container-lowest/40">
             {testMessages.length === 0 ? (
-              <div className="text-center py-10 text-xs text-text-secondary">
-                Send a message or choose a scenario above to test {assistantName}.
+              <div className="text-center py-10 text-xs text-text-secondary space-y-1">
+                <p className="font-semibold text-text-primary">
+                  Send a message or click a scenario above to test {assistantName.trim() || 'Maya'}.
+                </p>
+                <p>
+                  Language: <strong>{primaryLanguage}</strong> • Tone: <strong>{tone}</strong>
+                </p>
               </div>
             ) : (
               testMessages.map((m) => (
@@ -1329,10 +1944,19 @@ export function AiReceptionistView() {
                   >
                     {m.text}
                   </div>
-                  {m.outcome && (
-                    <span className="text-[10px] font-semibold text-text-secondary mt-1 px-1">
-                      Outcome: {m.outcome}
-                    </span>
+                  {(m.outcome || m.matchedSource) && (
+                    <div className="flex items-center gap-2 mt-1 px-1 flex-wrap">
+                      {m.outcome && (
+                        <span className="text-[10px] font-semibold text-text-secondary">
+                          Outcome: {m.outcome}
+                        </span>
+                      )}
+                      {m.matchedSource && (
+                        <span className="text-[10px] font-medium text-primary bg-primary/5 px-1.5 py-0.5 rounded">
+                          Source: {m.matchedSource}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               ))
@@ -1350,7 +1974,7 @@ export function AiReceptionistView() {
               type="text"
               value={testInput}
               onChange={(e) => setTestInput(e.target.value)}
-              placeholder={`Message ${assistantName} in test mode...`}
+              placeholder={`Message ${assistantName.trim() || 'Maya'} in isolated test mode...`}
               className="flex-1 h-9 rounded-lg border border-border bg-white px-3 text-xs text-text-primary"
             />
             <Button type="submit" size="sm" disabled={testSending || !testInput.trim()}>
@@ -1375,6 +1999,11 @@ export function AiReceptionistView() {
             <h3 className="font-headline-sm text-base font-bold text-text-primary">
               {editingFaqId ? 'Edit FAQ' : 'Add FAQ'}
             </h3>
+            {faqValidationError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                {faqValidationError}
+              </div>
+            )}
             <div className="space-y-1.5">
               <label htmlFor="faq-cat" className="text-xs font-semibold text-text-primary block">
                 Category
@@ -1400,6 +2029,7 @@ export function AiReceptionistView() {
                 id="faq-q"
                 type="text"
                 required
+                maxLength={240}
                 value={faqQuestion}
                 onChange={(e) => setFaqQuestion(e.target.value)}
                 placeholder="e.g. Do you accept walk-ins?"
@@ -1414,6 +2044,7 @@ export function AiReceptionistView() {
                 id="faq-a"
                 rows={3}
                 required
+                maxLength={1000}
                 value={faqAnswer}
                 onChange={(e) => setFaqAnswer(e.target.value)}
                 placeholder="e.g. Yes, depending on staff availability. Booking ahead is recommended."

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
 import { HoldBand } from '@/components/HoldBand';
 import { Badge } from '@/components/ui/badge';
@@ -34,14 +35,86 @@ export function OverviewView() {
     metrics,
     needsAttentionItems,
     recentActivities,
+    startDemoMode,
+    demoBusy,
   } = useDashboard();
+  const [demoPromptOpen, setDemoPromptOpen] = useState(false);
 
   return (
     <div className="flex flex-col w-full space-y-8">
+      {!apiState.isDemo && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#22306B]/15 bg-[#F5F6FA] px-5 py-3.5 shadow-2xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#22306B] text-[#F5B700]">
+              <AppIcon name="science" className="text-[18px]" />
+            </div>
+            <div>
+              <p className="font-label-md text-sm font-semibold text-[#22306B]">
+                Want to test Switchboard with realistic sample data first?
+              </p>
+              <p className="font-body-sm text-xs text-text-secondary">
+                Launch an isolated Fade Republic Barbershop demo without touching your real business
+                records.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            disabled={demoBusy}
+            onClick={() => setDemoPromptOpen(true)}
+            className="shrink-0 bg-[#22306B] text-white hover:bg-[#1a2554]"
+          >
+            <AppIcon name="science" className="text-[15px]" />
+            <span>Try with Demo Data</span>
+          </Button>
+        </div>
+      )}
+
+      {demoPromptOpen && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dashboard-demo-intro-title"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl">
+            <h2 id="dashboard-demo-intro-title" className="font-headline-sm text-lg font-semibold">
+              Enter Isolated Demo Mode?
+            </h2>
+            <p className="mt-2 text-sm text-text-secondary leading-relaxed">
+              We will load a separate fictional workspace (<strong>Fade Republic Barbershop</strong>
+              ) with sample bookings, mock Kora deposits, and simulated WhatsApp threads. Your real
+              workspace remains untouched and can be restored anytime via <strong>Exit Demo</strong>
+              .
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDemoPromptOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={demoBusy}
+                className="bg-[#22306B] text-white hover:bg-[#1a2554]"
+                onClick={() => {
+                  setDemoPromptOpen(false);
+                  void startDemoMode('dashboard');
+                }}
+              >
+                {demoBusy ? 'Preparing Demo...' : 'Start Demo Workspace'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* -------------------------------------------------------------
                     SECTION ONE: WELCOME HEADER & CHANNEL STATUS
                 ------------------------------------------------------------- */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-2 border-b border-border/50">
+      <div
+        data-tour="overview-header"
+        className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-2 border-b border-border/50"
+      >
         <div className="flex flex-col gap-2 max-w-2xl">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-metric-sm text-metric-sm text-text-secondary font-medium">
@@ -99,6 +172,7 @@ export function OverviewView() {
         {/* Quick Actions (4 Clean Business Actions) */}
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
           <Link
+            data-tour="public-booking-link"
             href={`/b/${workspace.slug}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -149,7 +223,10 @@ export function OverviewView() {
       {/* -------------------------------------------------------------
                     SECTION TWO: KEY BUSINESS METRICS (4 SUMMARY CARDS)
                 ------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div
+        data-tour="overview-metrics"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+      >
         {/* Card 1 — Confirmed Bookings */}
         <button
           type="button"
@@ -323,7 +400,10 @@ export function OverviewView() {
       {/* -------------------------------------------------------------
                     SECTION THREE: TODAY'S APPOINTMENTS & SLOT HOLDS
                 ------------------------------------------------------------- */}
-      <div className="bg-surface rounded-xl border border-border/70 shadow-xs overflow-hidden">
+      <div
+        data-tour="todays-appointments"
+        className="bg-surface rounded-xl border border-border/70 shadow-xs overflow-hidden"
+      >
         <div className="px-6 py-4 border-b border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="font-headline-sm text-headline-sm text-text-primary font-semibold">

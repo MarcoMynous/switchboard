@@ -36,6 +36,13 @@
       "when": 1794655259568,
       "tag": "0004_booking_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795001484530,
+      "tag": "0005_demo_mode",
+      "breakpoints": true
     }
   ]
 }

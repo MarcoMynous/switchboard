@@ -14,7 +14,10 @@ export function PaymentsSettingsView({ title = 'Payments' }: { title?: string })
   } = useDashboard();
 
   return (
-    <div className="bg-surface rounded-xl p-6 sm:p-8 border border-border space-y-6">
+    <div
+      data-tour="kora-payment-status"
+      className="bg-surface rounded-xl p-6 sm:p-8 border border-border space-y-6"
+    >
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{title}</h1>
@@ -32,7 +35,7 @@ export function PaymentsSettingsView({ title = 'Payments' }: { title?: string })
 
       <div className="space-y-6">
         {/* Phase 2: Business-wide Kora Fee & Free-Cancel Window */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div data-tour="payments-kora-settings" className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 rounded-xl border border-border bg-surface-container-low/50 space-y-3">
             <div className="flex items-center justify-between">
               <div>

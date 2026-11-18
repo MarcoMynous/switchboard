@@ -54,6 +54,9 @@ function getNavSectionFromPathname(pathname: string): NavSection {
 
 interface WorkspaceApiData {
   ok: boolean;
+  isDemo?: boolean;
+  demoEntryOrigin?: 'landing' | 'dashboard';
+  previousSlug?: string | null;
   user: {
     id: string;
     name: string;
@@ -209,6 +212,8 @@ export interface ApiState {
   whatsappConnected: boolean;
   koraConfigured: boolean;
   agentEnabled: boolean;
+  isDemo: boolean;
+  demoEntryOrigin: 'landing' | 'dashboard';
 }
 
 export interface GuideModalData {
@@ -309,6 +314,24 @@ interface DashboardContextValue {
   handleFlagPaymentPendingVerification: (bookingId: string) => void;
   handleExpireHold: (bookingId: string) => void;
   refreshWorkspaceData: () => void;
+  demoModified: boolean;
+  demoBusy: boolean;
+  demoNotice: string | null;
+  setDemoNotice: (notice: string | null) => void;
+  demoTourRequestId: number;
+  startGuidedTour: () => void;
+  startDemoMode: (entryOrigin?: 'landing' | 'dashboard') => Promise<boolean>;
+  resetDemoMode: () => Promise<boolean>;
+  exitDemoMode: () => Promise<void>;
+  runDemoScenario: (
+    scenario:
+      | 'run_booking_demo'
+      | 'simulate_deposit_payment'
+      | 'simulate_human_handoff'
+      | 'simulate_expired_hold'
+      | 'simulate_refund',
+    bookingId?: string,
+  ) => Promise<{ ok: boolean; message?: string; error?: string }>;
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -336,6 +359,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     whatsappConnected: false,
     koraConfigured: false,
     agentEnabled: true,
+    isDemo: false,
+    demoEntryOrigin: 'dashboard',
   });
 
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
@@ -361,6 +386,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   });
   const [showDepositTooltip, setShowDepositTooltip] = useState(false);
   const [checklistExpanded, setChecklistExpanded] = useState(false);
+  const [demoModified, setDemoModified] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoNotice, setDemoNotice] = useState<string | null>(null);
+  const [demoTourRequestId, setDemoTourRequestId] = useState(0);
+
+  const startGuidedTour = useCallback(() => {
+    setDemoTourRequestId((n) => n + 1);
+  }, []);
 
   const refreshWorkspaceData = useCallback(() => {
     setApiState((prev) => ({ ...prev, loading: true, error: null }));
@@ -388,6 +421,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           whatsappConnected: Boolean(data.business?.whatsappPhoneNumberId),
           koraConfigured: Boolean(data.business?.koraConfigured),
           agentEnabled: data.business?.agentEnabled ?? true,
+          isDemo: Boolean(data.isDemo),
+          demoEntryOrigin: data.demoEntryOrigin ?? prev.demoEntryOrigin ?? 'dashboard',
         }));
 
         const slug = data.business?.slug;
@@ -853,6 +888,28 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const userMsg = chatInput.trim();
     setChatInput('');
 
+    if (apiState.isDemo) {
+      setDemoBusy(true);
+      void fetch('/api/demo/scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario: 'try_maya_chat', message: userMsg }),
+      })
+        .then(async (res) => {
+          const data = (await res.json()) as { ok?: boolean; reply?: string; error?: string };
+          if (res.ok && data.ok) {
+            setDemoModified(true);
+            setDemoNotice(data.reply || 'Maya replied in simulated web chat.');
+            refreshWorkspaceData();
+          } else {
+            setDemoNotice(data.error || 'Could not reach simulated Maya.');
+          }
+        })
+        .catch(() => setDemoNotice('Network error contacting simulated Maya.'))
+        .finally(() => setDemoBusy(false));
+      return;
+    }
+
     const firstSvc = workspace.services[0]?.name || 'Classic Fade';
     const firstPrice = workspace.services[0]?.price || 5000;
     const firstStaff = workspace.staff[0]?.name || 'Tunde Adeyemi';
@@ -896,7 +953,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       };
       saveConversations([created, ...conversations]);
     }
-  }, [chatInput, conversations, saveConversations, workspace]);
+  }, [
+    chatInput,
+    conversations,
+    saveConversations,
+    workspace,
+    apiState.isDemo,
+    refreshWorkspaceData,
+  ]);
 
   const copyBookingLink = useCallback(() => {
     const url = `${window.location.origin}/b/${workspace.slug}`;
@@ -960,6 +1024,121 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     [apiState.agentEnabled, workspace],
   );
 
+  const startDemoMode = useCallback(
+    async (entryOrigin: 'landing' | 'dashboard' = 'dashboard'): Promise<boolean> => {
+      setDemoBusy(true);
+      setDemoNotice(null);
+      try {
+        const res = await fetch('/api/demo/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entryOrigin,
+            previousSlug: workspace.slug || null,
+          }),
+        });
+        const data = (await res.json()) as { ok?: boolean; error?: string };
+        if (!res.ok || !data.ok) {
+          setDemoNotice(data.error || 'Could not start Demo Mode.');
+          return false;
+        }
+        setDemoModified(false);
+        refreshWorkspaceData();
+        router.push('/dashboard/overview?tour=welcome');
+        return true;
+      } catch {
+        setDemoNotice('Network error starting Demo Mode.');
+        return false;
+      } finally {
+        setDemoBusy(false);
+      }
+    },
+    [refreshWorkspaceData, router, workspace.slug],
+  );
+
+  const resetDemoMode = useCallback(async (): Promise<boolean> => {
+    setDemoBusy(true);
+    setDemoNotice(null);
+    try {
+      const res = await fetch('/api/demo/reset', { method: 'POST' });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setDemoNotice(data.error || 'Could not reset Demo Mode.');
+        return false;
+      }
+      setDemoModified(false);
+      setDemoNotice('Demo workspace restored to initial Fade Republic sample data.');
+      refreshWorkspaceData();
+      return true;
+    } catch {
+      setDemoNotice('Network error resetting Demo Mode.');
+      return false;
+    } finally {
+      setDemoBusy(false);
+    }
+  }, [refreshWorkspaceData]);
+
+  const exitDemoMode = useCallback(async (): Promise<void> => {
+    setDemoBusy(true);
+    setDemoNotice(null);
+    try {
+      const res = await fetch('/api/demo/exit', { method: 'POST' });
+      const data = (await res.json()) as { ok?: boolean; redirectTo?: string };
+      setDemoModified(false);
+      const target = data.redirectTo || '/';
+      if (target.startsWith('/dashboard')) {
+        refreshWorkspaceData();
+      }
+      router.push(target);
+      router.refresh();
+    } finally {
+      setDemoBusy(false);
+    }
+  }, [refreshWorkspaceData, router]);
+
+  const runDemoScenario = useCallback(
+    async (
+      scenario:
+        | 'run_booking_demo'
+        | 'simulate_deposit_payment'
+        | 'simulate_human_handoff'
+        | 'simulate_expired_hold'
+        | 'simulate_refund',
+      bookingId?: string,
+    ): Promise<{ ok: boolean; message?: string; error?: string }> => {
+      setDemoBusy(true);
+      setDemoNotice(null);
+      try {
+        const res = await fetch('/api/demo/scenario', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario, ...(bookingId ? { bookingId } : {}) }),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          message?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.ok) {
+          const msg = data.error || 'Scenario failed.';
+          setDemoNotice(msg);
+          return { ok: false, error: msg };
+        }
+        setDemoModified(true);
+        setDemoNotice(data.message || 'Simulated scenario completed.');
+        refreshWorkspaceData();
+        return { ok: true, message: data.message };
+      } catch {
+        const msg = 'Network error running demo scenario.';
+        setDemoNotice(msg);
+        return { ok: false, error: msg };
+      } finally {
+        setDemoBusy(false);
+      }
+    },
+    [refreshWorkspaceData],
+  );
+
   const value: DashboardContextValue = {
     activeNav,
     setActiveNav,
@@ -1006,6 +1185,16 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     handleFlagPaymentPendingVerification,
     handleExpireHold,
     refreshWorkspaceData,
+    demoModified,
+    demoBusy,
+    demoNotice,
+    setDemoNotice,
+    demoTourRequestId,
+    startGuidedTour,
+    startDemoMode,
+    resetDemoMode,
+    exitDemoMode,
+    runDemoScenario,
   };
 
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;

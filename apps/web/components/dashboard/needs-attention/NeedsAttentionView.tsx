@@ -490,7 +490,10 @@ export function NeedsAttentionView() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-border/60 bg-white p-4 shadow-xs">
+        <div
+          data-tour="needs-attention-panel"
+          className="rounded-xl border border-border/60 bg-white p-4 shadow-xs"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-text-secondary">Needs Human Reply</span>
             <AppIcon name="support_agent" className="text-[18px] text-primary" />

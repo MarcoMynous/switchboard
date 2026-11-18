@@ -465,7 +465,7 @@ export function ConversationsManagementView({
   };
 
   return (
-    <div className="space-y-5">
+    <div data-tour="conversations-panel" className="space-y-5">
       {/* =====================================================================
           ROW 1: PAGE HEADER
       ===================================================================== */}
@@ -506,7 +506,10 @@ export function ConversationsManagementView({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
+        <div
+          data-tour="conversations-actions"
+          className="flex items-center gap-2 flex-wrap shrink-0"
+        >
           <Button type="button" variant="outline" size="sm" onClick={onRefresh} className="h-9">
             <AppIcon name="refresh" className="text-[16px]" />
             <span>Refresh</span>
@@ -550,7 +553,7 @@ export function ConversationsManagementView({
       {/* =====================================================================
           ROW 2: COMPACT SUMMARY CARDS
       ===================================================================== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div data-tour="conversations-summary" className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <button
           type="button"
           onClick={() => setStatusFilter('all')}

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Suspense, useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
 import { HoldBand } from '@/components/HoldBand';
 import { SwitchboardLogo } from '@/components/SwitchboardLogo';
@@ -11,6 +12,9 @@ import {
   type NavSection,
   useDashboard,
 } from './DashboardContext';
+import { DemoModeBanner } from './DemoModeBanner';
+import { DemoTourController } from './DemoTourController';
+import { useProductTour } from './tour/ProductTourProvider';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const {
@@ -43,6 +47,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     setNewBookingForm,
     handleCreateManualBooking,
   } = useDashboard();
+  const { startIntroTour, startPageTour, canOfferPageTour, getPageTourLabel } = useProductTour();
+  const [tourMenuOpen, setTourMenuOpen] = useState(false);
 
   const navGroups: Array<{
     group: string;
@@ -131,6 +137,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="px-4 pb-2 relative">
             <button
               type="button"
+              data-tour="workspace-switcher"
               onClick={() => setWorkspaceMenuOpen((prev) => !prev)}
               aria-expanded={workspaceMenuOpen}
               className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors text-left cursor-pointer"
@@ -220,6 +227,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                       <Link
                         key={item.id}
                         href={NAV_SECTION_ROUTES[item.id]}
+                        data-tour={`nav-${item.id}`}
                         onClick={() => setSidebarOpenMobile(false)}
                         aria-current={isActive ? 'page' : undefined}
                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-colors text-left cursor-pointer ${
@@ -314,6 +322,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              data-tour="mobile-nav-trigger"
               onClick={() => setSidebarOpenMobile(true)}
               className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low lg:hidden"
               aria-label="Open navigation menu"
@@ -341,27 +350,82 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <button
-              type="button"
-              onClick={copyBookingLink}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-text-primary font-metric-sm text-metric-sm transition-colors border border-border/60 cursor-pointer"
-              title="Copy public booking link"
-            >
-              <AppIcon name="link" className="text-[15px] text-primary" />
-              <span className="hidden md:inline">/b/{workspace.slug}</span>
-              <span className="text-[11px] text-primary font-semibold">
-                {copiedSlug ? 'Copied!' : 'Copy'}
-              </span>
-            </button>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div data-tour="public-booking-link" className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={copyBookingLink}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-text-primary font-metric-sm text-metric-sm transition-colors border border-border/60 cursor-pointer"
+                title="Copy public booking link"
+              >
+                <AppIcon name="link" className="text-[15px] text-primary" />
+                <span className="hidden md:inline">/b/{workspace.slug}</span>
+                <span className="text-[11px] text-primary font-semibold">
+                  {copiedSlug ? 'Copied!' : 'Copy'}
+                </span>
+              </button>
 
-            <Link
-              href={`/b/${workspace.slug}`}
-              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-label-md text-label-md transition-colors"
-            >
-              <AppIcon name="open_in_new" className="text-[16px]" />
-              <span>Booking Page</span>
-            </Link>
+              <Link
+                href={`/b/${workspace.slug}`}
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-label-md text-label-md transition-colors"
+              >
+                <AppIcon name="open_in_new" className="text-[16px]" />
+                <span>Booking Page</span>
+              </Link>
+            </div>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  if (canOfferPageTour(activeNav)) {
+                    setTourMenuOpen((prev) => !prev);
+                  } else {
+                    startIntroTour();
+                  }
+                }}
+                aria-expanded={canOfferPageTour(activeNav) ? tourMenuOpen : undefined}
+                aria-haspopup={canOfferPageTour(activeNav) ? 'menu' : undefined}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F5F6FA] hover:bg-[#E7E9F4] text-[#22306B] border border-[#22306B]/15 font-label-md text-xs font-semibold transition-colors cursor-pointer"
+                title="Start guided product tour"
+              >
+                <AppIcon name="explore" className="text-[16px]" />
+                <span className="hidden sm:inline">Tour</span>
+              </button>
+
+              {tourMenuOpen && canOfferPageTour(activeNav) && (
+                <div
+                  role="menu"
+                  aria-label="Product tour options"
+                  className="absolute right-0 mt-2 w-52 rounded-xl border border-border bg-white shadow-lg p-1.5 z-50 space-y-1"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setTourMenuOpen(false);
+                      startIntroTour();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-text-primary hover:bg-[#F5F6FA] text-left cursor-pointer"
+                  >
+                    <AppIcon name="explore" className="text-[15px] text-[#22306B]" />
+                    <span>Dashboard Overview Tour</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setTourMenuOpen(false);
+                      startPageTour(activeNav);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-text-primary hover:bg-[#F5F6FA] text-left cursor-pointer"
+                  >
+                    <AppIcon name="auto_awesome" className="text-[15px] text-[#22306B]" />
+                    <span>{getPageTourLabel(activeNav)}</span>
+                  </button>
+                </div>
+              )}
+            </div>
 
             <button
               type="button"
@@ -384,6 +448,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="pointer-events-none fixed -top-24 right-0 w-96 h-96 rounded-full bg-[#181F63]/5 blur-3xl" />
           <div className="pointer-events-none fixed bottom-0 left-1/3 w-96 h-96 rounded-full bg-[#F59E0B]/6 blur-3xl" />
           <div className="w-full max-w-[1440px] mx-auto p-5 sm:p-8">
+            <DemoModeBanner />
+            <Suspense fallback={null}>
+              <DemoTourController />
+            </Suspense>
             {apiState.error && (
               <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-4 text-amber-900">
                 <div className="flex items-center gap-2.5 text-sm">
@@ -410,6 +478,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       ===================================================================== */}
       <nav
         aria-label="Mobile Navigation"
+        data-tour="mobile-bottom-nav"
         className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-border z-30 grid grid-cols-5 px-2"
       >
         {[

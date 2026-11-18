@@ -1,14 +1,36 @@
 import { auth } from './auth';
 import { customersPool } from './customers-server';
+import { readDemoSessionFromHeaders } from './demo-session';
 
 export interface AuthDestinationResult {
   authenticated: boolean;
   onboarded: boolean;
+  isDemo?: boolean;
   destination: '/dashboard/overview' | '/onboarding' | '/auth/signin';
   slug: string | null;
 }
 
 export async function resolveAuthDestination(headers: Headers): Promise<AuthDestinationResult> {
+  const demoSession = readDemoSessionFromHeaders(headers);
+  if (demoSession) {
+    const demoRes = await customersPool.query<{ slug: string }>(
+      `SELECT slug
+       FROM businesses
+       WHERE is_demo = true AND demo_session_id = $1
+       LIMIT 1`,
+      [demoSession.demoSessionId],
+    );
+    if (demoRes.rows[0]) {
+      return {
+        authenticated: true,
+        onboarded: true,
+        isDemo: true,
+        destination: '/dashboard/overview',
+        slug: demoRes.rows[0].slug,
+      };
+    }
+  }
+
   const session = await auth.api.getSession({ headers }).catch(() => null);
   if (!session?.user?.id) {
     return {
@@ -24,7 +46,7 @@ export async function resolveAuthDestination(headers: Headers): Promise<AuthDest
   const ownerRes = await customersPool.query<{ slug: string; onboarding_completed: boolean }>(
     `SELECT slug, onboarding_completed
      FROM businesses
-     WHERE owner_user_id = $1
+     WHERE owner_user_id = $1 AND is_demo = false
      ORDER BY updated_at DESC
      LIMIT 1`,
     [userId],
@@ -44,7 +66,7 @@ export async function resolveAuthDestination(headers: Headers): Promise<AuthDest
     `SELECT b.slug, b.onboarding_completed
      FROM staff s
      JOIN businesses b ON b.id = s.business_id
-     WHERE s.user_id = $1 AND s.active = true
+     WHERE s.user_id = $1 AND s.active = true AND b.is_demo = false
      ORDER BY b.updated_at DESC
      LIMIT 1`,
     [userId],
