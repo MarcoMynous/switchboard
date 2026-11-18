@@ -96,6 +96,12 @@
       }
     },
     {
+      "source": "/api/demo/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
       "source": "/health",
       "destination": {
         "service": "api"

@@ -6,7 +6,7 @@
     },
     "apps/web": {
       "entry": ["lib/auth-client.ts"],
-      "ignore": ["components/ui/**"]
+      "ignore": ["components/ui/**", "components/dashboard/tour/tour.test.ts"]
     }
   },
   "ignoreFiles": ["load/**", "lighthouserc.cjs"],
