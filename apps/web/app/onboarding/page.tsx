@@ -480,7 +480,8 @@ export default function OnboardingPage() {
         }),
       });
       if (!res.ok) {
-        setSubmitError('Could not save to database. Please try again.');
+        const errData = (await res.json().catch(() => null)) as { error?: string } | null;
+        setSubmitError(errData?.error || 'Could not save to database. Please try again.');
         return false;
       }
       return true;

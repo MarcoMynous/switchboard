@@ -575,13 +575,34 @@ export async function POST(request: Request) {
     const ownerUserId = session?.user?.id ?? null;
 
     const saved = await db.transaction(async (tx) => {
+      // Avoid colliding with a demo workspace or another owner's existing business slug
+      let targetSlug = rawSlug;
+      const existingBySlug = await tx
+        .select({
+          id: businesses.id,
+          ownerUserId: businesses.ownerUserId,
+          isDemo: businesses.isDemo,
+        })
+        .from(businesses)
+        .where(eq(businesses.slug, targetSlug))
+        .limit(1);
+
+      const conflicting = existingBySlug[0];
+      if (
+        conflicting &&
+        (conflicting.isDemo ||
+          (ownerUserId && conflicting.ownerUserId && conflicting.ownerUserId !== ownerUserId))
+      ) {
+        targetSlug = `${rawSlug}-${Math.random().toString(36).slice(2, 6)}`;
+      }
+
       // 1. Upsert business row in `businesses`
       const [upsertedBusiness] = await tx
         .insert(businesses)
         .values({
           ownerUserId,
           name: rawName,
-          slug: rawSlug,
+          slug: targetSlug,
           vertical: mappedVertical,
           phone,
           location,
@@ -646,10 +667,16 @@ export async function POST(request: Request) {
 
       const businessId = upsertedBusiness.id;
 
-      // 2. Sync `services` table if services were provided in the onboarding payload
+      // 2. Sync `services` table safely (never delete rows referenced by existing bookings)
       let insertedServices: (typeof services.$inferSelect)[] = [];
       if (Array.isArray(body.services) && body.services.length > 0) {
-        await tx.delete(services).where(eq(services.businessId, businessId));
+        const existingServices = await tx
+          .select()
+          .from(services)
+          .where(eq(services.businessId, businessId));
+        const existingByName = new Map(
+          existingServices.map((s) => [s.name.trim().toLowerCase(), s]),
+        );
 
         const serviceValues = body.services
           .filter((s) => s.name?.trim())
@@ -691,8 +718,31 @@ export async function POST(request: Request) {
             };
           });
 
-        if (serviceValues.length > 0) {
-          insertedServices = await tx.insert(services).values(serviceValues).returning();
+        const toInsert: typeof serviceValues = [];
+        for (const val of serviceValues) {
+          const match = existingByName.get(val.name.toLowerCase());
+          if (match) {
+            const [updatedSvc] = await tx
+              .update(services)
+              .set({
+                description: val.description,
+                durationMin: val.durationMin,
+                priceKobo: val.priceKobo,
+                depositType: val.depositType,
+                depositValue: val.depositValue,
+                freeCancelHours: val.freeCancelHours,
+              })
+              .where(eq(services.id, match.id))
+              .returning();
+            if (updatedSvc) insertedServices.push(updatedSvc);
+          } else {
+            toInsert.push(val);
+          }
+        }
+
+        if (toInsert.length > 0) {
+          const added = await tx.insert(services).values(toInsert).returning();
+          insertedServices.push(...added);
         }
       } else {
         insertedServices = await tx
@@ -701,10 +751,13 @@ export async function POST(request: Request) {
           .where(eq(services.businessId, businessId));
       }
 
-      // 3. Sync `staff` table if staff were provided in the onboarding payload
+      // 3. Sync `staff` table safely (never delete rows referenced by existing bookings)
       let insertedStaff: (typeof staff.$inferSelect)[] = [];
       if (Array.isArray(body.staff) && body.staff.length > 0) {
-        await tx.delete(staff).where(eq(staff.businessId, businessId));
+        const existingStaff = await tx.select().from(staff).where(eq(staff.businessId, businessId));
+        const existingStaffByName = new Map(
+          existingStaff.map((m) => [m.name.trim().toLowerCase(), m]),
+        );
 
         const staffValues = body.staff
           .filter((m) => m.name?.trim())
@@ -717,8 +770,29 @@ export async function POST(request: Request) {
             active: true,
           }));
 
-        if (staffValues.length > 0) {
-          insertedStaff = await tx.insert(staff).values(staffValues).returning();
+        const staffToInsert: typeof staffValues = [];
+        for (const val of staffValues) {
+          const match = existingStaffByName.get(val.name.toLowerCase());
+          if (match) {
+            const [updatedMember] = await tx
+              .update(staff)
+              .set({
+                role: val.role,
+                roleTitle: val.roleTitle,
+                ...(val.userId ? { userId: val.userId } : {}),
+                active: true,
+              })
+              .where(eq(staff.id, match.id))
+              .returning();
+            if (updatedMember) insertedStaff.push(updatedMember);
+          } else {
+            staffToInsert.push(val);
+          }
+        }
+
+        if (staffToInsert.length > 0) {
+          const addedStaff = await tx.insert(staff).values(staffToInsert).returning();
+          insertedStaff.push(...addedStaff);
         }
       } else {
         insertedStaff = await tx.select().from(staff).where(eq(staff.businessId, businessId));
