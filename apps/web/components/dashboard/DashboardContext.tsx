@@ -1045,6 +1045,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setDemoModified(false);
         refreshWorkspaceData();
         router.push('/dashboard/overview?tour=welcome');
+        router.refresh();
         return true;
       } catch {
         setDemoNotice('Network error starting Demo Mode.');

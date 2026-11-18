@@ -37,6 +37,8 @@ export function OverviewView() {
     recentActivities,
     startDemoMode,
     demoBusy,
+    demoNotice,
+    setDemoNotice,
   } = useDashboard();
   const [demoPromptOpen, setDemoPromptOpen] = useState(false);
 
@@ -62,7 +64,10 @@ export function OverviewView() {
             type="button"
             size="sm"
             disabled={demoBusy}
-            onClick={() => setDemoPromptOpen(true)}
+            onClick={() => {
+              setDemoNotice(null);
+              setDemoPromptOpen(true);
+            }}
             className="shrink-0 bg-[#22306B] text-white hover:bg-[#1a2554]"
           >
             <AppIcon name="science" className="text-[15px]" />
@@ -88,8 +93,21 @@ export function OverviewView() {
               workspace remains untouched and can be restored anytime via <strong>Exit Demo</strong>
               .
             </p>
+            {demoNotice && (
+              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 border border-red-200">
+                {demoNotice}
+              </p>
+            )}
             <div className="mt-5 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setDemoPromptOpen(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={demoBusy}
+                onClick={() => {
+                  setDemoNotice(null);
+                  setDemoPromptOpen(false);
+                }}
+              >
                 Cancel
               </Button>
               <Button
@@ -97,8 +115,11 @@ export function OverviewView() {
                 disabled={demoBusy}
                 className="bg-[#22306B] text-white hover:bg-[#1a2554]"
                 onClick={() => {
-                  setDemoPromptOpen(false);
-                  void startDemoMode('dashboard');
+                  void startDemoMode('dashboard').then((ok) => {
+                    if (ok) {
+                      setDemoPromptOpen(false);
+                    }
+                  });
                 }}
               >
                 {demoBusy ? 'Preparing Demo...' : 'Start Demo Workspace'}
