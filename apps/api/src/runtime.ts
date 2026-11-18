@@ -1,6 +1,7 @@
 import { createDb, createPool } from '@switchboard/db';
 import { apiSchema, parseEnv } from '@switchboard/env';
 import {
+  createMockOpenPaymentsAdapter,
   createRealOpenPaymentsAdapter,
   type OpenPaymentsAdapter,
 } from '@switchboard/open-payments';
@@ -22,7 +23,21 @@ export function boot() {
 
   let cachedAdapter: Promise<OpenPaymentsAdapter | null> | null = null;
   const getAdapter = () => {
-    if (!env.OPEN_PAYMENTS_ENABLED) return Promise.resolve(null);
+    if (!env.OPEN_PAYMENTS_ENABLED) {
+      if (env.OPEN_PAYMENTS_ENV === 'production') {
+        return Promise.resolve(null);
+      }
+      if (!cachedAdapter) {
+        const redirectBase = `${env.PUBLIC_APP_URL.replace(/\/+$/, '')}/ilp-sandbox/authorize`;
+        cachedAdapter = Promise.resolve(
+          createMockOpenPaymentsAdapter({
+            sandboxRedirectBaseUrl: redirectBase,
+            allowDynamicTestnetWallets: true,
+          }),
+        );
+      }
+      return cachedAdapter;
+    }
     if (!cachedAdapter) {
       cachedAdapter = createRealOpenPaymentsAdapter({
         walletAddressUrl: env.OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS ?? '',

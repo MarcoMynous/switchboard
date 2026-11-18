@@ -19,6 +19,10 @@ export interface MockOpenPaymentsBehavior {
   insufficientFunds?: boolean;
   /** Override received amount on incoming payment (e.g. '50' for underpayment, '200' for overpayment, '0' for pending). */
   overrideReceivedValue?: string;
+  /** When set (e.g. http://localhost:3000/ilp-sandbox/authorize), interactive grants redirect here with callback & interact_ref. */
+  sandboxRedirectBaseUrl?: string;
+  /** Allow resolving arbitrary https://ilp.interledger-test.dev/* wallets automatically in sandbox/demo mode. */
+  allowDynamicTestnetWallets?: boolean;
 }
 
 export function createMockOpenPaymentsAdapter(
@@ -65,6 +69,20 @@ export function createMockOpenPaymentsAdapter(
       }
       const existing = wallets.get(url);
       if (existing) return existing;
+      if (behavior.allowDynamicTestnetWallets && url.startsWith('https://')) {
+        const parsed = new URL(url);
+        const name = parsed.pathname.split('/').filter(Boolean).pop() ?? 'Test Wallet';
+        const dynamicWallet: WalletAddress = {
+          id: url,
+          publicName: name,
+          assetCode: 'USD',
+          assetScale: 2,
+          authServer: 'https://auth.interledger-test.dev',
+          resourceServer: `${parsed.protocol}//${parsed.host}`,
+        };
+        wallets.set(url, dynamicWallet);
+        return dynamicWallet;
+      }
       throw new Error(`Unknown mock wallet address: ${url}`);
     },
 
@@ -72,9 +90,34 @@ export function createMockOpenPaymentsAdapter(
       if (body.interact) {
         const continueToken = nextId('cont-tok');
         const interactNonce = nextId('server-nonce');
+        const interactId = nextId('int');
+        let redirect = `https://auth.interledger-test.dev/interact/${interactId}`;
+        if (behavior.sandboxRedirectBaseUrl) {
+          const u = new URL(behavior.sandboxRedirectBaseUrl);
+          if (body.interact.finish?.uri) {
+            u.searchParams.set('callback', body.interact.finish.uri);
+          }
+          u.searchParams.set('interact_ref', `ilp_ref_${interactId}`);
+          const firstAccess = body.access_token?.access?.[0];
+          if (
+            firstAccess &&
+            'limits' in firstAccess &&
+            firstAccess.limits &&
+            'debitAmount' in firstAccess.limits &&
+            firstAccess.limits.debitAmount
+          ) {
+            u.searchParams.set('amount', firstAccess.limits.debitAmount.value);
+            u.searchParams.set('assetCode', firstAccess.limits.debitAmount.assetCode);
+            u.searchParams.set('assetScale', String(firstAccess.limits.debitAmount.assetScale));
+          }
+          if (firstAccess && 'identifier' in firstAccess && firstAccess.identifier) {
+            u.searchParams.set('wallet', firstAccess.identifier);
+          }
+          redirect = u.toString();
+        }
         const pending: PendingGrant = {
           interact: {
-            redirect: `https://auth.interledger-test.dev/interact/${nextId('int')}`,
+            redirect,
             finish: interactNonce,
           },
           continue: {

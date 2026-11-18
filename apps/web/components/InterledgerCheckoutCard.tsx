@@ -352,12 +352,25 @@ export function InterledgerCheckoutCard({
         {uiStatus === 'waiting_for_wallet' && (
           <div className="space-y-3">
             <div>
-              <label
-                htmlFor="ilp-wallet-input"
-                className="block text-xs font-semibold text-[#111827] mb-1"
-              >
-                Your Open Payments Wallet Address
-              </label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label
+                  htmlFor="ilp-wallet-input"
+                  className="block text-xs font-semibold text-[#111827]"
+                >
+                  Your Open Payments Wallet Address
+                </label>
+                {environment === 'testnet' && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setWalletInput('https://ilp.interledger-test.dev/customer-alice')
+                    }
+                    className="text-[11px] font-semibold text-[#22306B] hover:underline cursor-pointer"
+                  >
+                    Use demo test wallet
+                  </button>
+                )}
+              </div>
               <input
                 id="ilp-wallet-input"
                 type="text"
