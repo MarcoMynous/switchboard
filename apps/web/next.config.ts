@@ -23,6 +23,9 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ['@switchboard/env', '@switchboard/booking', '@switchboard/db'],
+  experimental: {
+    agentUpgrade: 'security',
+  },
   async rewrites() {
     const apiOrigin = resolveApiOrigin();
     if (!apiOrigin) {
