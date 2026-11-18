@@ -178,12 +178,13 @@ async function populateDemoBusiness(
 
   const serviceIds: string[] = [];
   for (const svc of serviceDefs) {
-    const res = await client.query<{ id: string }>(
+    const id = randomUUID();
+    await client.query(
       `INSERT INTO services
-         (business_id, name, description, duration_min, price_kobo, deposit_type, deposit_value, free_cancel_hours, deposit_counts_toward_bill)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 4, true)
-       RETURNING id`,
+         (id, business_id, name, description, duration_min, price_kobo, deposit_type, deposit_value, free_cancel_hours, deposit_counts_toward_bill)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 4, true)`,
       [
+        id,
         businessId,
         svc.name,
         svc.description,
@@ -193,7 +194,7 @@ async function populateDemoBusiness(
         svc.depositValue,
       ],
     );
-    if (res.rows[0]) serviceIds.push(res.rows[0].id);
+    serviceIds.push(id);
   }
 
   // 2. Three bookable staff members
@@ -205,13 +206,13 @@ async function populateDemoBusiness(
 
   const staffIds: string[] = [];
   for (const member of staffDefs) {
-    const res = await client.query<{ id: string }>(
-      `INSERT INTO staff (business_id, name, role, role_title, active)
-       VALUES ($1, $2, $3, $4, true)
-       RETURNING id`,
-      [businessId, member.name, member.role, member.roleTitle],
+    const id = randomUUID();
+    await client.query(
+      `INSERT INTO staff (id, business_id, name, role, role_title, active)
+       VALUES ($1, $2, $3, $4, $5, true)`,
+      [id, businessId, member.name, member.role, member.roleTitle],
     );
-    if (res.rows[0]) staffIds.push(res.rows[0].id);
+    staffIds.push(id);
   }
 
   // 3. Staff-service assignments & working hours (Mon-Sat) + lunch break today for Emeka
@@ -231,9 +232,9 @@ async function populateDemoBusiness(
       [6, '09:00:00', '20:00:00'],
     ] as const) {
       await client.query(
-        `INSERT INTO working_hours (staff_id, weekday, start_local, end_local)
-         VALUES ($1, $2, $3, $4)`,
-        [sId, weekday, startLocal, endLocal],
+        `INSERT INTO working_hours (id, staff_id, weekday, start_local, end_local)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [randomUUID(), sId, weekday, startLocal, endLocal],
       );
     }
   }
@@ -242,9 +243,9 @@ async function populateDemoBusiness(
     const breakStart = lagosIso(0, '13:00');
     const breakEnd = lagosIso(0, '14:00');
     await client.query(
-      `INSERT INTO time_off (staff_id, starts_at, ends_at, reason)
-       VALUES ($1, $2, $3, 'Midday staff break')`,
-      [staffIds[1], breakStart, breakEnd],
+      `INSERT INTO time_off (id, staff_id, starts_at, ends_at, reason)
+       VALUES ($1, $2, $3, $4, 'Midday staff break')`,
+      [randomUUID(), staffIds[1], breakStart, breakEnd],
     );
   }
 
@@ -302,13 +303,13 @@ async function populateDemoBusiness(
 
   const customerIds: string[] = [];
   for (const c of customerDefs) {
-    const res = await client.query<{ id: string }>(
-      `INSERT INTO customers (business_id, phone_e164, name, notes, tags, visits, no_shows)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id`,
-      [businessId, c.phone, c.name, c.notes, c.tags, c.visits, c.noShows],
+    const id = randomUUID();
+    await client.query(
+      `INSERT INTO customers (id, business_id, phone_e164, name, notes, tags, visits, no_shows)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, businessId, c.phone, c.name, c.notes, c.tags, c.visits, c.noShows],
     );
-    if (res.rows[0]) customerIds.push(res.rows[0].id);
+    customerIds.push(id);
   }
 
   // 5. Bookings & Temporary Holds relative to current business-local date (Africa/Lagos)
@@ -343,11 +344,12 @@ async function populateDemoBusiness(
 
   // Booking 1: Yesterday completed (Tunde, 10:00) + verified Kora deposit
   const b1Start = lagosIso(-1, '10:00');
-  const b1Res = await client.query<{ id: string }>(
-    `INSERT INTO bookings (business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, source, idempotency_key)
-     VALUES ($1, $2, $3, $4, $5, $6, 'completed', 'booking_page', $7)
-     RETURNING id`,
+  const b1Id = randomUUID();
+  await client.query(
+    `INSERT INTO bookings (id, business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, source, idempotency_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', 'booking_page', $8)`,
     [
+      b1Id,
       businessId,
       stfTunde,
       svcFade,
@@ -357,22 +359,27 @@ async function populateDemoBusiness(
       `demo_${shortTag}_b1`,
     ],
   );
-  const b1Id = b1Res.rows[0]?.id;
-  if (b1Id) {
-    await client.query(
-      `INSERT INTO payments (business_id, booking_id, kind, amount_kobo, status, kora_reference, verified_at, idempotency_key)
-       VALUES ($1, $2, 'deposit', 150000, 'succeeded', $3, $4, $5)`,
-      [businessId, b1Id, `sb_dep_demo_${shortTag}_01`, b1Start, `demo_pay_${shortTag}_01`],
-    );
-  }
+  await client.query(
+    `INSERT INTO payments (id, business_id, booking_id, kind, amount_kobo, status, kora_reference, verified_at, idempotency_key)
+     VALUES ($1, $2, $3, 'deposit', 150000, 'succeeded', $4, $5, $6)`,
+    [
+      randomUUID(),
+      businessId,
+      b1Id,
+      `sb_dep_demo_${shortTag}_01`,
+      b1Start,
+      `demo_pay_${shortTag}_01`,
+    ],
+  );
 
   // Booking 2: Today confirmed (Tunde, 10:00) + verified Kora deposit
   const b2Start = lagosIso(0, '10:00');
-  const b2Res = await client.query<{ id: string }>(
-    `INSERT INTO bookings (business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, source, idempotency_key)
-     VALUES ($1, $2, $3, $4, $5, $6, 'confirmed', 'whatsapp', $7)
-     RETURNING id`,
+  const b2Id = randomUUID();
+  await client.query(
+    `INSERT INTO bookings (id, business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, source, idempotency_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'confirmed', 'whatsapp', $8)`,
     [
+      b2Id,
       businessId,
       stfTunde,
       svcFade,
@@ -382,22 +389,20 @@ async function populateDemoBusiness(
       `demo_${shortTag}_b2`,
     ],
   );
-  const b2Id = b2Res.rows[0]?.id;
-  if (b2Id) {
-    await client.query(
-      `INSERT INTO payments (business_id, booking_id, kind, amount_kobo, status, kora_reference, verified_at, idempotency_key)
-       VALUES ($1, $2, 'deposit', 150000, 'succeeded', $3, NOW(), $4)`,
-      [businessId, b2Id, `sb_dep_demo_${shortTag}_02`, `demo_pay_${shortTag}_02`],
-    );
-  }
+  await client.query(
+    `INSERT INTO payments (id, business_id, booking_id, kind, amount_kobo, status, kora_reference, verified_at, idempotency_key)
+     VALUES ($1, $2, $3, 'deposit', 150000, 'succeeded', $4, NOW(), $5)`,
+    [randomUUID(), businessId, b2Id, `sb_dep_demo_${shortTag}_02`, `demo_pay_${shortTag}_02`],
+  );
 
-  // Booking 3: Today confirmed (Sadiq, 11:00) + pending_verification Kora deposit (triggers Needs Attention payment item)
+  // Booking 3: Today held (Sadiq, 11:00) + pending_verification Kora deposit (triggers Needs Attention payment item)
   const b3Start = lagosIso(0, '11:00');
-  const b3Res = await client.query<{ id: string }>(
-    `INSERT INTO bookings (business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, hold_expires_at, source, idempotency_key)
-     VALUES ($1, $2, $3, $4, $5, $6, 'held', $7, 'web_chat', $8)
-     RETURNING id`,
+  const b3Id = randomUUID();
+  await client.query(
+    `INSERT INTO bookings (id, business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, hold_expires_at, source, idempotency_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'held', $8, 'web_chat', $9)`,
     [
+      b3Id,
       businessId,
       stfSadiq,
       svcLocs,
@@ -408,28 +413,27 @@ async function populateDemoBusiness(
       `demo_${shortTag}_b3`,
     ],
   );
-  const b3Id = b3Res.rows[0]?.id;
-  if (b3Id) {
-    await client.query(
-      `INSERT INTO payments (business_id, booking_id, kind, amount_kobo, status, kora_reference, kora_account_number, expires_at, idempotency_key)
-       VALUES ($1, $2, 'deposit', 500000, 'pending_verification', $3, '9012345678', $4, $5)`,
-      [
-        businessId,
-        b3Id,
-        `sb_dep_demo_${shortTag}_03`,
-        fifteenMinsFromNow,
-        `demo_pay_${shortTag}_03`,
-      ],
-    );
-  }
+  await client.query(
+    `INSERT INTO payments (id, business_id, booking_id, kind, amount_kobo, status, kora_reference, kora_account_number, expires_at, idempotency_key)
+     VALUES ($1, $2, $3, 'deposit', 500000, 'pending_verification', $4, '9012345678', $5, $6)`,
+    [
+      randomUUID(),
+      businessId,
+      b3Id,
+      `sb_dep_demo_${shortTag}_03`,
+      fifteenMinsFromNow,
+      `demo_pay_${shortTag}_03`,
+    ],
+  );
 
   // Booking 4: Tomorrow active held slot (Emeka, 10:30) awaiting deposit
   const b4Start = lagosIso(1, '10:30');
-  const b4Res = await client.query<{ id: string }>(
-    `INSERT INTO bookings (business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, hold_expires_at, source, idempotency_key)
-     VALUES ($1, $2, $3, $4, $5, $6, 'held', $7, 'booking_page', $8)
-     RETURNING id`,
+  const b4Id = randomUUID();
+  await client.query(
+    `INSERT INTO bookings (id, business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, hold_expires_at, source, idempotency_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'held', $8, 'booking_page', $9)`,
     [
+      b4Id,
       businessId,
       stfEmeka,
       svcStandard,
@@ -440,28 +444,27 @@ async function populateDemoBusiness(
       `demo_${shortTag}_b4`,
     ],
   );
-  const b4Id = b4Res.rows[0]?.id;
-  if (b4Id) {
-    await client.query(
-      `INSERT INTO payments (business_id, booking_id, kind, amount_kobo, status, kora_reference, kora_account_number, expires_at, idempotency_key)
-       VALUES ($1, $2, 'deposit', 100000, 'pending', $3, '9012349901', $4, $5)`,
-      [
-        businessId,
-        b4Id,
-        `sb_dep_demo_${shortTag}_04`,
-        fifteenMinsFromNow,
-        `demo_pay_${shortTag}_04`,
-      ],
-    );
-  }
+  await client.query(
+    `INSERT INTO payments (id, business_id, booking_id, kind, amount_kobo, status, kora_reference, kora_account_number, expires_at, idempotency_key)
+     VALUES ($1, $2, $3, 'deposit', 100000, 'pending', $4, '9012349901', $5, $6)`,
+    [
+      randomUUID(),
+      businessId,
+      b4Id,
+      `sb_dep_demo_${shortTag}_04`,
+      fifteenMinsFromNow,
+      `demo_pay_${shortTag}_04`,
+    ],
+  );
 
   // Booking 5: Expired hold from yesterday (Ifeanyi)
   const b5Start = lagosIso(-1, '15:00');
-  const b5Res = await client.query<{ id: string }>(
-    `INSERT INTO bookings (business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, hold_expires_at, source, idempotency_key)
-     VALUES ($1, $2, $3, $4, $5, $6, 'expired', $7, 'whatsapp', $8)
-     RETURNING id`,
+  const b5Id = randomUUID();
+  await client.query(
+    `INSERT INTO bookings (id, business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, hold_expires_at, source, idempotency_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'expired', $8, 'whatsapp', $9)`,
     [
+      b5Id,
       businessId,
       stfEmeka,
       svcShave,
@@ -472,22 +475,27 @@ async function populateDemoBusiness(
       `demo_${shortTag}_b5`,
     ],
   );
-  const b5Id = b5Res.rows[0]?.id;
-  if (b5Id) {
-    await client.query(
-      `INSERT INTO payments (business_id, booking_id, kind, amount_kobo, status, kora_reference, expires_at, idempotency_key)
-       VALUES ($1, $2, 'deposit', 100000, 'expired', $3, $4, $5)`,
-      [businessId, b5Id, `sb_dep_demo_${shortTag}_05`, tenMinsAgo, `demo_pay_${shortTag}_05`],
-    );
-  }
+  await client.query(
+    `INSERT INTO payments (id, business_id, booking_id, kind, amount_kobo, status, kora_reference, expires_at, idempotency_key)
+     VALUES ($1, $2, $3, 'deposit', 100000, 'expired', $4, $5, $6)`,
+    [
+      randomUUID(),
+      businessId,
+      b5Id,
+      `sb_dep_demo_${shortTag}_05`,
+      tenMinsAgo,
+      `demo_pay_${shortTag}_05`,
+    ],
+  );
 
   // Booking 6: Cancelled + Refunded (Funmilayo)
   const b6Start = lagosIso(1, '15:00');
-  const b6Res = await client.query<{ id: string }>(
-    `INSERT INTO bookings (business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, cancel_reason, source, idempotency_key)
-     VALUES ($1, $2, $3, $4, $5, $6, 'cancelled', 'Customer requested reschedule next week', 'booking_page', $7)
-     RETURNING id`,
+  const b6Id = randomUUID();
+  await client.query(
+    `INSERT INTO bookings (id, business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, cancel_reason, source, idempotency_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'cancelled', 'Customer requested reschedule next week', 'booking_page', $8)`,
     [
+      b6Id,
       businessId,
       stfTunde,
       svcStandard,
@@ -497,21 +505,19 @@ async function populateDemoBusiness(
       `demo_${shortTag}_b6`,
     ],
   );
-  const b6Id = b6Res.rows[0]?.id;
-  if (b6Id) {
-    await client.query(
-      `INSERT INTO payments (business_id, booking_id, kind, amount_kobo, status, kora_reference, verified_at, idempotency_key)
-       VALUES ($1, $2, 'deposit', 100000, 'refunded', $3, NOW(), $4)`,
-      [businessId, b6Id, `sb_dep_demo_${shortTag}_06`, `demo_pay_${shortTag}_06`],
-    );
-  }
+  await client.query(
+    `INSERT INTO payments (id, business_id, booking_id, kind, amount_kobo, status, kora_reference, verified_at, idempotency_key)
+     VALUES ($1, $2, $3, 'deposit', 100000, 'refunded', $4, NOW(), $5)`,
+    [randomUUID(), businessId, b6Id, `sb_dep_demo_${shortTag}_06`, `demo_pay_${shortTag}_06`],
+  );
 
   // Booking 7: Tomorrow confirmed no-deposit Low cut (Sadiq, 14:00)
   const b7Start = lagosIso(1, '14:00');
   await client.query(
-    `INSERT INTO bookings (business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, source, idempotency_key)
-     VALUES ($1, $2, $3, $4, $5, $6, 'confirmed', 'staff', $7)`,
+    `INSERT INTO bookings (id, business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, source, idempotency_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'confirmed', 'staff', $8)`,
     [
+      randomUUID(),
       businessId,
       stfSadiq,
       svcLowCut,
@@ -523,63 +529,55 @@ async function populateDemoBusiness(
   );
 
   // 6. Web-chat and simulated WhatsApp transcripts (including needs_human handoff)
-  const conv1Res = await client.query<{ id: string }>(
-    `INSERT INTO conversations (business_id, customer_id, channel, status, last_message_at)
-     VALUES ($1, $2, 'whatsapp', 'needs_human', NOW() - INTERVAL '8 minutes')
-     RETURNING id`,
-    [businessId, custAdaeze],
+  const conv1Id = randomUUID();
+  await client.query(
+    `INSERT INTO conversations (id, business_id, customer_id, channel, status, last_message_at)
+     VALUES ($1, $2, $3, 'whatsapp', 'needs_human', NOW() - INTERVAL '8 minutes')`,
+    [conv1Id, businessId, custAdaeze],
   );
-  const conv1Id = conv1Res.rows[0]?.id;
-  if (conv1Id) {
-    await client.query(
-      `INSERT INTO messages (conversation_id, direction, author, body, created_at)
-       VALUES
-         ($1, 'in', 'customer', 'Hi, I transferred the ₦5,000 deposit for my VIP Dreadlocks Retwist but my bank network delayed.', NOW() - INTERVAL '12 minutes'),
-         ($1, 'out', 'agent', 'Thanks Adaeze! I see your hold is active and Kora verification is pending. I am flagging this for a barber at Fade Republic to confirm right away.', NOW() - INTERVAL '10 minutes'),
-         ($1, 'in', 'customer', 'Thank you, please let Sadiq know I will be there at 11:00 AM.', NOW() - INTERVAL '8 minutes')`,
-      [conv1Id],
-    );
-  }
+  await client.query(
+    `INSERT INTO messages (id, conversation_id, direction, author, body, created_at)
+     VALUES
+       ($1, $4, 'in', 'customer', 'Hi, I transferred the ₦5,000 deposit for my VIP Dreadlocks Retwist but my bank network delayed.', NOW() - INTERVAL '12 minutes'),
+       ($2, $4, 'out', 'agent', 'Thanks Adaeze! I see your hold is active and Kora verification is pending. I am flagging this for a barber at Fade Republic to confirm right away.', NOW() - INTERVAL '10 minutes'),
+       ($3, $4, 'in', 'customer', 'Thank you, please let Sadiq know I will be there at 11:00 AM.', NOW() - INTERVAL '8 minutes')`,
+    [randomUUID(), randomUUID(), randomUUID(), conv1Id],
+  );
 
-  const conv2Res = await client.query<{ id: string }>(
-    `INSERT INTO conversations (business_id, customer_id, channel, status, last_message_at)
-     VALUES ($1, $2, 'web_chat', 'agent', NOW() - INTERVAL '25 minutes')
-     RETURNING id`,
-    [businessId, custDamilola],
+  const conv2Id = randomUUID();
+  await client.query(
+    `INSERT INTO conversations (id, business_id, customer_id, channel, status, last_message_at)
+     VALUES ($1, $2, $3, 'web_chat', 'agent', NOW() - INTERVAL '25 minutes')`,
+    [conv2Id, businessId, custDamilola],
   );
-  const conv2Id = conv2Res.rows[0]?.id;
-  if (conv2Id) {
-    await client.query(
-      `INSERT INTO messages (conversation_id, direction, author, body, created_at)
-       VALUES
-         ($1, 'in', 'customer', 'Hello Maya, do you have a Standard Haircut slot tomorrow morning with Emeka?', NOW() - INTERVAL '28 minutes'),
-         ($1, 'out', 'agent', 'Yes! Emeka Okafor is open tomorrow at 10:30 AM WAT. I have placed a 15-minute hold and sent your ₦1,000 Kora deposit details.', NOW() - INTERVAL '25 minutes')`,
-      [conv2Id],
-    );
-  }
+  await client.query(
+    `INSERT INTO messages (id, conversation_id, direction, author, body, created_at)
+     VALUES
+       ($1, $3, 'in', 'customer', 'Hello Maya, do you have a Standard Haircut slot tomorrow morning with Emeka?', NOW() - INTERVAL '28 minutes'),
+       ($2, $3, 'out', 'agent', 'Yes! Emeka Okafor is open tomorrow at 10:30 AM WAT. I have placed a 15-minute hold and sent your ₦1,000 Kora deposit details.', NOW() - INTERVAL '25 minutes')`,
+    [randomUUID(), randomUUID(), conv2Id],
+  );
 
-  const conv3Res = await client.query<{ id: string }>(
-    `INSERT INTO conversations (business_id, customer_id, channel, status, last_message_at)
-     VALUES ($1, $2, 'whatsapp', 'closed', NOW() - INTERVAL '1 day')
-     RETURNING id`,
-    [businessId, custChinedu],
+  const conv3Id = randomUUID();
+  await client.query(
+    `INSERT INTO conversations (id, business_id, customer_id, channel, status, last_message_at)
+     VALUES ($1, $2, $3, 'whatsapp', 'closed', NOW() - INTERVAL '1 day')`,
+    [conv3Id, businessId, custChinedu],
   );
-  const conv3Id = conv3Res.rows[0]?.id;
-  if (conv3Id) {
-    await client.query(
-      `INSERT INTO messages (conversation_id, direction, author, body, created_at)
-       VALUES
-         ($1, 'in', 'customer', 'All set for my fade with Tunde, deposit paid!', NOW() - INTERVAL '1 day'),
-         ($1, 'out', 'agent', 'Confirmed! Your Classic Fade & Beard Sculpt with Tunde Adeyemi is locked in.', NOW() - INTERVAL '1 day')`,
-      [conv3Id],
-    );
-  }
+  await client.query(
+    `INSERT INTO messages (id, conversation_id, direction, author, body, created_at)
+     VALUES
+       ($1, $3, 'in', 'customer', 'All set for my fade with Tunde, deposit paid!', NOW() - INTERVAL '1 day'),
+       ($2, $3, 'out', 'agent', 'Confirmed! Your Classic Fade & Beard Sculpt with Tunde Adeyemi is locked in.', NOW() - INTERVAL '1 day')`,
+    [randomUUID(), randomUUID(), conv3Id],
+  );
 
   // 7. Seed AI Receptionist config & FAQs into audit_log (matches /api/ai-receptionist)
   await client.query(
-    `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
-     VALUES ($1, 'system', 'ai_receptionist.seeded', 'ai_receptionist_config', $2, $3)`,
+    `INSERT INTO audit_log (id, business_id, actor, action, entity, entity_id, after)
+     VALUES ($1, $2, 'system', 'ai_receptionist.seeded', 'ai_receptionist_config', $3, $4)`,
     [
+      randomUUID(),
       businessId,
       businessId,
       JSON.stringify({

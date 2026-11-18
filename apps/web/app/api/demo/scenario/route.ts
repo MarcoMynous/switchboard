@@ -144,10 +144,11 @@ async function createDemoHoldBooking(
 
   await customersPool.query(
     `INSERT INTO payments (
-       business_id, booking_id, kind, amount_kobo, status,
+       id, business_id, booking_id, kind, amount_kobo, status,
        kora_reference, kora_account_number, expires_at, idempotency_key
-     ) VALUES ($1, $2, 'deposit', $3, 'pending', $4, '9012348800', $5, $6)`,
+     ) VALUES ($1, $2, $3, 'deposit', $4, 'pending', $5, '9012348800', $6, $7)`,
     [
+      randomUUID(),
       businessId,
       booking.id,
       depositKobo,
@@ -158,9 +159,10 @@ async function createDemoHoldBooking(
   );
 
   await customersPool.query(
-    `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
-     VALUES ($1, 'demo_scenario', 'demo.booking_hold_created', 'booking', $2, $3)`,
+    `INSERT INTO audit_log (id, business_id, actor, action, entity, entity_id, after)
+     VALUES ($1, $2, 'demo_scenario', 'demo.booking_hold_created', 'booking', $3, $4)`,
     [
+      randomUUID(),
       businessId,
       booking.id,
       JSON.stringify({
@@ -300,9 +302,10 @@ export async function POST(request: Request) {
         }
 
         await customersPool.query(
-          `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
-           VALUES ($1, 'demo_scenario', 'demo.kora_deposit_verified', 'booking', $2, $3)`,
+          `INSERT INTO audit_log (id, business_id, actor, action, entity, entity_id, after)
+           VALUES ($1, $2, 'demo_scenario', 'demo.kora_deposit_verified', 'booking', $3, $4)`,
           [
+            randomUUID(),
             businessId,
             target.booking_id,
             JSON.stringify({ koraReference: target.kora_reference, simulated: true }),
@@ -331,27 +334,29 @@ export async function POST(request: Request) {
           );
         }
 
-        const convRes = await customersPool.query<{ id: string }>(
-          `INSERT INTO conversations (business_id, customer_id, channel, status, last_message_at)
-           VALUES ($1, $2, 'whatsapp', 'needs_human', NOW())
-           RETURNING id::text AS id`,
-          [businessId, customerRes.value.id],
+        const convId = randomUUID();
+        await customersPool.query(
+          `INSERT INTO conversations (id, business_id, customer_id, channel, status, last_message_at)
+           VALUES ($1, $2, $3, 'whatsapp', 'needs_human', NOW())`,
+          [convId, businessId, customerRes.value.id],
         );
-        const convId = convRes.rows[0]?.id;
-        if (convId) {
-          await customersPool.query(
-            `INSERT INTO messages (conversation_id, direction, author, body, created_at)
-             VALUES
-               ($1, 'in', 'customer', 'Hi! Can I book 3 groomsmen fades together this Saturday morning?', NOW() - INTERVAL '1 minute'),
-               ($1, 'out', 'agent', 'Group bookings for 3+ chairs need barber confirmation. I am handing this over to the Fade Republic desk now.', NOW())`,
-            [convId],
-          );
-          await customersPool.query(
-            `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
-             VALUES ($1, 'demo_scenario', 'demo.human_handoff_created', 'conversation', $2, $3)`,
-            [businessId, convId, JSON.stringify({ customerName: 'Kemi Adeyemi', simulated: true })],
-          );
-        }
+        await customersPool.query(
+          `INSERT INTO messages (id, conversation_id, direction, author, body, created_at)
+           VALUES
+             ($1, $3, 'in', 'customer', 'Hi! Can I book 3 groomsmen fades together this Saturday morning?', NOW() - INTERVAL '1 minute'),
+             ($2, $3, 'out', 'agent', 'Group bookings for 3+ chairs need barber confirmation. I am handing this over to the Fade Republic desk now.', NOW())`,
+          [randomUUID(), randomUUID(), convId],
+        );
+        await customersPool.query(
+          `INSERT INTO audit_log (id, business_id, actor, action, entity, entity_id, after)
+           VALUES ($1, $2, 'demo_scenario', 'demo.human_handoff_created', 'conversation', $3, $4)`,
+          [
+            randomUUID(),
+            businessId,
+            convId,
+            JSON.stringify({ customerName: 'Kemi Adeyemi', simulated: true }),
+          ],
+        );
 
         return NextResponse.json({
           ok: true,
@@ -412,9 +417,9 @@ export async function POST(request: Request) {
           [businessId, bookingId],
         );
         await customersPool.query(
-          `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
-           VALUES ($1, 'demo_scenario', 'demo.hold_expired', 'booking', $2, $3)`,
-          [businessId, bookingId, JSON.stringify({ simulated: true })],
+          `INSERT INTO audit_log (id, business_id, actor, action, entity, entity_id, after)
+           VALUES ($1, $2, 'demo_scenario', 'demo.hold_expired', 'booking', $3, $4)`,
+          [randomUUID(), businessId, bookingId, JSON.stringify({ simulated: true })],
         );
 
         return NextResponse.json({
@@ -481,9 +486,10 @@ export async function POST(request: Request) {
         }
 
         await customersPool.query(
-          `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
-           VALUES ($1, 'demo_scenario', 'demo.refund_simulated', 'booking', $2, $3)`,
+          `INSERT INTO audit_log (id, business_id, actor, action, entity, entity_id, after)
+           VALUES ($1, $2, 'demo_scenario', 'demo.refund_simulated', 'booking', $3, $4)`,
           [
+            randomUUID(),
             businessId,
             target.booking_id,
             JSON.stringify({ koraReference: target.kora_reference, simulated: true }),
@@ -582,21 +588,20 @@ export async function POST(request: Request) {
           );
           conversationId = existingConv.rows[0]?.id;
           if (!conversationId) {
-            const newConv = await customersPool.query<{ id: string }>(
-              `INSERT INTO conversations (business_id, customer_id, channel, status, last_message_at)
-               VALUES ($1, $2, 'web_chat', 'agent', NOW())
-               RETURNING id::text AS id`,
-              [businessId, custRes.value.id],
+            conversationId = randomUUID();
+            await customersPool.query(
+              `INSERT INTO conversations (id, business_id, customer_id, channel, status, last_message_at)
+               VALUES ($1, $2, $3, 'web_chat', 'agent', NOW())`,
+              [conversationId, businessId, custRes.value.id],
             );
-            conversationId = newConv.rows[0]?.id;
           }
           if (conversationId) {
             await customersPool.query(
-              `INSERT INTO messages (conversation_id, direction, author, body, created_at)
+              `INSERT INTO messages (id, conversation_id, direction, author, body, created_at)
                VALUES
-                 ($1, 'in', 'customer', $2, NOW()),
-                 ($1, 'out', 'agent', $3, NOW() + INTERVAL '1 second')`,
-              [conversationId, userMsg, reply],
+                 ($1, $3, 'in', 'customer', $4, NOW()),
+                 ($2, $3, 'out', 'agent', $5, NOW() + INTERVAL '1 second')`,
+              [randomUUID(), randomUUID(), conversationId, userMsg, reply],
             );
             await customersPool.query(
               `UPDATE conversations SET last_message_at = NOW() WHERE id = $1`,
