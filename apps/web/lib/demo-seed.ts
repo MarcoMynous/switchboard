@@ -124,6 +124,21 @@ async function populateDemoBusiness(
 ): Promise<void> {
   const shortTag = demoSessionId.replace(/-/g, '').slice(0, 8);
 
+  // Configure demo Interledger Open Payments testnet wallet
+  await client.query(
+    `UPDATE businesses
+     SET interledger_enabled = true,
+         interledger_environment = 'testnet',
+         interledger_wallet_address = 'https://ilp.interledger-test.dev/fade-republic',
+         interledger_auth_server = 'https://auth.interledger-test.dev',
+         interledger_resource_server = 'https://ilp.interledger-test.dev',
+         interledger_asset_code = 'USD',
+         interledger_asset_scale = 2,
+         interledger_status = 'test_mode'
+     WHERE id = $1`,
+    [businessId],
+  );
+
   // 1. Six services with realistic Naira prices (stored as integer kobo per I6)
   const serviceDefs = [
     {
@@ -525,6 +540,56 @@ async function populateDemoBusiness(
       b7Start,
       addMinutesIso(b7Start, 30),
       `demo_${shortTag}_b7`,
+    ],
+  );
+
+  // Booking 8: Today confirmed via Interledger Open Payments (Emeka, 16:00)
+  const b8Start = lagosIso(0, '16:00');
+  const b8Id = randomUUID();
+  const p8Id = randomUUID();
+  await client.query(
+    `INSERT INTO bookings (id, business_id, staff_id, service_id, customer_id, starts_at, ends_at, status, source, idempotency_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'confirmed', 'booking_page', $8)`,
+    [
+      b8Id,
+      businessId,
+      stfEmeka,
+      svcFade,
+      custBabatunde,
+      b8Start,
+      addMinutesIso(b8Start, 45),
+      `demo_${shortTag}_b8`,
+    ],
+  );
+  await client.query(
+    `INSERT INTO payments (
+       id, business_id, booking_id, provider, provider_environment, provider_reference,
+       kind, amount_kobo, asset_code, asset_scale, provider_expected_amount, provider_received_amount,
+       is_simulated, status, verified_at, idempotency_key
+     )
+     VALUES ($1, $2, $3, 'interledger', 'testnet', $4, 'deposit', 150000, 'USD', 2, '94', '94', true, 'succeeded', NOW(), $5)`,
+    [p8Id, businessId, b8Id, `sb_ilp_demo_${shortTag}_08`, `demo_pay_${shortTag}_08`],
+  );
+  await client.query(
+    `INSERT INTO open_payments_attempts (
+       id, payment_id, business_id, booking_id, sender_wallet_address, recipient_wallet_address,
+       incoming_payment_id, quote_id, outgoing_payment_id, quote_debit_amount, quote_debit_asset_code,
+       quote_debit_asset_scale, quote_receive_amount, grant_state
+     )
+     VALUES (
+       $1, $2, $3, $4,
+       'https://ilp.interledger-test.dev/customer-alice',
+       'https://ilp.interledger-test.dev/fade-republic',
+       $5, $6, $7, '96', 'USD', 2, '94', 'verified'
+     )`,
+    [
+      randomUUID(),
+      p8Id,
+      businessId,
+      b8Id,
+      `https://ilp.interledger-test.dev/incoming-payments/demo-${shortTag}-08`,
+      `https://ilp.interledger-test.dev/quotes/demo-${shortTag}-08`,
+      `https://ilp.interledger-test.dev/outgoing-payments/demo-${shortTag}-08`,
     ],
   );
 
