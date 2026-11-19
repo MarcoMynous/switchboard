@@ -719,6 +719,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
     });
 
     let verificationReason: string | null = null;
+    let providerState: Record<string, unknown> | null = null;
     if (
       payment.provider === 'interledger' &&
       attempt?.grantState === 'outgoing_created' &&
@@ -744,6 +745,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
         });
         if (outcome?.status === 'pending_verification') {
           verificationReason = outcome.reason;
+          providerState = outcome.providerState ?? null;
         }
         payment =
           (await deps.db.query.payments.findFirst({
@@ -796,6 +798,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       lastErrorCode: attempt?.lastErrorCode ?? null,
       lastErrorMessage: attempt?.lastErrorMessage ?? null,
       verificationReason,
+      providerState,
       createdAt: payment.createdAt.toISOString(),
       verifiedAt: payment.verifiedAt?.toISOString() ?? null,
       receipt: {

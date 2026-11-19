@@ -11,7 +11,16 @@ import type { Logger } from '../logger.ts';
 
 export type InterledgerVerificationOutcome =
   | { status: 'confirmed'; bookingId: string; paymentId: string; overpaid: boolean }
-  | { status: 'pending_verification'; reason: string }
+  | {
+      status: 'pending_verification';
+      reason: string;
+      providerState?: {
+        incomingReceivedValue?: string;
+        incomingCompleted?: boolean;
+        outgoingFailed?: boolean;
+        outgoingSentValue?: string;
+      };
+    }
   | { status: 'underpaid'; receivedValue: string; expectedValue: string }
   | { status: 'late_requires_attention'; bookingId: string; paymentId: string }
   | { status: 'already_terminal'; paymentStatus: string }
@@ -164,11 +173,15 @@ export async function verifyAndSettleInterledgerPayment(deps: {
   }
 
   if (!receipt.value.verified) {
+    let outgoingFailed: boolean | undefined;
+    let outgoingSentValue: string | undefined;
     // Check whether the customer's outgoing payment failed on the provider (e.g. insufficient funds / ILP routing)
     if (attempt.outgoingPaymentId && attempt.outgoingAccessTokenEnc && tokenEncryptionKey) {
       try {
         const outgoingToken = decryptToken(attempt.outgoingAccessTokenEnc, tokenEncryptionKey);
         const outgoing = await adapter.getOutgoingPayment(attempt.outgoingPaymentId, outgoingToken);
+        outgoingFailed = outgoing.failed;
+        outgoingSentValue = outgoing.sentAmount.value;
         logger.info(
           {
             paymentId,
@@ -226,7 +239,16 @@ export async function verifyAndSettleInterledgerPayment(deps: {
           inArray(payments.status, ['created', 'pending', 'pending_verification']),
         ),
       );
-    return { status: 'pending_verification', reason: 'awaiting_settlement' };
+    return {
+      status: 'pending_verification',
+      reason: 'awaiting_settlement',
+      providerState: {
+        incomingReceivedValue: receipt.value.receivedAmount.value,
+        incomingCompleted: receipt.value.completed,
+        ...(outgoingFailed !== undefined ? { outgoingFailed } : {}),
+        ...(outgoingSentValue !== undefined ? { outgoingSentValue } : {}),
+      },
+    };
   }
 
   if (!payment.bookingId) {
