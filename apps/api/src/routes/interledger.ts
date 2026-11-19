@@ -718,6 +718,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       where: eq(openPaymentsAttempts.paymentId, payment.id),
     });
 
+    let verificationReason: string | null = null;
     if (
       payment.provider === 'interledger' &&
       attempt?.grantState === 'outgoing_created' &&
@@ -728,7 +729,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       const targetPaymentId = payment.id;
       const adapter = await deps.getAdapter().catch(() => null);
       if (adapter) {
-        await verifyAndSettleInterledgerPayment({
+        const outcome = await verifyAndSettleInterledgerPayment({
           db: deps.db,
           adapter,
           logger: deps.logger,
@@ -738,45 +739,17 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
             { err, paymentId: targetPaymentId },
             'interledger: status check verification attempt failed',
           );
+          return null;
         });
+        if (outcome?.status === 'pending_verification') {
+          verificationReason = outcome.reason;
+        }
         payment =
           (await deps.db.query.payments.findFirst({
             where: and(
               eq(payments.id, targetPaymentId),
               eq(payments.businessId, catalog.business.id),
             ),
-          })) ?? payment;
-        attempt = await deps.db.query.openPaymentsAttempts.findFirst({
-          where: eq(openPaymentsAttempts.paymentId, targetPaymentId),
-        });
-      }
-    }
-
-
-    if (
-      payment.provider === 'interledger' &&
-      attempt?.grantState === 'outgoing_created' &&
-      (payment.status === 'created' ||
-        payment.status === 'pending' ||
-        payment.status === 'pending_verification')
-    ) {
-      const targetPaymentId = payment.id;
-      const adapter = await deps.getAdapter().catch(() => null);
-      if (adapter) {
-        await verifyAndSettleInterledgerPayment({
-          db: deps.db,
-          adapter,
-          logger: deps.logger,
-          paymentId: targetPaymentId,
-        }).catch((err) => {
-          deps.logger.warn(
-            { err, paymentId: targetPaymentId },
-            'interledger: status check verification attempt failed',
-          );
-        });
-        payment =
-          (await deps.db.query.payments.findFirst({
-            where: and(eq(payments.id, targetPaymentId), eq(payments.businessId, catalog.business.id)),
           })) ?? payment;
         attempt = await deps.db.query.openPaymentsAttempts.findFirst({
           where: eq(openPaymentsAttempts.paymentId, targetPaymentId),
@@ -821,6 +794,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       outgoingPaymentId: attempt?.outgoingPaymentId ?? null,
       lastErrorCode: attempt?.lastErrorCode ?? null,
       lastErrorMessage: attempt?.lastErrorMessage ?? null,
+      verificationReason,
       createdAt: payment.createdAt.toISOString(),
       verifiedAt: payment.verifiedAt?.toISOString() ?? null,
       receipt: {

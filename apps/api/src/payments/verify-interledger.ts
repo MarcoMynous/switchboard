@@ -162,6 +162,16 @@ export async function verifyAndSettleInterledgerPayment(deps: {
   }
 
   if (!receipt.value.verified) {
+    logger.info(
+      {
+        paymentId,
+        incomingPaymentId: attempt.incomingPaymentId,
+        receivedAmount: receipt.value.receivedAmount,
+        expectedAmount: receipt.value.expectedAmount,
+        completed: receipt.value.completed,
+      },
+      'interledger: incoming payment awaiting settlement',
+    );
     await db
       .update(payments)
       .set({ status: 'pending_verification', updatedAt: new Date() })
