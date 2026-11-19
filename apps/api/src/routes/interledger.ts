@@ -708,15 +708,82 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Business not found' } }, 404);
     }
     const paymentId = c.req.param('paymentId');
-    const payment = await deps.db.query.payments.findFirst({
+    let payment = await deps.db.query.payments.findFirst({
       where: and(eq(payments.id, paymentId), eq(payments.businessId, catalog.business.id)),
     });
     if (!payment) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Payment not found' } }, 404);
     }
-    const attempt = await deps.db.query.openPaymentsAttempts.findFirst({
+    let attempt = await deps.db.query.openPaymentsAttempts.findFirst({
       where: eq(openPaymentsAttempts.paymentId, payment.id),
     });
+
+    if (
+      payment.provider === 'interledger' &&
+      attempt?.grantState === 'outgoing_created' &&
+      (payment.status === 'created' ||
+        payment.status === 'pending' ||
+        payment.status === 'pending_verification')
+    ) {
+      const targetPaymentId = payment.id;
+      const adapter = await deps.getAdapter().catch(() => null);
+      if (adapter) {
+        await verifyAndSettleInterledgerPayment({
+          db: deps.db,
+          adapter,
+          logger: deps.logger,
+          paymentId: targetPaymentId,
+        }).catch((err) => {
+          deps.logger.warn(
+            { err, paymentId: targetPaymentId },
+            'interledger: status check verification attempt failed',
+          );
+        });
+        payment =
+          (await deps.db.query.payments.findFirst({
+            where: and(
+              eq(payments.id, targetPaymentId),
+              eq(payments.businessId, catalog.business.id),
+            ),
+          })) ?? payment;
+        attempt = await deps.db.query.openPaymentsAttempts.findFirst({
+          where: eq(openPaymentsAttempts.paymentId, targetPaymentId),
+        });
+      }
+    }
+
+
+    if (
+      payment.provider === 'interledger' &&
+      attempt?.grantState === 'outgoing_created' &&
+      (payment.status === 'created' ||
+        payment.status === 'pending' ||
+        payment.status === 'pending_verification')
+    ) {
+      const targetPaymentId = payment.id;
+      const adapter = await deps.getAdapter().catch(() => null);
+      if (adapter) {
+        await verifyAndSettleInterledgerPayment({
+          db: deps.db,
+          adapter,
+          logger: deps.logger,
+          paymentId: targetPaymentId,
+        }).catch((err) => {
+          deps.logger.warn(
+            { err, paymentId: targetPaymentId },
+            'interledger: status check verification attempt failed',
+          );
+        });
+        payment =
+          (await deps.db.query.payments.findFirst({
+            where: and(eq(payments.id, targetPaymentId), eq(payments.businessId, catalog.business.id)),
+          })) ?? payment;
+        attempt = await deps.db.query.openPaymentsAttempts.findFirst({
+          where: eq(openPaymentsAttempts.paymentId, targetPaymentId),
+        });
+      }
+    }
+
     const booking = payment.bookingId
       ? await deps.db.query.bookings.findFirst({ where: eq(bookings.id, payment.bookingId) })
       : null;

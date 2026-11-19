@@ -190,6 +190,8 @@ function PaymentScreenContent() {
   const [quoteState, setQuoteState] = useState<PreparedQuoteState | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number>(900);
+  const [recheckingStatus, setRecheckingStatus] = useState(false);
+  const [verificationDelayed, setVerificationDelayed] = useState(false);
   const [prepareKey, setPrepareKey] = useState<string>(() =>
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? `ilp_${crypto.randomUUID()}`
@@ -319,6 +321,57 @@ function PaymentScreenContent() {
     void loadAuthoritativeBooking();
   }, [loadAuthoritativeBooking]);
 
+  const checkInterledgerStatus = useCallback(
+    async (paymentIdToCheck: string): Promise<'terminal' | 'pending'> => {
+      setRecheckingStatus(true);
+      try {
+        const res = await fetch(
+          `/api/public/${encodeURIComponent(slug)}/payments/interledger/${encodeURIComponent(paymentIdToCheck)}/status`,
+          { cache: 'no-store' },
+        );
+        if (!res.ok) {
+          return 'pending';
+        }
+        const statusJson = (await res.json()) as {
+          paymentStatus: string;
+          bookingStatus: string | null;
+          grantState: string | null;
+          receivedAmount: string | null;
+          verifiedAt: string | null;
+          lastErrorCode: string | null;
+          lastErrorMessage: string | null;
+        };
+
+        if (statusJson.paymentStatus === 'succeeded' && statusJson.bookingStatus === 'confirmed') {
+          await loadAuthoritativeBooking();
+          return 'terminal';
+        }
+        if (
+          statusJson.lastErrorCode === 'LATE_PAYMENT_NEEDS_RECOVERY' ||
+          statusJson.lastErrorCode === 'UNDERPAID' ||
+          statusJson.lastErrorCode === 'OVERPAID_SURPLUS_REVIEW'
+        ) {
+          await loadAuthoritativeBooking();
+          return 'terminal';
+        }
+        if (statusJson.paymentStatus === 'failed' || statusJson.grantState === 'failed') {
+          await loadAuthoritativeBooking();
+          return 'terminal';
+        }
+        if (statusJson.bookingStatus === 'expired' && statusJson.paymentStatus !== 'succeeded') {
+          await loadAuthoritativeBooking();
+          return 'terminal';
+        }
+        return 'pending';
+      } catch {
+        return 'pending';
+      } finally {
+        setRecheckingStatus(false);
+      }
+    },
+    [loadAuthoritativeBooking, slug],
+  );
+
   // 1-second hold countdown
   useEffect(() => {
     if (screenState === 'booking_confirmed' || screenState === 'hold_expired') return;
@@ -329,21 +382,48 @@ function PaymentScreenContent() {
         Math.floor((new Date(data.booking.holdExpiresAt ?? '').getTime() - Date.now()) / 1000),
       );
       setSecondsLeft(next);
-      if (next <= 0) {
+      if (next <= 0 && screenState !== 'verifying_payment') {
         setScreenState('hold_expired');
       }
     }, 1000);
     return () => clearInterval(timer);
   }, [data?.booking.holdExpiresAt, screenState]);
 
-  // Poll authoritative DB state while verifying_payment
+  // Bounded polling with backoff against authoritative Interledger status endpoint
   useEffect(() => {
-    if (screenState !== 'verifying_payment') return;
-    const timer = setInterval(() => {
-      void loadAuthoritativeBooking();
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [loadAuthoritativeBooking, screenState]);
+    if (screenState !== 'verifying_payment') {
+      setVerificationDelayed(false);
+      return;
+    }
+    const targetPaymentId = data?.payment?.id ?? ilpPaymentParam;
+    if (!targetPaymentId) return;
+
+    let cancelled = false;
+    const delays = [2000, 3000, 5000, 8000, 12000, 15000];
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const runPoll = async (attemptIdx: number) => {
+      if (cancelled) return;
+      const outcome = await checkInterledgerStatus(targetPaymentId);
+      if (cancelled || outcome === 'terminal') return;
+      const nextDelay = delays[attemptIdx];
+      if (nextDelay === undefined) {
+        setVerificationDelayed(true);
+        return;
+      }
+      timeoutId = setTimeout(() => {
+        void runPoll(attemptIdx + 1);
+      }, nextDelay);
+    };
+
+    // Immediate first verification check on entry
+    void runPoll(0);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [checkInterledgerStatus, data?.payment?.id, ilpPaymentParam, screenState]);
 
   const handleGetQuote = async () => {
     if (!walletInput.trim()) {
@@ -620,19 +700,36 @@ function PaymentScreenContent() {
             ) : screenState === 'verifying_payment' || screenState === 'processing_payment' ? (
               <div className="space-y-4">
                 <div className="rounded-xl bg-[#F5F6FA] border border-[#22306B]/20 p-5 text-center space-y-2">
-                  <div className="w-6 h-6 mx-auto rounded-full border-2 border-[#22306B] border-t-transparent animate-spin" />
-                  <p className="text-sm font-bold text-[#22306B]">Verifying Payment</p>
+                  {!verificationDelayed && (
+                    <div className="w-6 h-6 mx-auto rounded-full border-2 border-[#22306B] border-t-transparent animate-spin" />
+                  )}
+                  <p className="text-sm font-bold text-[#22306B]">
+                    {verificationDelayed ? 'Verification Delayed' : 'Verifying Payment'}
+                  </p>
                   <p className="text-xs text-slate-600">
-                    Switchboard is independently verifying receipt on{' '}
-                    <span className="font-mono">{business.interledgerWalletAddress}</span>.
+                    {verificationDelayed
+                      ? 'Your wallet authorization completed, but settlement confirmation is taking longer than expected. Click Recheck Payment Status below to check again.'
+                      : 'Switchboard is independently verifying receipt on '}
+                    {!verificationDelayed && (
+                      <span className="font-mono">{business.interledgerWalletAddress}</span>
+                    )}
+                    {!verificationDelayed && '.'}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => void loadAuthoritativeBooking()}
-                  className="w-full py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-[#111827] cursor-pointer"
+                  disabled={recheckingStatus}
+                  onClick={() => {
+                    const targetId = activePaymentId;
+                    if (targetId) {
+                      void checkInterledgerStatus(targetId);
+                    } else {
+                      void loadAuthoritativeBooking();
+                    }
+                  }}
+                  className="w-full py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-[#111827] cursor-pointer disabled:opacity-60"
                 >
-                  Recheck Payment Status
+                  {recheckingStatus ? 'Checking Payment Status…' : 'Recheck Payment Status'}
                 </button>
               </div>
             ) : (

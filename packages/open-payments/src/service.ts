@@ -500,6 +500,14 @@ export async function verifyIncomingPaymentReceipt(
   const underpaid = !satisfied && BigInt(received.value) > 0n;
   const overpaid = cmp > 0;
 
+  if (incoming.completed && !satisfied && !underpaid) {
+    return err({
+      code: 'INCOMING_PAYMENT_EXPIRED_UNPAID',
+      message: 'Incoming payment expired or closed before receiving funds.',
+      retryable: false,
+    });
+  }
+
   return ok({
     verified: satisfied,
     underpaid,

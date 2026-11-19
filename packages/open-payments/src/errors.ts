@@ -16,6 +16,7 @@ export type OpenPaymentsErrorCode =
   | 'PROVIDER_TIMEOUT'
   | 'UNDERPAID'
   | 'VERIFICATION_PENDING'
+  | 'INCOMING_PAYMENT_EXPIRED_UNPAID'
   | 'PRODUCTION_NOT_APPROVED';
 
 export interface OpenPaymentsDomainError {

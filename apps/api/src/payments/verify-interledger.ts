@@ -99,6 +99,26 @@ export async function verifyAndSettleInterledgerPayment(deps: {
         );
       return { status: 'pending_verification', reason: receipt.error.code };
     }
+    await db.transaction(async (tx) => {
+      await tx
+        .update(payments)
+        .set({ status: 'failed', updatedAt: new Date() })
+        .where(
+          and(
+            eq(payments.id, paymentId),
+            inArray(payments.status, ['created', 'pending', 'pending_verification']),
+          ),
+        );
+      await tx
+        .update(openPaymentsAttempts)
+        .set({
+          grantState: 'failed',
+          lastErrorCode: receipt.error.code,
+          lastErrorMessage: receipt.error.message,
+          updatedAt: new Date(),
+        })
+        .where(eq(openPaymentsAttempts.paymentId, paymentId));
+    });
     return { status: 'error', message: receipt.error.message };
   }
 
