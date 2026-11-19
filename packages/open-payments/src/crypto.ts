@@ -46,10 +46,26 @@ export function decryptToken(payload: string, secret: string): string {
   return decrypted.toString('utf8');
 }
 
+function decodeSha256HashBytes(raw: string): Buffer | null {
+  const trimmed = raw.trim();
+  // RFC 9635 Section 4.2.3: unpadded Base64URL (43 chars for 32-byte SHA-256 digest)
+  if (/^[A-Za-z0-9_-]{43}$/.test(trimmed)) {
+    const buf = Buffer.from(trimmed, 'base64url');
+    return buf.length === 32 ? buf : null;
+  }
+  // Interledger Rafiki (draft GNAP): standard padded Base64 (44 chars ending with '=')
+  if (/^[A-Za-z0-9+/]{43}=$/.test(trimmed)) {
+    const buf = Buffer.from(trimmed, 'base64');
+    return buf.length === 32 ? buf : null;
+  }
+  return null;
+}
+
 /**
  * Verifies the GNAP interaction hash returned on redirect callback:
  * SHA-256(clientNonce + "\n" + interactNonce + "\n" + interactRef + "\n" + grantEndpoint)
- * encoded as base64url (unpadded).
+ * Accepts RFC 9635 unpadded Base64URL and Rafiki's standard Base64 encoding,
+ * comparing the decoded 32-byte digests in constant time.
  */
 export function verifyGnapInteractionHash(input: {
   clientNonce: string;
@@ -58,15 +74,16 @@ export function verifyGnapInteractionHash(input: {
   grantEndpoint: string;
   receivedHash: string;
 }): boolean {
+  const receivedBytes = decodeSha256HashBytes(input.receivedHash);
+  if (!receivedBytes) return false;
+
   const baseString = [
     input.clientNonce,
     input.interactNonce,
     input.interactRef,
     input.grantEndpoint,
   ].join('\n');
-  const expected = createHash('sha256').update(baseString, 'utf8').digest('base64url');
-  const expectedBuf = Buffer.from(expected, 'utf8');
-  const receivedBuf = Buffer.from(input.receivedHash.trim(), 'utf8');
-  if (expectedBuf.length !== receivedBuf.length) return false;
-  return timingSafeEqual(expectedBuf, receivedBuf);
+  const expectedBytes = createHash('sha256').update(baseString, 'utf8').digest();
+  if (expectedBytes.length !== receivedBytes.length) return false;
+  return timingSafeEqual(expectedBytes, receivedBytes);
 }

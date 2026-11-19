@@ -384,27 +384,14 @@ export async function completeAuthorizationAndCreateOutgoingPayment(
     });
   }
 
-  const receivedHash = input.receivedHash;
-  if (receivedHash) {
-    const authServer = input.customerWallet.authServer;
-    const origin = new URL(authServer).origin;
-    const grantEndpointCandidates = Array.from(
-      new Set([
-        authServer,
-        authServer.endsWith('/') ? authServer.slice(0, -1) : `${authServer}/`,
-        origin,
-        `${origin}/`,
-      ]),
-    );
-    const validHash = grantEndpointCandidates.some((grantEndpoint) =>
-      verifyGnapInteractionHash({
-        clientNonce: input.clientNonce,
-        interactNonce: input.interactNonce,
-        interactRef: input.interactRef,
-        grantEndpoint,
-        receivedHash,
-      }),
-    );
+  if (input.receivedHash) {
+    const validHash = verifyGnapInteractionHash({
+      clientNonce: input.clientNonce,
+      interactNonce: input.interactNonce,
+      interactRef: input.interactRef,
+      grantEndpoint: input.customerWallet.authServer,
+      receivedHash: input.receivedHash,
+    });
     if (!validHash) {
       return err({
         code: 'INVALID_CALLBACK_STATE',

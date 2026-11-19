@@ -82,31 +82,85 @@ describe('Crypto & GNAP interaction hash', () => {
   });
 
   it('verifies GNAP interaction hash and rejects tampered hashes', () => {
-    const clientNonce = 'client-nonce-1';
-    const interactNonce = 'server-nonce-2';
-    const interactRef = 'ref-3';
-    const grantEndpoint = 'https://auth.interledger-test.dev';
-    const validHash = createHash('sha256')
-      .update(`${clientNonce}\n${interactNonce}\n${interactRef}\n${grantEndpoint}`, 'utf8')
-      .digest('base64url');
+    const rfcInput = {
+      clientNonce: 'VJLO6A4CATR0KRO',
+      interactNonce: 'MBDOFXG4Y5CVJCX821LH',
+      interactRef: '4IFWWIKYB2PQ6U56NL1',
+      grantEndpoint: 'https://server.example.com/tx',
+    };
+    const rfcBaseString = `${rfcInput.clientNonce}\n${rfcInput.interactNonce}\n${rfcInput.interactRef}\n${rfcInput.grantEndpoint}`;
+    const rfcBase64Url = createHash('sha256').update(rfcBaseString, 'utf8').digest('base64url');
+    const rafikiBase64 = createHash('sha256').update(rfcBaseString, 'utf8').digest('base64');
 
+    // Official RFC 9635 Section 4.2.3 base64url (unpadded) and Rafiki base64 (padded)
     expect(
       verifyGnapInteractionHash({
-        clientNonce,
-        interactNonce,
-        interactRef,
-        grantEndpoint,
-        receivedHash: validHash,
+        ...rfcInput,
+        receivedHash: rfcBase64Url,
+      }),
+    ).toBe(true);
+    expect(
+      verifyGnapInteractionHash({
+        ...rfcInput,
+        receivedHash: rafikiBase64,
       }),
     ).toBe(true);
 
+    // Incorrect hash
     expect(
       verifyGnapInteractionHash({
-        clientNonce,
-        interactNonce,
-        interactRef,
-        grantEndpoint,
+        ...rfcInput,
         receivedHash: 'tampered-hash',
+      }),
+    ).toBe(false);
+
+    // Wrong client nonce
+    expect(
+      verifyGnapInteractionHash({
+        ...rfcInput,
+        clientNonce: 'WRONG_CLIENT_NONCE',
+        receivedHash: rfcBase64Url,
+      }),
+    ).toBe(false);
+
+    // Wrong authorization-server nonce
+    expect(
+      verifyGnapInteractionHash({
+        ...rfcInput,
+        interactNonce: 'WRONG_SERVER_NONCE',
+        receivedHash: rfcBase64Url,
+      }),
+    ).toBe(false);
+
+    // Wrong grant endpoint
+    expect(
+      verifyGnapInteractionHash({
+        ...rfcInput,
+        grantEndpoint: 'https://evil.example.com/tx',
+        receivedHash: rfcBase64Url,
+      }),
+    ).toBe(false);
+
+    // Trailing-slash mismatch
+    expect(
+      verifyGnapInteractionHash({
+        ...rfcInput,
+        grantEndpoint: 'https://server.example.com/tx/',
+        receivedHash: rfcBase64Url,
+      }),
+    ).toBe(false);
+
+    // Invalid encoding (hex / unpadded base64 / wrong length)
+    expect(
+      verifyGnapInteractionHash({
+        ...rfcInput,
+        receivedHash: createHash('sha256').update(rfcBaseString, 'utf8').digest('hex'),
+      }),
+    ).toBe(false);
+    expect(
+      verifyGnapInteractionHash({
+        ...rfcInput,
+        receivedHash: rafikiBase64.slice(0, -1),
       }),
     ).toBe(false);
   });

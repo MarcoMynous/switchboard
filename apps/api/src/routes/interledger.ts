@@ -631,6 +631,21 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
     });
 
     if (!completed.ok) {
+      deps.logger.warn(
+        {
+          paymentId: attempt.paymentId,
+          attemptId: attempt.id,
+          grantState: attempt.grantState,
+          hasClientNonce: Boolean(clientNonce),
+          hasInteractNonce: Boolean(interactNonce),
+          hasInteractRef: Boolean(body.data.interact_ref),
+          hasHash: Boolean(body.data.hash),
+          hashLength: body.data.hash?.length ?? 0,
+          grantEndpointUri: rawCustWallet.authServer,
+          errorCode: completed.error.code,
+        },
+        'interledger: callback completion failed',
+      );
       await deps.db
         .update(openPaymentsAttempts)
         .set({
@@ -966,6 +981,21 @@ export function interledgerCallbackRoutes(deps: InterledgerRoutesDeps) {
     });
 
     if (!completed.ok) {
+      deps.logger.warn(
+        {
+          paymentId: attempt.paymentId,
+          attemptId: attempt.id,
+          grantState: attempt.grantState,
+          hasClientNonce: Boolean(clientNonce),
+          hasInteractNonce: Boolean(interactNonce),
+          hasInteractRef: Boolean(interactRef),
+          hasHash: Boolean(hash),
+          hashLength: hash?.length ?? 0,
+          grantEndpointUri: rawCustWallet.authServer,
+          errorCode: completed.error.code,
+        },
+        'interledger: GET callback completion failed',
+      );
       await deps.db
         .update(openPaymentsAttempts)
         .set({
