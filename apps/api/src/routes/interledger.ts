@@ -25,11 +25,59 @@ export interface InterledgerRoutesDeps {
   db: Db;
   logger: Logger;
   publicAppUrl: string;
+  mode?: 'disabled' | 'test' | 'live';
+  testnetOnly?: boolean;
+  walletAddress?: string | null;
+  keyIdConfigured?: boolean;
+  privateKeyConfigured?: boolean;
+  privateKeySource?: 'pem' | 'path' | 'none';
+  encryptionKeyConfigured?: boolean;
   redirectUri?: string;
   ngnToUsdRate: number;
   tokenEncryptionKey: string;
   getAdapter: () => Promise<OpenPaymentsAdapter | null>;
   enqueueVerify?: (paymentId: string) => Promise<void>;
+}
+
+const MAX_ATTEMPTS_PER_BOOKING = 5;
+const RATE_LIMIT_WINDOW_MS = 10 * 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 15;
+const ipHits = new Map<string, number[]>();
+
+function checkIpRateLimit(ip: string): { allowed: boolean; retryAfterSec: number } {
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  const recent = (ipHits.get(ip) ?? []).filter((t) => t > cutoff);
+  if (recent.length >= RATE_LIMIT_MAX_REQUESTS) {
+    const oldest = recent[0] ?? now;
+    return {
+      allowed: false,
+      retryAfterSec: Math.max(1, Math.ceil((oldest + RATE_LIMIT_WINDOW_MS - now) / 1000)),
+    };
+  }
+  recent.push(now);
+  ipHits.set(ip, recent);
+  return { allowed: true, retryAfterSec: 0 };
+}
+
+function getClientIp(headers: Headers): string {
+  const fwd = headers.get('x-forwarded-for');
+  if (fwd) {
+    const first = fwd.split(',')[0]?.trim();
+    if (first) return first;
+  }
+  return headers.get('x-real-ip')?.trim() || 'unknown';
+}
+
+function resolveRequestAppOrigin(configuredPublicAppUrl: string, headers: Headers): string {
+  const clean = configuredPublicAppUrl.replace(/\/+$/, '');
+  if (!clean.startsWith('http://localhost')) return clean;
+  const fwdHost = headers.get('x-forwarded-host')?.trim();
+  const fwdProto = headers.get('x-forwarded-proto')?.trim() || 'https';
+  if (fwdHost && !fwdHost.startsWith('localhost')) {
+    return `${fwdProto}://${fwdHost}`;
+  }
+  return clean;
 }
 
 function splitNonces(stored: string | null | undefined): {
@@ -84,6 +132,20 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
   const app = new Hono();
 
   app.post('/:slug/payments/interledger/prepare', async (c) => {
+    const rate = checkIpRateLimit(getClientIp(c.req.raw.headers));
+    if (!rate.allowed) {
+      c.header('Retry-After', String(rate.retryAfterSec));
+      return c.json(
+        {
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'Too many Interledger payment attempts. Please wait a moment and try again.',
+          },
+        },
+        429,
+      );
+    }
+
     const body = prepareSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
       return c.json({ error: { code: 'BAD_REQUEST', issues: body.error.issues } }, 400);
@@ -207,6 +269,23 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       );
     }
 
+    // Prevent abuse: cap Interledger attempts per booking
+    const priorAttempts = await deps.db.query.openPaymentsAttempts.findMany({
+      where: eq(openPaymentsAttempts.bookingId, booking.id),
+      columns: { id: true },
+    });
+    if (priorAttempts.length >= MAX_ATTEMPTS_PER_BOOKING) {
+      return c.json(
+        {
+          error: {
+            code: 'TOO_MANY_ATTEMPTS',
+            message: 'Maximum Interledger payment attempts reached for this booking hold.',
+          },
+        },
+        429,
+      );
+    }
+
     const service = await deps.db.query.services.findFirst({
       where: and(eq(services.id, booking.serviceId), eq(services.businessId, business.id)),
     });
@@ -244,6 +323,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       amountKobo: depositKobo,
       ngnToUsdRate: deps.ngnToUsdRate,
       expiresAt: booking.holdExpiresAt,
+      ssrfOptions: { testnetOnly: deps.testnetOnly ?? true },
     });
 
     if (!prepared.ok) {
@@ -335,6 +415,20 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
   });
 
   app.post('/:slug/payments/interledger/authorize', async (c) => {
+    const rate = checkIpRateLimit(getClientIp(c.req.raw.headers));
+    if (!rate.allowed) {
+      c.header('Retry-After', String(rate.retryAfterSec));
+      return c.json(
+        {
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'Too many authorization requests. Please wait a moment and try again.',
+          },
+        },
+        429,
+      );
+    }
+
     const body = authorizeSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
       return c.json({ error: { code: 'BAD_REQUEST', issues: body.error.issues } }, 400);
@@ -382,10 +476,14 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       );
     }
 
+    const payment = await deps.db.query.payments.findFirst({
+      where: eq(payments.id, attempt.paymentId),
+    });
+
     const rawCustWallet = await adapter.getWalletAddress(attempt.senderWalletAddress);
+    const requestOrigin = resolveRequestAppOrigin(deps.publicAppUrl, c.req.raw.headers);
     const baseCallbackUrl =
-      deps.redirectUri?.trim() ||
-      `${deps.publicAppUrl.replace(/\/+$/, '')}/api/payments/interledger/callback`;
+      deps.redirectUri?.trim() || `${requestOrigin}/api/payments/interledger/callback`;
     const callbackWithPayment = new URL(baseCallbackUrl);
     callbackWithPayment.searchParams.set('paymentId', attempt.paymentId);
     const callbackUrl = callbackWithPayment.toString();
@@ -409,8 +507,8 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
         },
         receiveAmount: {
           value: attempt.quoteReceiveAmount ?? '0',
-          assetCode: attempt.quoteDebitAssetCode,
-          assetScale: attempt.quoteDebitAssetScale ?? 2,
+          assetCode: payment?.assetCode ?? attempt.quoteDebitAssetCode,
+          assetScale: payment?.assetScale ?? attempt.quoteDebitAssetScale ?? 2,
         },
         method: 'ilp',
         createdAt: new Date().toISOString(),
@@ -681,13 +779,55 @@ export function interledgerIntegrationRoutes(deps: {
 export function interledgerCallbackRoutes(deps: InterledgerRoutesDeps) {
   const app = new Hono();
 
+  /** Safe readiness check — reports configuration state without exposing any secrets (I8). */
+  app.get('/health', async (c) => {
+    const requestOrigin = resolveRequestAppOrigin(deps.publicAppUrl, c.req.raw.headers);
+    const redirectUri =
+      deps.redirectUri?.trim() || `${requestOrigin}/api/payments/interledger/callback`;
+    const mode = deps.mode ?? 'disabled';
+    const testnetOnlyEnforced = deps.testnetOnly ?? true;
+    const configured = Boolean(
+      mode !== 'disabled' &&
+        deps.walletAddress &&
+        deps.keyIdConfigured &&
+        deps.privateKeyConfigured,
+    );
+
+    let clientInitialized = false;
+    let initError: string | null = null;
+    if (configured) {
+      try {
+        const adapter = await deps.getAdapter();
+        clientInitialized = Boolean(adapter);
+      } catch (err) {
+        initError =
+          err instanceof Error ? err.message : 'Failed to initialize Open Payments client';
+      }
+    }
+
+    return c.json({
+      mode,
+      configured,
+      clientInitialized,
+      walletAddress: deps.walletAddress ?? null,
+      keyIdConfigured: Boolean(deps.keyIdConfigured),
+      privateKeyConfigured: Boolean(deps.privateKeyConfigured),
+      privateKeySource: deps.privateKeySource ?? 'none',
+      encryptionKeyConfigured: Boolean(deps.encryptionKeyConfigured),
+      redirectUri,
+      testnetOnlyEnforced,
+      liveMoneyBlocked: testnetOnlyEnforced,
+      ...(initError ? { initError } : {}),
+    });
+  });
+
   app.get('/callback', async (c) => {
     const paymentId = c.req.query('paymentId')?.trim() ?? '';
     const state = c.req.query('state')?.trim() ?? '';
     const interactRef = c.req.query('interact_ref')?.trim() ?? '';
     const hash = c.req.query('hash')?.trim() || undefined;
     const result = c.req.query('result')?.trim() ?? '';
-    const appBase = deps.publicAppUrl.replace(/\/+$/, '');
+    const appBase = resolveRequestAppOrigin(deps.publicAppUrl, c.req.raw.headers);
 
     if (!paymentId) {
       return c.redirect(`${appBase}/?ilp_error=missing_payment`, 302);

@@ -20,6 +20,13 @@ export type AppDeps = {
   logger: Logger;
   publicAppUrl?: string;
   openPayments?: {
+    mode?: 'disabled' | 'test' | 'live';
+    testnetOnly?: boolean;
+    walletAddress?: string | null;
+    keyIdConfigured?: boolean;
+    privateKeyConfigured?: boolean;
+    privateKeySource?: 'pem' | 'path' | 'none';
+    encryptionKeyConfigured?: boolean;
     ngnToUsdRate: number;
     tokenEncryptionKey: string;
     redirectUri?: string;
@@ -80,6 +87,13 @@ export function createApp({
     db,
     logger,
     publicAppUrl,
+    mode: openPayments?.mode ?? ('disabled' as const),
+    testnetOnly: openPayments?.testnetOnly ?? true,
+    walletAddress: openPayments?.walletAddress ?? null,
+    keyIdConfigured: openPayments?.keyIdConfigured ?? false,
+    privateKeyConfigured: openPayments?.privateKeyConfigured ?? false,
+    privateKeySource: openPayments?.privateKeySource ?? ('none' as const),
+    encryptionKeyConfigured: openPayments?.encryptionKeyConfigured ?? false,
     ...(openPayments?.redirectUri ? { redirectUri: openPayments.redirectUri } : {}),
     ngnToUsdRate: openPayments?.ngnToUsdRate ?? 0.000625,
     tokenEncryptionKey:

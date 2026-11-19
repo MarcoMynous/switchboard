@@ -26,6 +26,17 @@ describe('SSRF & wallet address validation', () => {
 
     const https = normalizeWalletAddressUrl('https://ilp.interledger-test.dev/bob');
     expect(https.ok).toBe(true);
+
+    // Testnet-only mode allows official Interledger Testnet and blocks real-money wallets
+    const testnetAllowed = normalizeWalletAddressUrl('$ilp.interledger-test.dev/1ca580ac', {
+      testnetOnly: true,
+    });
+    expect(testnetAllowed.ok).toBe(true);
+    const liveBlocked = normalizeWalletAddressUrl('https://ilp.example-bank.com/alice', {
+      testnetOnly: true,
+    });
+    expect(liveBlocked.ok).toBe(false);
+    if (!liveBlocked.ok) expect(liveBlocked.error.code).toBe('SSRF_BLOCKED');
   });
 
   it('blocks HTTP, localhost, private IPs, metadata endpoints, and embedded credentials', () => {

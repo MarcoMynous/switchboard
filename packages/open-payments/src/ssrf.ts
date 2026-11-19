@@ -7,7 +7,11 @@ export interface SsrfCheckOptions {
   allowInsecureHttp?: boolean;
   /** Skip DNS lookup when using an in-memory mock adapter. */
   skipDnsCheck?: boolean;
+  /** When true (OPEN_PAYMENTS_MODE=test), restrict wallets strictly to official Interledger Testnet hosts. */
+  testnetOnly?: boolean;
 }
+
+const TESTNET_ALLOWED_HOST_SUFFIX = '.interledger-test.dev';
 
 const BLOCKED_HOSTNAMES = new Set([
   'localhost',
@@ -116,6 +120,15 @@ export function normalizeWalletAddressUrl(
     return err({
       code: 'SSRF_BLOCKED',
       message: 'Private IP wallet addresses are not permitted.',
+      retryable: false,
+    });
+  }
+
+  if (opts.testnetOnly && !bareHost.endsWith(TESTNET_ALLOWED_HOST_SUFFIX)) {
+    return err({
+      code: 'SSRF_BLOCKED',
+      message:
+        'Test mode only permits official Interledger Test Wallet addresses (*.interledger-test.dev). Real-money wallets are blocked.',
       retryable: false,
     });
   }

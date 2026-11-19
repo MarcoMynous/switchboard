@@ -78,7 +78,15 @@ function loadPrivateKey(config: RealClientConfig) {
   if (!rawPem) {
     throw new Error('Either privateKeyPem or privateKeyPath must be provided');
   }
-  // Support escaped \n in env vars or base64-encoded PEM
+  // Strip accidental surrounding quotes from Vercel/shell env var entry
+  if (
+    (rawPem.startsWith('"') && rawPem.endsWith('"')) ||
+    (rawPem.startsWith("'") && rawPem.endsWith("'"))
+  ) {
+    rawPem = rawPem.slice(1, -1).trim();
+  }
+  // Normalize Windows CRLF and escaped \n in single-line env vars, or decode base64-encoded PEM
+  rawPem = rawPem.replace(/\r\n/g, '\n');
   if (rawPem.includes('\\n')) {
     rawPem = rawPem.replace(/\\n/g, '\n');
   } else if (!rawPem.includes('-----BEGIN')) {

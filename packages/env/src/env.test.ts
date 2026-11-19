@@ -126,6 +126,17 @@ describe('openPaymentsSchema', () => {
     expect(enabled.success).toBe(true);
   });
 
+  it('accepts OPEN_PAYMENTS_MODE=test with PEM key and without private key path', () => {
+    const testMode = openPaymentsSchema.safeParse({
+      OPEN_PAYMENTS_MODE: 'test',
+      OPEN_PAYMENTS_WALLET_ADDRESS: 'https://ilp.interledger-test.dev/switchboard',
+      OPEN_PAYMENTS_KEY_ID: 'f824e1c3-4548-405f-8e2e-369a781e1a03',
+      OPEN_PAYMENTS_PRIVATE_KEY_PEM:
+        '-----BEGIN PRIVATE KEY-----\\nTEST\\n-----END PRIVATE KEY-----',
+    });
+    expect(testMode.success).toBe(true);
+  });
+
   it('blocks production mode unless explicitly approved', () => {
     const unapproved = openPaymentsSchema.safeParse({
       OPEN_PAYMENTS_ENABLED: 'true',
