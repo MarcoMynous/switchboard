@@ -734,6 +734,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
           adapter,
           logger: deps.logger,
           paymentId: targetPaymentId,
+          tokenEncryptionKey: deps.tokenEncryptionKey,
         }).catch((err) => {
           deps.logger.warn(
             { err, paymentId: targetPaymentId },

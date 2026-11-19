@@ -2,6 +2,7 @@ import { confirmBooking } from '@switchboard/booking';
 import { auditLog, type Db, openPaymentsAttempts, outbox, payments } from '@switchboard/db';
 import {
   type DiscoveredWallet,
+  decryptToken,
   type OpenPaymentsAdapter,
   verifyIncomingPaymentReceipt,
 } from '@switchboard/open-payments';
@@ -21,8 +22,9 @@ export async function verifyAndSettleInterledgerPayment(deps: {
   adapter: OpenPaymentsAdapter;
   logger: Logger;
   paymentId: string;
+  tokenEncryptionKey?: string;
 }): Promise<InterledgerVerificationOutcome> {
-  const { db, adapter, logger, paymentId } = deps;
+  const { db, adapter, logger, paymentId, tokenEncryptionKey } = deps;
 
   const attempt = await db.query.openPaymentsAttempts.findFirst({
     where: eq(openPaymentsAttempts.paymentId, paymentId),
@@ -162,6 +164,49 @@ export async function verifyAndSettleInterledgerPayment(deps: {
   }
 
   if (!receipt.value.verified) {
+    // Check whether the customer's outgoing payment failed on the provider (e.g. insufficient funds / ILP routing)
+    if (attempt.outgoingPaymentId && attempt.outgoingAccessTokenEnc && tokenEncryptionKey) {
+      try {
+        const outgoingToken = decryptToken(attempt.outgoingAccessTokenEnc, tokenEncryptionKey);
+        const outgoing = await adapter.getOutgoingPayment(attempt.outgoingPaymentId, outgoingToken);
+        logger.info(
+          {
+            paymentId,
+            outgoingPaymentId: attempt.outgoingPaymentId,
+            outgoingFailed: outgoing.failed ?? false,
+            sentAmount: outgoing.sentAmount,
+          },
+          'interledger: inspected outgoing payment state',
+        );
+        if (outgoing.failed) {
+          const failMsg =
+            'Test wallet outgoing payment failed on the provider (check EUR wallet balance or test-network liquidity).';
+          await db.transaction(async (tx) => {
+            await tx
+              .update(payments)
+              .set({ status: 'failed', updatedAt: new Date() })
+              .where(
+                and(
+                  eq(payments.id, paymentId),
+                  inArray(payments.status, ['created', 'pending', 'pending_verification']),
+                ),
+              );
+            await tx
+              .update(openPaymentsAttempts)
+              .set({
+                grantState: 'failed',
+                lastErrorCode: 'OUTGOING_PAYMENT_FAILED',
+                lastErrorMessage: failMsg,
+                updatedAt: new Date(),
+              })
+              .where(eq(openPaymentsAttempts.paymentId, paymentId));
+          });
+          return { status: 'error', message: failMsg };
+        }
+      } catch (err) {
+        logger.warn({ paymentId, err }, 'interledger: failed to inspect outgoing payment');
+      }
+    }
     logger.info(
       {
         paymentId,
