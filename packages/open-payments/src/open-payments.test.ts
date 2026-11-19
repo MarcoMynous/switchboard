@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   completeAuthorizationAndCreateOutgoingPayment,
@@ -9,6 +9,7 @@ import {
   encryptToken,
   formatAssetAmount,
   normalizeWalletAddressUrl,
+  parseEd25519PrivateKey,
   prepareIncomingPaymentAndQuote,
   startOutgoingPaymentAuthorization,
   testBusinessWalletConnection,
@@ -64,6 +65,20 @@ describe('Crypto & GNAP interaction hash', () => {
     const enc = encryptToken(token, ENC_KEY);
     expect(enc).not.toContain(token);
     expect(decryptToken(enc, ENC_KEY)).toBe(token);
+  });
+
+  it('parses Ed25519 private keys in multiline, escaped-newline, space-flattened, base64-PEM, and raw base64-DER formats', () => {
+    const { privateKey } = generateKeyPairSync('ed25519');
+    const pem = privateKey.export({ format: 'pem', type: 'pkcs8' }).toString();
+    const derB64 = privateKey.export({ format: 'der', type: 'pkcs8' }).toString('base64');
+    const escaped = pem.replace(/\n/g, '\\n');
+    const spaceFlattened = pem.replace(/\n/g, ' ');
+    const base64Pem = Buffer.from(pem, 'utf8').toString('base64');
+
+    for (const variant of [pem, `"${escaped}"`, spaceFlattened, base64Pem, derB64]) {
+      const parsed = parseEd25519PrivateKey(variant);
+      expect(parsed.asymmetricKeyType).toBe('ed25519');
+    }
   });
 
   it('verifies GNAP interaction hash and rejects tampered hashes', () => {

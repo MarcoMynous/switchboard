@@ -70,6 +70,43 @@ export interface RealClientConfig {
   useHttp?: boolean;
 }
 
+export function parseEd25519PrivateKey(rawInput: string) {
+  let raw = rawInput.trim();
+  // Strip accidental surrounding quotes from Vercel/shell env var entry
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    raw = raw.slice(1, -1).trim();
+  }
+  raw = raw.replace(/\r\n/g, '\n').replace(/\\n/g, '\n');
+
+  // If no PEM header yet, check if it's base64-encoded PEM or raw base64 PKCS#8 DER
+  if (!raw.includes('-----BEGIN')) {
+    const compact = raw.replace(/\s+/g, '');
+    const decodedUtf8 = Buffer.from(compact, 'base64').toString('utf8');
+    if (decodedUtf8.includes('-----BEGIN')) {
+      raw = decodedUtf8.replace(/\r\n/g, '\n');
+    } else {
+      // Raw base64 PKCS#8 DER body (e.g. "MC4CAQAwBQYDK2Vw...")
+      return createPrivateKey({
+        key: Buffer.from(compact, 'base64'),
+        format: 'der',
+        type: 'pkcs8',
+      });
+    }
+  }
+
+  // Reconstruct canonical PEM so space-flattened single-line pastes from Vercel UI always decode cleanly
+  const pemMatch = raw.match(/-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END ([A-Z0-9 ]+)-----/);
+  if (pemMatch?.[1] && pemMatch[2] && pemMatch[3]) {
+    const header = pemMatch[1].trim();
+    const footer = pemMatch[3].trim();
+    const body = pemMatch[2].replace(/\s+/g, '');
+    const wrapped = body.match(/.{1,64}/g)?.join('\n') ?? body;
+    return createPrivateKey(`-----BEGIN ${header}-----\n${wrapped}\n-----END ${footer}-----\n`);
+  }
+
+  return createPrivateKey(raw);
+}
+
 function loadPrivateKey(config: RealClientConfig) {
   let rawPem = config.privateKeyPem?.trim();
   if (!rawPem && config.privateKeyPath) {
@@ -78,21 +115,7 @@ function loadPrivateKey(config: RealClientConfig) {
   if (!rawPem) {
     throw new Error('Either privateKeyPem or privateKeyPath must be provided');
   }
-  // Strip accidental surrounding quotes from Vercel/shell env var entry
-  if (
-    (rawPem.startsWith('"') && rawPem.endsWith('"')) ||
-    (rawPem.startsWith("'") && rawPem.endsWith("'"))
-  ) {
-    rawPem = rawPem.slice(1, -1).trim();
-  }
-  // Normalize Windows CRLF and escaped \n in single-line env vars, or decode base64-encoded PEM
-  rawPem = rawPem.replace(/\r\n/g, '\n');
-  if (rawPem.includes('\\n')) {
-    rawPem = rawPem.replace(/\\n/g, '\n');
-  } else if (!rawPem.includes('-----BEGIN')) {
-    rawPem = Buffer.from(rawPem, 'base64').toString('utf8');
-  }
-  return createPrivateKey(rawPem);
+  return parseEd25519PrivateKey(rawPem);
 }
 
 export async function createRealOpenPaymentsAdapter(

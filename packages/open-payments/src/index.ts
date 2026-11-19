@@ -3,6 +3,7 @@ export {
   isFinalizedGrantWithAccessToken,
   isPendingGrant,
   type OpenPaymentsAdapter,
+  parseEd25519PrivateKey,
   type RealClientConfig,
 } from './adapter.ts';
 export {
