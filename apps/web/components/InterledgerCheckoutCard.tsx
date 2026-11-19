@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AppIcon } from './AppIcon';
 import { formatNairaFromKobo } from './DepositCard';
@@ -105,6 +107,7 @@ export function InterledgerCheckoutCard({
   onConfirmed,
   onPickDifferentSlot,
 }: InterledgerCheckoutCardProps) {
+  const router = useRouter();
   const [walletInput, setWalletInput] = useState('');
   const [uiStatus, setUiStatus] = useState<InterledgerUiStatus>('waiting_for_wallet');
   const [quoteData, setQuoteData] = useState<QuoteSummary | null>(null);
@@ -162,6 +165,9 @@ export function InterledgerCheckoutCard({
             if (data.paymentStatus === 'succeeded' && data.bookingStatus === 'confirmed') {
               setUiStatus('confirmed');
               onConfirmed?.(initialCallbackParams.paymentId);
+              router.replace(
+                `/b/${encodeURIComponent(slug)}/receipt?paymentId=${encodeURIComponent(initialCallbackParams.paymentId)}`,
+              );
             } else if (data.paymentStatus === 'failed') {
               setUiStatus('requires_attention');
               setErrorMsg(data.lastErrorMessage ?? 'Payment verification requires attention.');
@@ -243,7 +249,7 @@ export function InterledgerCheckoutCard({
     return () => {
       cancelled = true;
     };
-  }, [initialCallbackParams, onConfirmed, slug]);
+  }, [initialCallbackParams, onConfirmed, router, slug]);
 
   // Poll authoritative backend status while Verifying Payment
   useEffect(() => {
@@ -267,6 +273,9 @@ export function InterledgerCheckoutCard({
         if (data.paymentStatus === 'succeeded' && data.bookingStatus === 'confirmed') {
           setUiStatus('confirmed');
           onConfirmed?.(activePaymentId);
+          router.replace(
+            `/b/${encodeURIComponent(slug)}/receipt?paymentId=${encodeURIComponent(activePaymentId)}`,
+          );
         } else if (data.paymentStatus === 'failed') {
           setUiStatus('requires_attention');
           setErrorMsg(data.lastErrorMessage ?? 'Payment verification failed.');
@@ -282,7 +291,7 @@ export function InterledgerCheckoutCard({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [initialCallbackParams?.paymentId, onConfirmed, quoteData?.paymentId, slug, uiStatus]);
+  }, [initialCallbackParams?.paymentId, onConfirmed, quoteData?.paymentId, router, slug, uiStatus]);
 
   const handleGetQuote = async () => {
     if (!walletInput.trim()) {
@@ -512,14 +521,24 @@ export function InterledgerCheckoutCard({
         )}
 
         {uiStatus === 'confirmed' && (
-          <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-2.5">
-            <AppIcon name="check_circle" className="text-emerald-700 text-lg shrink-0" />
-            <div>
-              <p className="text-sm font-bold text-emerald-900">Appointment confirmed</p>
-              <p className="text-xs text-emerald-800 mt-0.5">
-                Your Interledger deposit has been verified by Switchboard.
-              </p>
+          <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AppIcon name="check_circle" className="text-emerald-700 text-lg shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-emerald-900">Appointment confirmed</p>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  Your Interledger test-wallet deposit has been verified by Switchboard.
+                </p>
+              </div>
             </div>
+            {(quoteData?.paymentId ?? initialCallbackParams?.paymentId) && (
+              <Link
+                href={`/b/${encodeURIComponent(slug)}/receipt?paymentId=${encodeURIComponent(quoteData?.paymentId ?? initialCallbackParams?.paymentId ?? '')}`}
+                className="block w-full py-2.5 rounded-xl bg-[#22306B] text-white text-xs font-semibold text-center"
+              >
+                View Payment Receipt & Booking Details
+              </Link>
+            )}
           </div>
         )}
 

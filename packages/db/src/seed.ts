@@ -57,6 +57,17 @@ try {
       defaultDepositKobo: 150_000,
       cancellationPolicy: 'Full refund if cancelled at least 4 hours before your scheduled slot.',
       koraStatus: 'ready',
+      interledgerEnabled: true,
+      interledgerEnvironment: 'testnet',
+      interledgerWalletAddress: 'https://ilp.interledger-test.dev/switchboard',
+      interledgerAuthServer:
+        'https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c',
+      interledgerResourceServer:
+        'https://ilp.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c',
+      interledgerAssetCode: 'USD',
+      interledgerAssetScale: 2,
+      interledgerKeyId: 'f824e1c3-4548-405f-8e2e-369a781e1a03',
+      interledgerStatus: 'test_mode',
       assistantName: 'Maya',
       greeting:
         "Hi! Welcome to Fade Republic. I'm Maya, your booking assistant. Which service or barber would you like to book today?",

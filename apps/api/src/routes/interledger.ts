@@ -706,6 +706,20 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       ? await deps.db.query.bookings.findFirst({ where: eq(bookings.id, payment.bookingId) })
       : null;
 
+    const [service, staffMember, customer] = await Promise.all([
+      booking
+        ? deps.db.query.services.findFirst({ where: eq(services.id, booking.serviceId) })
+        : null,
+      booking
+        ? deps.db.query.staff.findFirst({ where: (s, { eq: eqFn }) => eqFn(s.id, booking.staffId) })
+        : null,
+      booking
+        ? deps.db.query.customers.findFirst({
+            where: (cu, { eq: eqFn }) => eqFn(cu.id, booking.customerId),
+          })
+        : null,
+    ]);
+
     return c.json({
       paymentId: payment.id,
       reference: payment.providerReference,
@@ -713,13 +727,31 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       bookingStatus: booking?.status ?? null,
       grantState: attempt?.grantState ?? null,
       isSimulated: payment.isSimulated,
+      amountKobo: payment.amountKobo,
       assetCode: payment.assetCode,
       assetScale: payment.assetScale,
       expectedAmount: payment.providerExpectedAmount,
       receivedAmount: payment.providerReceivedAmount,
+      quoteDebitAmount: attempt?.quoteDebitAmount ?? null,
+      quoteDebitAssetCode: attempt?.quoteDebitAssetCode ?? null,
+      quoteDebitAssetScale: attempt?.quoteDebitAssetScale ?? null,
+      incomingPaymentId: attempt?.incomingPaymentId ?? null,
+      outgoingPaymentId: attempt?.outgoingPaymentId ?? null,
       lastErrorCode: attempt?.lastErrorCode ?? null,
       lastErrorMessage: attempt?.lastErrorMessage ?? null,
+      createdAt: payment.createdAt.toISOString(),
       verifiedAt: payment.verifiedAt?.toISOString() ?? null,
+      receipt: {
+        businessName: catalog.business.name,
+        businessLocation: catalog.business.location,
+        timezone: catalog.business.timezone,
+        serviceName: service?.name ?? null,
+        staffName: staffMember?.name ?? null,
+        customerName: customer?.name ?? null,
+        startsAt: booking?.startsAt.toISOString() ?? null,
+        endsAt: booking?.endsAt.toISOString() ?? null,
+        holdExpiresAt: booking?.holdExpiresAt?.toISOString() ?? null,
+      },
     });
   });
 
