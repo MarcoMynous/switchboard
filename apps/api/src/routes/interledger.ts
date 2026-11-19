@@ -25,10 +25,24 @@ export interface InterledgerRoutesDeps {
   db: Db;
   logger: Logger;
   publicAppUrl: string;
+  redirectUri?: string;
   ngnToUsdRate: number;
   tokenEncryptionKey: string;
   getAdapter: () => Promise<OpenPaymentsAdapter | null>;
   enqueueVerify?: (paymentId: string) => Promise<void>;
+}
+
+function splitNonces(stored: string | null | undefined): {
+  clientNonce: string;
+  interactNonce: string;
+} {
+  if (!stored) return { clientNonce: '', interactNonce: '' };
+  const idx = stored.indexOf(':');
+  if (idx === -1) return { clientNonce: stored, interactNonce: stored };
+  return {
+    clientNonce: stored.slice(0, idx),
+    interactNonce: stored.slice(idx + 1),
+  };
 }
 
 const prepareSchema = z.object({
@@ -369,7 +383,12 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
     }
 
     const rawCustWallet = await adapter.getWalletAddress(attempt.senderWalletAddress);
-    const callbackUrl = `${deps.publicAppUrl.replace(/\/+$/, '')}/b/${encodeURIComponent(slug)}?ilp_payment=${encodeURIComponent(attempt.paymentId)}`;
+    const baseCallbackUrl =
+      deps.redirectUri?.trim() ||
+      `${deps.publicAppUrl.replace(/\/+$/, '')}/api/payments/interledger/callback`;
+    const callbackWithPayment = new URL(baseCallbackUrl);
+    callbackWithPayment.searchParams.set('paymentId', attempt.paymentId);
+    const callbackUrl = callbackWithPayment.toString();
 
     const authRes = await startOutgoingPaymentAuthorization(adapter, {
       customerWallet: {
@@ -409,7 +428,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       .set({
         grantState: 'awaiting_authorization',
         authNonceHash: authRes.value.authNonceHash,
-        interactNonce: authRes.value.interactNonce,
+        interactNonce: `${authRes.value.clientNonce}:${authRes.value.interactNonce}`,
         continueUri: authRes.value.continueUri,
         continueAccessTokenEnc: authRes.value.continueAccessTokenEnc,
         updatedAt: new Date(),
@@ -489,6 +508,7 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
     }
 
     const rawCustWallet = await adapter.getWalletAddress(attempt.senderWalletAddress);
+    const { clientNonce, interactNonce } = splitNonces(attempt.interactNonce);
 
     const completed = await completeAuthorizationAndCreateOutgoingPayment(adapter, {
       customerWallet: {
@@ -503,8 +523,8 @@ export function interledgerPublicRoutes(deps: InterledgerRoutesDeps) {
       holdExpiresAt: booking.holdExpiresAt,
       interactRef: body.data.interact_ref,
       ...(body.data.hash ? { receivedHash: body.data.hash } : {}),
-      clientNonce: attempt.interactNonce ?? '',
-      interactNonce: attempt.interactNonce ?? '',
+      clientNonce,
+      interactNonce,
       continueUri: attempt.continueUri,
       continueAccessTokenEnc: attempt.continueAccessTokenEnc,
       tokenEncryptionKey: deps.tokenEncryptionKey,
@@ -648,6 +668,175 @@ export function interledgerIntegrationRoutes(deps: {
       status: res.value.grantVerified ? 'test_mode' : 'incomplete',
       wallet: res.value.wallet,
     });
+  });
+
+  return app;
+}
+
+/**
+ * Browser GET callback endpoint for Open Payments GNAP redirect (`OPEN_PAYMENTS_REDIRECT_URI`).
+ * Validates single-use state + GNAP hash server-side, continues grant, creates outgoing payment,
+ * independently verifies recipient incoming payment, and redirects back to `/b/[slug]`.
+ */
+export function interledgerCallbackRoutes(deps: InterledgerRoutesDeps) {
+  const app = new Hono();
+
+  app.get('/callback', async (c) => {
+    const paymentId = c.req.query('paymentId')?.trim() ?? '';
+    const state = c.req.query('state')?.trim() ?? '';
+    const interactRef = c.req.query('interact_ref')?.trim() ?? '';
+    const hash = c.req.query('hash')?.trim() || undefined;
+    const result = c.req.query('result')?.trim() ?? '';
+    const appBase = deps.publicAppUrl.replace(/\/+$/, '');
+
+    if (!paymentId) {
+      return c.redirect(`${appBase}/?ilp_error=missing_payment`, 302);
+    }
+
+    const attempt = await deps.db.query.openPaymentsAttempts.findFirst({
+      where: eq(openPaymentsAttempts.paymentId, paymentId),
+    });
+    if (!attempt) {
+      return c.redirect(`${appBase}/?ilp_error=attempt_not_found`, 302);
+    }
+
+    const business = await deps.db.query.businesses.findFirst({
+      where: (b, { eq: eqFn }) => eqFn(b.id, attempt.businessId),
+    });
+    const slug = business?.slug ?? 'fade-republic';
+    const bookingPageBase = `${appBase}/b/${encodeURIComponent(slug)}?ilp_payment=${encodeURIComponent(paymentId)}`;
+
+    // Customer cancelled / rejected consent on wallet screen
+    if (result === 'grant_rejected' || !interactRef) {
+      if (attempt.grantState === 'awaiting_authorization') {
+        await deps.db
+          .update(openPaymentsAttempts)
+          .set({
+            grantState: 'failed',
+            authNonceHash: null,
+            lastErrorCode: 'GRANT_REJECTED',
+            lastErrorMessage: 'Customer rejected wallet payment authorization.',
+            updatedAt: new Date(),
+          })
+          .where(eq(openPaymentsAttempts.id, attempt.id));
+      }
+      return c.redirect(`${bookingPageBase}&ilp_status=rejected`, 302);
+    }
+
+    // Idempotent replay protection: if already processed, redirect cleanly without re-creating outgoing payment
+    if (attempt.grantState === 'outgoing_created' || attempt.grantState === 'verified') {
+      const targetStatus = attempt.grantState === 'verified' ? 'confirmed' : 'verifying';
+      return c.redirect(`${bookingPageBase}&ilp_status=${targetStatus}`, 302);
+    }
+
+    const incomingHash = state ? sha256Hex(state) : '';
+    if (
+      attempt.grantState !== 'awaiting_authorization' ||
+      !attempt.authNonceHash ||
+      attempt.authNonceHash !== incomingHash ||
+      !attempt.continueUri ||
+      !attempt.continueAccessTokenEnc ||
+      !attempt.quoteId
+    ) {
+      return c.redirect(`${bookingPageBase}&ilp_status=invalid_state`, 302);
+    }
+
+    const booking = await deps.db.query.bookings.findFirst({
+      where: eq(bookings.id, attempt.bookingId),
+    });
+    if (!booking?.holdExpiresAt) {
+      return c.redirect(`${bookingPageBase}&ilp_status=expired`, 302);
+    }
+
+    const adapter = await deps.getAdapter();
+    if (!adapter) {
+      return c.redirect(`${bookingPageBase}&ilp_status=unavailable`, 302);
+    }
+
+    const rawCustWallet = await adapter.getWalletAddress(attempt.senderWalletAddress);
+    const { clientNonce, interactNonce } = splitNonces(attempt.interactNonce);
+
+    const completed = await completeAuthorizationAndCreateOutgoingPayment(adapter, {
+      customerWallet: {
+        id: rawCustWallet.id,
+        assetCode: rawCustWallet.assetCode,
+        assetScale: rawCustWallet.assetScale,
+        authServer: rawCustWallet.authServer,
+        resourceServer: rawCustWallet.resourceServer,
+      },
+      quoteId: attempt.quoteId,
+      quoteExpiresAt: attempt.quoteExpiresAt,
+      holdExpiresAt: booking.holdExpiresAt,
+      interactRef,
+      ...(hash ? { receivedHash: hash } : {}),
+      clientNonce,
+      interactNonce,
+      continueUri: attempt.continueUri,
+      continueAccessTokenEnc: attempt.continueAccessTokenEnc,
+      tokenEncryptionKey: deps.tokenEncryptionKey,
+      bookingId: booking.id,
+      paymentId: attempt.paymentId,
+    });
+
+    if (!completed.ok) {
+      await deps.db
+        .update(openPaymentsAttempts)
+        .set({
+          grantState: 'failed',
+          authNonceHash: null,
+          lastErrorCode: completed.error.code,
+          lastErrorMessage: completed.error.message,
+          updatedAt: new Date(),
+        })
+        .where(eq(openPaymentsAttempts.id, attempt.id));
+      return c.redirect(
+        `${bookingPageBase}&ilp_status=error&ilp_code=${encodeURIComponent(completed.error.code)}`,
+        302,
+      );
+    }
+
+    await deps.db.transaction(async (tx) => {
+      await tx
+        .update(openPaymentsAttempts)
+        .set({
+          grantState: 'outgoing_created',
+          authNonceHash: null,
+          outgoingPaymentId: completed.value.outgoingPayment.id,
+          outgoingAccessTokenEnc: completed.value.outgoingAccessTokenEnc,
+          updatedAt: new Date(),
+        })
+        .where(eq(openPaymentsAttempts.id, attempt.id));
+
+      await tx
+        .update(payments)
+        .set({ status: 'pending_verification', updatedAt: new Date() })
+        .where(eq(payments.id, attempt.paymentId));
+    });
+
+    if (deps.enqueueVerify) {
+      await deps.enqueueVerify(attempt.paymentId).catch((err) => {
+        deps.logger.warn(
+          { err, paymentId: attempt.paymentId },
+          'interledger: failed to enqueue verify on GET callback',
+        );
+      });
+    }
+
+    const verification = await verifyAndSettleInterledgerPayment({
+      db: deps.db,
+      adapter,
+      logger: deps.logger,
+      paymentId: attempt.paymentId,
+    });
+
+    const nextStatus =
+      verification.status === 'confirmed'
+        ? 'confirmed'
+        : verification.status === 'underpaid' || verification.status === 'late_requires_attention'
+          ? 'attention'
+          : 'verifying';
+
+    return c.redirect(`${bookingPageBase}&ilp_status=${nextStatus}`, 302);
   });
 
   return app;

@@ -166,13 +166,11 @@ describe('End-to-end Open Payments protocol flow', () => {
     const interactRef = 'interact-ref-abc';
     const validHash = createHash('sha256')
       .update(
-        `${auth.value.interactNonce}\n${auth.value.interactNonce}\n${interactRef}\n${auth.value.grantEndpoint}`,
+        `${auth.value.clientNonce}\n${auth.value.interactNonce}\n${interactRef}\n${auth.value.grantEndpoint}`,
         'utf8',
       )
       .digest('base64url');
 
-    // Note: in startOutgoingPaymentAuthorization we passed clientNonce=interactNonce to finish.nonce
-    // and server echoed interact.finish as server-nonce, so test hash check with matching values
     const completed = await completeAuthorizationAndCreateOutgoingPayment(adapter, {
       customerWallet: prepared.value.customerWallet,
       quoteId: prepared.value.quote.id,
@@ -181,7 +179,7 @@ describe('End-to-end Open Payments protocol flow', () => {
         : null,
       holdExpiresAt: new Date(Date.now() + 900_000),
       interactRef,
-      clientNonce: auth.value.interactNonce,
+      clientNonce: auth.value.clientNonce,
       interactNonce: auth.value.interactNonce,
       receivedHash: validHash,
       continueUri: auth.value.continueUri,

@@ -261,6 +261,7 @@ export default function PublicBookingPage() {
       interactRef: searchParams.get('interact_ref'),
       hash: searchParams.get('hash'),
       result: searchParams.get('result'),
+      ilpStatus: searchParams.get('ilp_status'),
     };
   }, [searchParams]);
 
@@ -1274,9 +1275,9 @@ export default function PublicBookingPage() {
                             : 'border-slate-200 bg-white hover:border-slate-300'
                         }`}
                       >
-                        <p className="text-xs font-bold text-[#111827]">Bank Transfer — Kora</p>
+                        <p className="text-xs font-bold text-[#111827]">Kora Bank Transfer</p>
                         <p className="text-[11px] text-slate-600 mt-0.5">
-                          Pay your booking deposit using a bank transfer.
+                          Pay your booking deposit in NGN using a bank transfer.
                         </p>
                       </button>
 
@@ -1290,15 +1291,17 @@ export default function PublicBookingPage() {
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-bold text-[#111827]">Interledger Wallet</p>
+                          <p className="text-xs font-bold text-[#111827]">
+                            Interledger Test Wallet
+                          </p>
                           {interledgerEnvironment === 'testnet' && (
                             <span className="px-1.5 py-0.5 rounded bg-[#F5B700]/20 text-[#7A5900] text-[10px] font-semibold">
-                              Testnet
+                              Test Money
                             </span>
                           )}
                         </div>
                         <p className="text-[11px] text-slate-600 mt-0.5">
-                          Pay securely using a supported wallet.
+                          Pay with Interledger using an Open Payments test wallet.
                         </p>
                       </button>
                     </div>

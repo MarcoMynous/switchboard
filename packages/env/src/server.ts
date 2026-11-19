@@ -102,6 +102,7 @@ export const bookingSchema = z.object({
  */
 export const openPaymentsSchema = z
   .object({
+    OPEN_PAYMENTS_MODE: z.enum(['disabled', 'test', 'live']).default('disabled'),
     OPEN_PAYMENTS_ENABLED: z
       .enum(['true', 'false'])
       .default('false')
@@ -111,43 +112,49 @@ export const openPaymentsSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
+    OPEN_PAYMENTS_WALLET_ADDRESS: z.string().optional(),
     OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS: z.string().optional(),
     OPEN_PAYMENTS_KEY_ID: z.string().optional(),
+    OPEN_PAYMENTS_PRIVATE_KEY_PATH: z.string().optional(),
     OPEN_PAYMENTS_PRIVATE_KEY_PEM: z.string().optional(),
+    OPEN_PAYMENTS_REDIRECT_URI: z.url().optional(),
     OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY: z.string().optional(),
     OPEN_PAYMENTS_NGN_TO_USD_RATE: z.coerce.number().positive().default(0.000625),
   })
   .superRefine((e, ctx) => {
-    if (!e.OPEN_PAYMENTS_ENABLED) return;
-    if (!e.OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS) {
+    const active = e.OPEN_PAYMENTS_ENABLED || e.OPEN_PAYMENTS_MODE !== 'disabled';
+    if (!active) return;
+    const walletAddress = e.OPEN_PAYMENTS_WALLET_ADDRESS || e.OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS;
+    if (!walletAddress) {
       ctx.addIssue({
         code: 'custom',
-        path: ['OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS'],
-        message: 'required when OPEN_PAYMENTS_ENABLED=true',
+        path: ['OPEN_PAYMENTS_WALLET_ADDRESS'],
+        message: 'required when Open Payments is enabled',
       });
     }
     if (!e.OPEN_PAYMENTS_KEY_ID) {
       ctx.addIssue({
         code: 'custom',
         path: ['OPEN_PAYMENTS_KEY_ID'],
-        message: 'required when OPEN_PAYMENTS_ENABLED=true',
+        message: 'required when Open Payments is enabled',
       });
     }
-    if (!e.OPEN_PAYMENTS_PRIVATE_KEY_PEM) {
+    if (!e.OPEN_PAYMENTS_PRIVATE_KEY_PEM && !e.OPEN_PAYMENTS_PRIVATE_KEY_PATH) {
       ctx.addIssue({
         code: 'custom',
-        path: ['OPEN_PAYMENTS_PRIVATE_KEY_PEM'],
-        message: 'required when OPEN_PAYMENTS_ENABLED=true',
+        path: ['OPEN_PAYMENTS_PRIVATE_KEY_PATH'],
+        message: 'OPEN_PAYMENTS_PRIVATE_KEY_PATH or OPEN_PAYMENTS_PRIVATE_KEY_PEM is required',
       });
     }
-    if (!e.OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY || e.OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY.length < 32) {
+    if (e.OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY && e.OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY.length < 32) {
       ctx.addIssue({
         code: 'custom',
         path: ['OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY'],
-        message: 'must be at least 32 characters when OPEN_PAYMENTS_ENABLED=true',
+        message: 'must be at least 32 characters when provided',
       });
     }
-    if (e.OPEN_PAYMENTS_ENV === 'production' && !e.OPEN_PAYMENTS_PRODUCTION_APPROVED) {
+    const isProd = e.OPEN_PAYMENTS_ENV === 'production' || e.OPEN_PAYMENTS_MODE === 'live';
+    if (isProd && !e.OPEN_PAYMENTS_PRODUCTION_APPROVED) {
       ctx.addIssue({
         code: 'custom',
         path: ['OPEN_PAYMENTS_PRODUCTION_APPROVED'],

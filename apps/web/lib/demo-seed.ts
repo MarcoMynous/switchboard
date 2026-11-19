@@ -129,11 +129,12 @@ async function populateDemoBusiness(
     `UPDATE businesses
      SET interledger_enabled = true,
          interledger_environment = 'testnet',
-         interledger_wallet_address = 'https://ilp.interledger-test.dev/fade-republic',
-         interledger_auth_server = 'https://auth.interledger-test.dev',
-         interledger_resource_server = 'https://ilp.interledger-test.dev',
+         interledger_wallet_address = 'https://ilp.interledger-test.dev/switchboard',
+         interledger_auth_server = 'https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c',
+         interledger_resource_server = 'https://ilp.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c',
          interledger_asset_code = 'USD',
          interledger_asset_scale = 2,
+         interledger_key_id = 'f824e1c3-4548-405f-8e2e-369a781e1a03',
          interledger_status = 'test_mode'
      WHERE id = $1`,
     [businessId],

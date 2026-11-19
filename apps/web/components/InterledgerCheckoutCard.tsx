@@ -46,6 +46,7 @@ export interface InterledgerCheckoutCardProps {
     interactRef: string | null;
     hash: string | null;
     result: string | null;
+    ilpStatus?: string | null;
   } | null;
   onConfirmed?: (paymentId: string) => void;
   onPickDifferentSlot?: () => void;
@@ -121,8 +122,64 @@ export function InterledgerCheckoutCard({
   }, [remainingSeconds]);
 
   // Handle return from Open Payments wallet authorization redirect
+  // Supports both server-handled GET /api/payments/interledger/callback (?ilp_payment=&ilp_status=)
+  // and direct callback params (?ilp_payment=&state=&interact_ref=).
   useEffect(() => {
     if (!initialCallbackParams?.paymentId) return;
+
+    // Server GET callback already processed the grant; verify authoritative status from DB (never trust URL param alone)
+    if (initialCallbackParams.ilpStatus) {
+      if (initialCallbackParams.ilpStatus === 'rejected') {
+        setUiStatus('waiting_for_wallet');
+        setErrorMsg(
+          'Wallet authorization was cancelled or rejected. Your slot hold remains active until expiry.',
+        );
+        return;
+      }
+      if (
+        initialCallbackParams.ilpStatus === 'error' ||
+        initialCallbackParams.ilpStatus === 'invalid_state'
+      ) {
+        setUiStatus('requires_attention');
+        setErrorMsg('Wallet authorization could not be completed. Please try again.');
+        return;
+      }
+
+      let cancelled = false;
+      setUiStatus('verifying_payment');
+      fetch(
+        `/api/public/${encodeURIComponent(slug)}/payments/interledger/${encodeURIComponent(initialCallbackParams.paymentId)}/status`,
+        { cache: 'no-store' },
+      )
+        .then((r) => r.json())
+        .then(
+          (data: {
+            paymentStatus?: string;
+            bookingStatus?: string;
+            lastErrorMessage?: string | null;
+          }) => {
+            if (cancelled) return;
+            if (data.paymentStatus === 'succeeded' && data.bookingStatus === 'confirmed') {
+              setUiStatus('confirmed');
+              onConfirmed?.(initialCallbackParams.paymentId);
+            } else if (data.paymentStatus === 'failed') {
+              setUiStatus('requires_attention');
+              setErrorMsg(data.lastErrorMessage ?? 'Payment verification requires attention.');
+            } else if (data.bookingStatus === 'expired') {
+              setUiStatus('expired');
+            } else {
+              setUiStatus('verifying_payment');
+            }
+          },
+        )
+        .catch(() => {
+          if (!cancelled) setUiStatus('verifying_payment');
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     if (initialCallbackParams.result === 'grant_rejected' || !initialCallbackParams.interactRef) {
       setUiStatus('waiting_for_wallet');
       setErrorMsg(
@@ -322,7 +379,7 @@ export function InterledgerCheckoutCard({
             </span>
             {environment === 'testnet' && (
               <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#F5B700]/20 text-[#7A5900] text-[10px] font-semibold">
-                Testnet · Simulated Money
+                Test Money · Interledger Testnet
               </span>
             )}
           </div>

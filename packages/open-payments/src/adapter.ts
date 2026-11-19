@@ -1,3 +1,5 @@
+import { createPrivateKey } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import {
   type AuthenticatedClient,
   createAuthenticatedClient,
@@ -61,20 +63,42 @@ export interface OpenPaymentsAdapter {
 
 export interface RealClientConfig {
   walletAddressUrl: string;
-  privateKeyPem: string;
+  privateKeyPem?: string;
+  privateKeyPath?: string;
   keyId: string;
   requestTimeoutMs?: number;
   useHttp?: boolean;
 }
 
+function loadPrivateKey(config: RealClientConfig) {
+  let rawPem = config.privateKeyPem?.trim();
+  if (!rawPem && config.privateKeyPath) {
+    rawPem = readFileSync(config.privateKeyPath, 'utf8').trim();
+  }
+  if (!rawPem) {
+    throw new Error('Either privateKeyPem or privateKeyPath must be provided');
+  }
+  // Support escaped \n in env vars or base64-encoded PEM
+  if (rawPem.includes('\\n')) {
+    rawPem = rawPem.replace(/\\n/g, '\n');
+  } else if (!rawPem.includes('-----BEGIN')) {
+    rawPem = Buffer.from(rawPem, 'base64').toString('utf8');
+  }
+  return createPrivateKey(rawPem);
+}
+
 export async function createRealOpenPaymentsAdapter(
   config: RealClientConfig,
 ): Promise<OpenPaymentsAdapter> {
+  const normalizedWalletUrl = config.walletAddressUrl.trim().startsWith('$')
+    ? `https://${config.walletAddressUrl.trim().slice(1)}`
+    : config.walletAddressUrl.trim();
+
   const client: AuthenticatedClient = await createAuthenticatedClient({
-    walletAddressUrl: config.walletAddressUrl,
-    privateKey: Buffer.from(config.privateKeyPem, 'utf8'),
-    keyId: config.keyId,
-    requestTimeoutMs: config.requestTimeoutMs ?? 10_000,
+    walletAddressUrl: normalizedWalletUrl,
+    privateKey: loadPrivateKey(config),
+    keyId: config.keyId.trim(),
+    requestTimeoutMs: config.requestTimeoutMs ?? 15_000,
     useHttp: config.useHttp ?? false,
   });
 

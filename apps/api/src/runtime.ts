@@ -22,9 +22,11 @@ export function boot() {
   };
 
   let cachedAdapter: Promise<OpenPaymentsAdapter | null> | null = null;
+  const isRealOpenPaymentsEnabled =
+    env.OPEN_PAYMENTS_ENABLED || env.OPEN_PAYMENTS_MODE !== 'disabled';
   const getAdapter = () => {
-    if (!env.OPEN_PAYMENTS_ENABLED) {
-      if (env.OPEN_PAYMENTS_ENV === 'production') {
+    if (!isRealOpenPaymentsEnabled) {
+      if (env.OPEN_PAYMENTS_ENV === 'production' || env.OPEN_PAYMENTS_MODE === 'live') {
         return Promise.resolve(null);
       }
       if (!cachedAdapter) {
@@ -40,8 +42,14 @@ export function boot() {
     }
     if (!cachedAdapter) {
       cachedAdapter = createRealOpenPaymentsAdapter({
-        walletAddressUrl: env.OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS ?? '',
-        privateKeyPem: env.OPEN_PAYMENTS_PRIVATE_KEY_PEM ?? '',
+        walletAddressUrl:
+          env.OPEN_PAYMENTS_WALLET_ADDRESS ?? env.OPEN_PAYMENTS_CLIENT_WALLET_ADDRESS ?? '',
+        ...(env.OPEN_PAYMENTS_PRIVATE_KEY_PEM
+          ? { privateKeyPem: env.OPEN_PAYMENTS_PRIVATE_KEY_PEM }
+          : {}),
+        ...(env.OPEN_PAYMENTS_PRIVATE_KEY_PATH
+          ? { privateKeyPath: env.OPEN_PAYMENTS_PRIVATE_KEY_PATH }
+          : {}),
         keyId: env.OPEN_PAYMENTS_KEY_ID ?? '',
       });
     }
@@ -61,6 +69,7 @@ export function boot() {
       openPayments: {
         ngnToUsdRate: env.OPEN_PAYMENTS_NGN_TO_USD_RATE,
         tokenEncryptionKey: env.OPEN_PAYMENTS_TOKEN_ENCRYPTION_KEY ?? env.BETTER_AUTH_SECRET,
+        ...(env.OPEN_PAYMENTS_REDIRECT_URI ? { redirectUri: env.OPEN_PAYMENTS_REDIRECT_URI } : {}),
         getAdapter,
       },
     }),

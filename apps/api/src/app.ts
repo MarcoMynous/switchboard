@@ -6,7 +6,11 @@ import { requestId } from 'hono/request-id';
 import { serve } from 'inngest/hono';
 import { createFunctions, inngest } from './inngest.ts';
 import type { Logger } from './logger.ts';
-import { interledgerIntegrationRoutes, interledgerPublicRoutes } from './routes/interledger.ts';
+import {
+  interledgerCallbackRoutes,
+  interledgerIntegrationRoutes,
+  interledgerPublicRoutes,
+} from './routes/interledger.ts';
 import { publicRoutes } from './routes/public.ts';
 
 export type AppDeps = {
@@ -18,6 +22,7 @@ export type AppDeps = {
   openPayments?: {
     ngnToUsdRate: number;
     tokenEncryptionKey: string;
+    redirectUri?: string;
     getAdapter: () => Promise<OpenPaymentsAdapter | null>;
   };
 };
@@ -71,20 +76,26 @@ export function createApp({
   app.route('/api/public', pub);
 
   const getOpenPaymentsAdapter = openPayments?.getAdapter ?? (async () => null);
-  const ilpPub = interledgerPublicRoutes({
+  const ilpDeps = {
     db,
     logger,
     publicAppUrl,
+    ...(openPayments?.redirectUri ? { redirectUri: openPayments.redirectUri } : {}),
     ngnToUsdRate: openPayments?.ngnToUsdRate ?? 0.000625,
     tokenEncryptionKey:
       openPayments?.tokenEncryptionKey ?? 'switchboard-dev-fallback-encryption-key',
     getAdapter: getOpenPaymentsAdapter,
-    enqueueVerify: async (paymentId) => {
+    enqueueVerify: async (paymentId: string) => {
       await inngest.send({ name: 'interledger/payment.verify', data: { paymentId } });
     },
-  });
+  };
+  const ilpPub = interledgerPublicRoutes(ilpDeps);
   app.route('/public', ilpPub);
   app.route('/api/public', ilpPub);
+
+  const ilpCallback = interledgerCallbackRoutes(ilpDeps);
+  app.route('/payments/interledger', ilpCallback);
+  app.route('/api/payments/interledger', ilpCallback);
 
   const ilpIntegrations = interledgerIntegrationRoutes({ getAdapter: getOpenPaymentsAdapter });
   app.route('/integrations/interledger', ilpIntegrations);

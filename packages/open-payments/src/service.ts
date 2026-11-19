@@ -61,6 +61,7 @@ export interface StartAuthResult {
   redirectUrl: string;
   stateToken: string;
   authNonceHash: string;
+  clientNonce: string;
   interactNonce: string;
   continueUri: string;
   continueAccessTokenEnc: string;
@@ -306,7 +307,7 @@ export async function startOutgoingPaymentAuthorization(
 ): Promise<Result<StartAuthResult>> {
   const stateToken = generateOpaqueToken(24);
   const authNonceHash = sha256Hex(stateToken);
-  const interactNonce = generateOpaqueToken(16);
+  const clientNonce = generateOpaqueToken(16);
 
   const callbackWithState = new URL(input.callbackUrl);
   callbackWithState.searchParams.set('state', stateToken);
@@ -331,7 +332,7 @@ export async function startOutgoingPaymentAuthorization(
         finish: {
           method: 'redirect',
           uri: callbackWithState.toString(),
-          nonce: interactNonce,
+          nonce: clientNonce,
         },
       },
     });
@@ -351,7 +352,8 @@ export async function startOutgoingPaymentAuthorization(
     redirectUrl: grant.interact.redirect,
     stateToken,
     authNonceHash,
-    interactNonce: grant.interact.finish || interactNonce,
+    clientNonce,
+    interactNonce: grant.interact.finish || clientNonce,
     continueUri: grant.continue.uri,
     continueAccessTokenEnc: encryptToken(
       grant.continue.access_token.value,
