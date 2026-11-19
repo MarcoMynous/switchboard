@@ -876,7 +876,7 @@ export function interledgerCallbackRoutes(deps: InterledgerRoutesDeps) {
       where: (b, { eq: eqFn }) => eqFn(b.id, attempt.businessId),
     });
     const slug = business?.slug ?? 'fade-republic';
-    const bookingPageBase = `${appBase}/b/${encodeURIComponent(slug)}?ilp_payment=${encodeURIComponent(paymentId)}`;
+    const bookingPageBase = `${appBase}/b/${encodeURIComponent(slug)}/payment/${encodeURIComponent(attempt.bookingId)}?ilp_payment=${encodeURIComponent(paymentId)}`;
 
     // Customer cancelled / rejected consent on wallet screen
     if (result === 'grant_rejected' || !interactRef) {

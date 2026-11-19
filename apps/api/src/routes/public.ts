@@ -11,7 +11,16 @@ import {
   upsertCustomer,
 } from '@switchboard/booking';
 import type { Db } from '@switchboard/db';
+import {
+  bookings,
+  customers,
+  openPaymentsAttempts,
+  payments,
+  services,
+  staff,
+} from '@switchboard/db';
 import { parseISO } from 'date-fns';
+import { and, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
@@ -189,6 +198,118 @@ export function publicRoutes({ db, config }: PublicRoutesDeps) {
       },
       r.value.replayed ? 200 : 201,
     );
+  });
+
+  app.get('/:slug/bookings/:bookingId', async (c) => {
+    const bookingId = c.req.param('bookingId');
+    if (!uuid.safeParse(bookingId).success) {
+      return c.json({ error: { code: 'BAD_REQUEST', message: 'Invalid booking ID' } }, 400);
+    }
+
+    const catalog = await getPublicCatalog(db, c.req.param('slug'));
+    if (!catalog) return c.json(problem({ code: 'NOT_FOUND', entity: 'business' }), 404);
+
+    const booking = await db.query.bookings.findFirst({
+      where: and(eq(bookings.id, bookingId), eq(bookings.businessId, catalog.business.id)),
+    });
+    if (!booking) return c.json(problem({ code: 'NOT_FOUND', entity: 'booking' }), 404);
+
+    const [service, staffMember, customer, latestPayment] = await Promise.all([
+      db.query.services.findFirst({ where: eq(services.id, booking.serviceId) }),
+      db.query.staff.findFirst({ where: eq(staff.id, booking.staffId) }),
+      db.query.customers.findFirst({ where: eq(customers.id, booking.customerId) }),
+      db.query.payments.findFirst({
+        where: and(
+          eq(payments.bookingId, booking.id),
+          eq(payments.businessId, catalog.business.id),
+        ),
+        orderBy: [desc(payments.createdAt)],
+      }),
+    ]);
+
+    const attempt =
+      latestPayment && latestPayment.provider === 'interledger'
+        ? await db.query.openPaymentsAttempts.findFirst({
+            where: eq(openPaymentsAttempts.paymentId, latestPayment.id),
+          })
+        : null;
+
+    const priceKobo = service?.priceKobo ?? 0;
+    let depositKobo = 0;
+    if (service) {
+      if (service.depositType === 'full') depositKobo = priceKobo;
+      else if (service.depositType === 'percent') {
+        depositKobo = Math.round(
+          (priceKobo * Math.max(0, Math.min(100, service.depositValue))) / 100,
+        );
+      } else if (service.depositType === 'fixed') {
+        depositKobo = Math.max(0, service.depositValue);
+      }
+    }
+
+    const phoneDigits = customer?.phoneE164 ? customer.phoneE164.slice(-4) : null;
+
+    return c.json({
+      business: catalog.business,
+      booking: {
+        id: booking.id,
+        reference: latestPayment?.providerReference ?? `sb_bk_${booking.id.slice(0, 8)}`,
+        status: booking.status,
+        startsAt: booking.startsAt.toISOString(),
+        endsAt: booking.endsAt.toISOString(),
+        holdExpiresAt: booking.holdExpiresAt?.toISOString() ?? null,
+        service: service
+          ? {
+              id: service.id,
+              name: service.name,
+              durationMin: service.durationMin,
+              priceKobo,
+              depositType: service.depositType,
+              depositKobo,
+              freeCancelHours: service.freeCancelHours,
+            }
+          : null,
+        staff: staffMember ? { id: staffMember.id, name: staffMember.name } : null,
+        customer: customer
+          ? {
+              name: customer.name ?? 'Guest',
+              phoneMasked: phoneDigits ? `***${phoneDigits}` : null,
+            }
+          : null,
+      },
+      payment: latestPayment
+        ? {
+            id: latestPayment.id,
+            provider: latestPayment.provider,
+            reference: latestPayment.providerReference ?? latestPayment.koraReference,
+            status: latestPayment.status,
+            isSimulated: latestPayment.isSimulated,
+            amountKobo: latestPayment.amountKobo,
+            assetCode: latestPayment.assetCode,
+            assetScale: latestPayment.assetScale,
+            expectedAmount: latestPayment.providerExpectedAmount,
+            receivedAmount: latestPayment.providerReceivedAmount,
+            verifiedAt: latestPayment.verifiedAt?.toISOString() ?? null,
+            attempt: attempt
+              ? {
+                  grantState: attempt.grantState,
+                  senderWalletAddress: attempt.senderWalletAddress,
+                  recipientWalletAddress: attempt.recipientWalletAddress,
+                  incomingPaymentId: attempt.incomingPaymentId,
+                  outgoingPaymentId: attempt.outgoingPaymentId,
+                  quoteId: attempt.quoteId,
+                  quoteDebitAmount: attempt.quoteDebitAmount,
+                  quoteDebitAssetCode: attempt.quoteDebitAssetCode,
+                  quoteDebitAssetScale: attempt.quoteDebitAssetScale,
+                  quoteReceiveAmount: attempt.quoteReceiveAmount,
+                  quoteExpiresAt: attempt.quoteExpiresAt?.toISOString() ?? null,
+                  lastErrorCode: attempt.lastErrorCode,
+                  lastErrorMessage: attempt.lastErrorMessage,
+                }
+              : null,
+          }
+        : null,
+    });
   });
 
   return app;

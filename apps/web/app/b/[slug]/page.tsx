@@ -1,38 +1,44 @@
 'use client';
 
-import Link from 'next/link';
-import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppIcon } from '@/components/AppIcon';
-import {
-  computeKoraFeeKobo,
-  DepositCard,
-  type DepositCardStatus,
-  formatNairaFromKobo,
-} from '@/components/DepositCard';
-import { InterledgerCheckoutCard } from '@/components/InterledgerCheckoutCard';
+import { formatNairaFromKobo } from '@/components/DepositCard';
 import { SwitchboardIconSvg } from '@/components/SwitchboardLogo';
 
 type ServiceDepositRule = 'fixed' | 'percent' | 'none' | 'full';
 
+interface PublicBusiness {
+  id: string;
+  name: string;
+  slug: string;
+  location: string | null;
+  phone: string | null;
+  timezone: string;
+  advanceDays: number;
+  allowSameDay: boolean;
+  cancellationPolicy: string | null;
+  interledgerPaymentEnabled?: boolean;
+  interledgerEnvironment?: 'testnet' | 'production';
+  interledgerWalletAddress?: string | null;
+}
+
 interface ServiceItem {
   id: string;
-  slug?: string;
+  slug: string;
   name: string;
-  description?: string;
-  durationMinutes: number;
+  description: string | null;
+  durationMin: number;
   priceKobo: number;
   depositType: ServiceDepositRule;
-  /** Kobo when depositType='fixed', percentage (0-100) when 'percent', priceKobo when 'full', 0 when 'none' */
   depositValue: number;
-  freeCancelHours: number;
 }
 
 interface StaffItem {
   id: string;
   name: string;
-  role: string;
-  serviceIds?: string[];
+  roleTitle: string;
+  serviceIds: string[];
 }
 
 interface ApiSlotOption {
@@ -40,86 +46,17 @@ interface ApiSlotOption {
   endsAt: string;
   staffIds: string[];
   label: string;
+  hourLocal: number;
 }
 
-function formatSlotLabel(isoUtc: string, timezone = 'Africa/Lagos'): string {
-  try {
-    const d = new Date(isoUtc);
-    const timeStr = new Intl.DateTimeFormat('en-NG', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: timezone.includes('/') ? timezone.split(' ')[0] : 'Africa/Lagos',
-    }).format(d);
-    return `${timeStr} WAT`;
-  } catch {
-    return isoUtc.slice(11, 16);
-  }
+interface DayOption {
+  isoDate: string;
+  shortDay: string;
+  dayNumber: string;
+  monthShort: string;
+  isToday: boolean;
+  disabled: boolean;
 }
-
-interface DaySchedule {
-  open: boolean;
-  openTime: string;
-  closeTime: string;
-}
-
-const DEFAULT_SCHEDULE: Record<string, DaySchedule> = {
-  Monday: { open: true, openTime: '09:00', closeTime: '19:00' },
-  Tuesday: { open: true, openTime: '09:00', closeTime: '19:00' },
-  Wednesday: { open: true, openTime: '09:00', closeTime: '19:00' },
-  Thursday: { open: true, openTime: '09:00', closeTime: '19:00' },
-  Friday: { open: true, openTime: '09:00', closeTime: '20:00' },
-  Saturday: { open: true, openTime: '09:00', closeTime: '20:00' },
-  Sunday: { open: false, openTime: '12:00', closeTime: '18:00' },
-};
-
-const DEFAULT_SERVICES: ServiceItem[] = [
-  {
-    id: 'svc_1',
-    name: 'Classic Fade & Beard Sculpt',
-    description: 'Detailed razor fade, hot towel prep & beard oil.',
-    durationMinutes: 45,
-    priceKobo: 500_000,
-    depositType: 'fixed',
-    depositValue: 150_000,
-    freeCancelHours: 4,
-  },
-  {
-    id: 'svc_2',
-    name: 'Standard Haircut',
-    description: 'Clean clipper cut and sharp perimeter line-up.',
-    durationMinutes: 30,
-    priceKobo: 350_000,
-    depositType: 'percent',
-    depositValue: 30,
-    freeCancelHours: 4,
-  },
-  {
-    id: 'svc_3',
-    name: 'VIP Dreadlocks Retwist & Wash',
-    description: 'Organic shampoo wash & deep palm-roll retwist.',
-    durationMinutes: 90,
-    priceKobo: 1_500_000,
-    depositType: 'fixed',
-    depositValue: 500_000,
-    freeCancelHours: 12,
-  },
-  {
-    id: 'svc_free',
-    name: 'Quick Line-up & Style Check',
-    description: 'Perimeter touch-up — no upfront deposit required.',
-    durationMinutes: 15,
-    priceKobo: 150_000,
-    depositType: 'none',
-    depositValue: 0,
-    freeCancelHours: 4,
-  },
-];
-
-const DEFAULT_STAFF: StaffItem[] = [
-  { id: 'stf_1', name: 'Tunde Adeyemi', role: 'Lead Barber' },
-  { id: 'stf_2', name: 'Emeka Okafor', role: 'Fade Specialist' },
-];
 
 function resolveServiceDepositKobo(service: ServiceItem): number {
   if (service.depositType === 'none') return 0;
@@ -131,437 +68,239 @@ function resolveServiceDepositKobo(service: ServiceItem): number {
   return Math.max(0, service.depositValue);
 }
 
-interface DayOption {
-  isoDate: string;
-  weekdayName: string;
-  shortDay: string;
-  dayNumber: string;
-  monthShort: string;
-  isToday: boolean;
-  open: boolean;
-  openTime: string;
-  closeTime: string;
+function formatSlotTime(
+  isoUtc: string,
+  timezone = 'Africa/Lagos',
+): { label: string; hour: number } {
+  try {
+    const d = new Date(isoUtc);
+    const label = new Intl.DateTimeFormat('en-NG', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: timezone,
+    }).format(d);
+    const hour = Number(label.split(':')[0] ?? 12);
+    return { label, hour };
+  } catch {
+    return { label: isoUtc.slice(11, 16), hour: 12 };
+  }
 }
 
-function buildDayStrip(schedule: Record<string, DaySchedule>): DayOption[] {
-  const days: DayOption[] = [];
-  const now = new Date();
-  const weekdayFormatter = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    timeZone: 'Africa/Lagos',
-  });
-  const shortDayFormatter = new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    timeZone: 'Africa/Lagos',
-  });
-  const dayNumFormatter = new Intl.DateTimeFormat('en-US', {
-    day: 'numeric',
-    timeZone: 'Africa/Lagos',
-  });
-  const monthFormatter = new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    timeZone: 'Africa/Lagos',
-  });
+function getLocalIsoDate(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
 
-  for (let offset = 0; offset < 7; offset++) {
-    const d = new Date(now.getTime() + offset * 86_400_000);
-    const weekdayName = weekdayFormatter.format(d);
-    const daySched = schedule[weekdayName] ??
-      DEFAULT_SCHEDULE[weekdayName] ?? {
-        open: true,
-        openTime: '09:00',
-        closeTime: '19:00',
-      };
+function buildWeekDays(
+  weekOffset: number,
+  timezone: string,
+  advanceDays: number,
+  allowSameDay: boolean,
+): DayOption[] {
+  const days: DayOption[] = [];
+  const todayIso = getLocalIsoDate(new Date(), timezone);
+  const startDayOffset = weekOffset * 7;
+
+  const shortDayFmt = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: timezone });
+  const dayNumFmt = new Intl.DateTimeFormat('en-US', { day: 'numeric', timeZone: timezone });
+  const monthFmt = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: timezone });
+
+  for (let i = 0; i < 7; i++) {
+    const offset = startDayOffset + i;
+    const d = new Date(Date.now() + offset * 86_400_000);
+    const isoDate = getLocalIsoDate(d, timezone);
+    const isToday = isoDate === todayIso;
+    const disabled = offset < 0 || offset > advanceDays || (offset === 0 && !allowSameDay);
     days.push({
-      isoDate: d.toISOString().slice(0, 10),
-      weekdayName,
-      shortDay: offset === 0 ? 'Today' : shortDayFormatter.format(d),
-      dayNumber: dayNumFormatter.format(d),
-      monthShort: monthFormatter.format(d),
-      isToday: offset === 0,
-      open: daySched.open,
-      openTime: daySched.openTime || '09:00',
-      closeTime: daySched.closeTime || '19:00',
+      isoDate,
+      shortDay: shortDayFmt.format(d),
+      dayNumber: dayNumFmt.format(d),
+      monthShort: monthFmt.format(d),
+      isToday,
+      disabled,
     });
   }
   return days;
 }
 
-function buildTimeChips(openTime: string, closeTime: string): string[] {
-  const startHour = Math.max(6, Math.min(20, Number.parseInt(openTime.slice(0, 2), 10) || 9));
-  const endHour = Math.max(
-    startHour + 2,
-    Math.min(22, Number.parseInt(closeTime.slice(0, 2), 10) || 19),
-  );
-  const chips: string[] = [];
-
-  for (let h = startHour; h < endHour; h++) {
-    const hh = h.toString().padStart(2, '0');
-    chips.push(`${hh}:00 WAT`);
-    if (h + 1 < endHour && chips.length < 9) {
-      chips.push(`${hh}:30 WAT`);
-    }
-  }
-  return chips.slice(0, 9);
-}
-
 export default function PublicBookingPage() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug ?? 'fade-republic';
+  const router = useRouter();
 
-  const [businessName, setBusinessName] = useState('Fade Republic');
-  const [businessTimezone, setBusinessTimezone] = useState('Africa/Lagos');
-  const [address, setAddress] = useState('KM 10 Idiroko Road, Ota, Ogun State');
-  const [phone, setPhone] = useState('+234 803 123 4567');
-  const [merchantBearsCost, setMerchantBearsCost] = useState(false);
-  const [defaultFreeCancelHours, setDefaultFreeCancelHours] = useState(4);
-  const [cancellationPolicy, setCancellationPolicy] = useState(
-    'Full refund if cancelled at least 4 hours before your scheduled slot.',
-  );
-  const [schedule, setSchedule] = useState<Record<string, DaySchedule>>(DEFAULT_SCHEDULE);
-  const [servicesList, setServicesList] = useState<ServiceItem[]>(DEFAULT_SERVICES);
-  const [staffList, setStaffList] = useState<StaffItem[]>(DEFAULT_STAFF);
-  const [usingRealBookingApi, setUsingRealBookingApi] = useState(false);
-  const [apiSlots, setApiSlots] = useState<ApiSlotOption[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [business, setBusiness] = useState<PublicBusiness | null>(null);
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [staffList, setStaffList] = useState<StaffItem[]>([]);
 
-  const [selectedServiceId, setSelectedServiceId] = useState<string>('svc_1');
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('any');
+  const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDateIso, setSelectedDateIso] = useState<string>('');
-  const [selectedSlot, setSelectedSlot] = useState<string>('10:00 WAT');
+  const [slots, setSlots] = useState<ApiSlotOption[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsAnnouncement, setSlotsAnnouncement] = useState('');
   const [selectedSlotStartsAt, setSelectedSlotStartsAt] = useState<string>('');
+
+  const [fullName, setFullName] = useState('');
+  const [countryCode, setCountryCode] = useState('+234');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
+
+  const [formError, setFormError] = useState<string | null>(null);
+  const [alternatives, setAlternatives] = useState<ApiSlotOption[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
-      : `idem_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      : `hold_${Date.now()}`,
   );
-  const [isSubmittingHold, setIsSubmittingHold] = useState(false);
-  const [holdError, setHoldError] = useState<string | null>(null);
-  const [slotTakenAlternatives, setSlotTakenAlternatives] = useState<ApiSlotOption[]>([]);
-  const [holdRemainingSeconds, setHoldRemainingSeconds] = useState<number>(900);
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [bookingStatus, setBookingStatus] = useState<DepositCardStatus | null>(null);
-  const [reference, setReference] = useState('sb_dep_01JFADEREP98K2');
-  const [amountPaidKobo, setAmountPaidKobo] = useState(0);
-  const [interledgerEnabled, setInterledgerEnabled] = useState(false);
-  const [interledgerWalletAddress, setInterledgerWalletAddress] = useState<string | null>(null);
-  const [interledgerEnvironment, setInterledgerEnvironment] = useState<'testnet' | 'production'>(
-    'testnet',
-  );
-  const [paymentMethod, setPaymentMethod] = useState<'kora' | 'interledger'>('kora');
 
-  const searchParams = useSearchParams();
-  const ilpCallbackParams = useMemo(() => {
-    const paymentId = searchParams.get('ilp_payment');
-    if (!paymentId) return null;
-    return {
-      paymentId,
-      state: searchParams.get('state'),
-      interactRef: searchParams.get('interact_ref'),
-      hash: searchParams.get('hash'),
-      result: searchParams.get('result'),
-      ilpStatus: searchParams.get('ilp_status'),
-    };
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (ilpCallbackParams) {
-      setPaymentMethod('interledger');
-      setBookingStatus((prev) => prev ?? 'held');
-    }
-  }, [ilpCallbackParams]);
-
-  const rotateIdempotencyKey = () => {
+  const rotateIdempotencyKey = useCallback(() => {
     setIdempotencyKey(
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
-        : `idem_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        : `hold_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     );
-  };
+  }, []);
 
+  // 1. Load authoritative business catalog from backend
   useEffect(() => {
-    try {
-      const raw =
-        localStorage.getItem('switchboard_onboarding_draft') ||
-        localStorage.getItem('switchboard_onboarding_draft_v3');
-      if (raw) {
-        const parsed = JSON.parse(raw) as {
-          businessName?: string;
-          location?: string;
-          address?: string;
-          phone?: string;
-          cancellationPolicy?: string;
-          schedule?: Record<string, DaySchedule>;
-          merchantBearsCost?: boolean;
-          freeCancelHours?: number;
-        };
-        if (parsed.businessName) setBusinessName(parsed.businessName);
-        if (parsed.location || parsed.address) setAddress(parsed.location || parsed.address || '');
-        if (parsed.phone) setPhone(parsed.phone);
-        if (parsed.cancellationPolicy) setCancellationPolicy(parsed.cancellationPolicy);
-        if (parsed.schedule) setSchedule(parsed.schedule);
-        if (typeof parsed.merchantBearsCost === 'boolean') {
-          setMerchantBearsCost(parsed.merchantBearsCost);
-        }
-        if (typeof parsed.freeCancelHours === 'number') {
-          setDefaultFreeCancelHours(parsed.freeCancelHours);
-        }
-      }
-    } catch {
-      // Ignore storage error
-    }
-
     let cancelled = false;
+    setLoadingCatalog(true);
+    setCatalogError(null);
 
-    const loadCatalog = async () => {
-      try {
-        const pubRes = await fetch(`/api/public/${encodeURIComponent(slug)}`);
-        if (pubRes.ok) {
-          const catalog = (await pubRes.json()) as {
-            business?: {
-              id: string;
-              name: string;
-              slug: string;
-              location: string | null;
-              phone: string | null;
-              timezone: string;
-              cancellationPolicy: string | null;
-            };
-            services?: Array<{
-              id: string;
-              slug: string;
-              name: string;
-              description: string | null;
-              durationMin: number;
-              priceKobo: number;
-              depositType: ServiceDepositRule;
-              depositValue: number;
-            }>;
-            staff?: Array<{
-              id: string;
-              name: string;
-              roleTitle: string;
-              serviceIds: string[];
-            }>;
-          };
-
-          if (
-            !cancelled &&
-            catalog.business &&
-            Array.isArray(catalog.services) &&
-            catalog.services.length > 0
-          ) {
-            setUsingRealBookingApi(true);
-            setBusinessName(catalog.business.name);
-            setBusinessTimezone(catalog.business.timezone || 'Africa/Lagos');
-            if (catalog.business.location) setAddress(catalog.business.location);
-            if (catalog.business.phone) setPhone(catalog.business.phone);
-            if (catalog.business.cancellationPolicy) {
-              setCancellationPolicy(catalog.business.cancellationPolicy);
-            }
-            const bizExtra = catalog.business as {
-              interledgerPaymentEnabled?: boolean;
-              interledgerWalletAddress?: string | null;
-              interledgerEnvironment?: 'testnet' | 'production';
-            };
-            if (bizExtra.interledgerPaymentEnabled && bizExtra.interledgerWalletAddress) {
-              setInterledgerEnabled(true);
-              setInterledgerWalletAddress(bizExtra.interledgerWalletAddress);
-              setInterledgerEnvironment(bizExtra.interledgerEnvironment ?? 'testnet');
-            }
-
-            const mappedServices: ServiceItem[] = catalog.services.map((s) => ({
-              id: s.id,
-              slug: s.slug,
-              name: s.name,
-              description: s.description || 'Bookable appointment service.',
-              durationMinutes: s.durationMin,
-              priceKobo: s.priceKobo,
-              depositType: s.depositType,
-              depositValue: s.depositValue,
-              freeCancelHours: defaultFreeCancelHours,
-            }));
-            setServicesList(mappedServices);
-            if (mappedServices[0]) setSelectedServiceId(mappedServices[0].id);
-
-            if (Array.isArray(catalog.staff) && catalog.staff.length > 0) {
-              setStaffList(
-                catalog.staff.map((st) => ({
-                  id: st.id,
-                  name: st.name,
-                  role: st.roleTitle,
-                  serviceIds: st.serviceIds,
-                })),
-              );
-              setSelectedStaffId('any');
-            }
-            return;
-          }
+    fetch(`/api/public/${encodeURIComponent(slug)}`, { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error(
+            res.status === 404
+              ? 'Business booking page not found.'
+              : 'Unable to load booking catalog.',
+          );
         }
-      } catch {
-        // Fall back to /api/workspace below
-      }
+        return (await res.json()) as {
+          business: PublicBusiness;
+          services: ServiceItem[];
+          staff: StaffItem[];
+        };
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setBusiness(data.business);
+        setServices(data.services ?? []);
+        setStaffList(data.staff ?? []);
+        if (data.services[0]) {
+          setSelectedServiceId(data.services[0].id);
+        }
+        const tz = data.business.timezone || 'Africa/Lagos';
+        const initialDays = buildWeekDays(
+          0,
+          tz,
+          data.business.advanceDays ?? 14,
+          data.business.allowSameDay ?? true,
+        );
+        const firstOpen = initialDays.find((d) => !d.disabled);
+        if (firstOpen) setSelectedDateIso(firstOpen.isoDate);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setCatalogError(err instanceof Error ? err.message : 'Unable to load booking page.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCatalog(false);
+      });
 
-      fetch(`/api/workspace?slug=${encodeURIComponent(slug)}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (cancelled || !data?.ok || !data.business) return;
-          setBusinessName(data.business.name || 'Fade Republic');
-          if (data.business.location) setAddress(data.business.location);
-          if (data.business.phone) setPhone(data.business.phone);
-          if (typeof data.business.merchantBearsCost === 'boolean') {
-            setMerchantBearsCost(data.business.merchantBearsCost);
-          }
-          if (typeof data.business.freeCancelHours === 'number') {
-            setDefaultFreeCancelHours(data.business.freeCancelHours);
-          }
-          if (data.business.cancellationPolicy) {
-            setCancellationPolicy(data.business.cancellationPolicy);
-          }
-          if (data.business.schedule) {
-            setSchedule(data.business.schedule);
-          }
-
-          if (Array.isArray(data.services) && data.services.length > 0) {
-            const mappedServices: ServiceItem[] = data.services.map(
-              (s: {
-                id: string;
-                name: string;
-                description?: string;
-                durationMin?: number;
-                duration?: number;
-                priceKobo?: number;
-                price?: number;
-                depositValue?: number;
-                depositAmount?: number;
-                depositRequired?: boolean;
-                depositType?: ServiceDepositRule;
-                freeCancelHours?: number;
-              }) => {
-                const priceKobo = s.priceKobo ?? Math.round((s.price ?? 5000) * 100);
-                const depositType: ServiceDepositRule =
-                  s.depositRequired === false || s.depositType === 'none'
-                    ? 'none'
-                    : s.depositType && ['fixed', 'percent', 'full', 'none'].includes(s.depositType)
-                      ? s.depositType
-                      : 'fixed';
-                const depositValue =
-                  depositType === 'none'
-                    ? 0
-                    : depositType === 'full'
-                      ? priceKobo
-                      : (s.depositValue ?? Math.round((s.depositAmount ?? 1500) * 100));
-
-                return {
-                  id: s.id,
-                  name: s.name,
-                  description: s.description || 'Bookable appointment service.',
-                  durationMinutes: s.durationMin ?? s.duration ?? 45,
-                  priceKobo,
-                  depositType,
-                  depositValue,
-                  freeCancelHours: s.freeCancelHours ?? data.business.freeCancelHours ?? 4,
-                };
-              },
-            );
-
-            const hasNoDepositService = mappedServices.some((s) => s.depositType === 'none');
-            const finalServices = hasNoDepositService
-              ? mappedServices
-              : [
-                  ...mappedServices,
-                  {
-                    id: 'svc_no_deposit',
-                    name: 'Quick Line-up & Consultation',
-                    description: 'Fast perimeter check — confirms directly with no deposit.',
-                    durationMinutes: 15,
-                    priceKobo: 150_000,
-                    depositType: 'none' as const,
-                    depositValue: 0,
-                    freeCancelHours: data.business.freeCancelHours ?? 4,
-                  },
-                ];
-
-            setServicesList(finalServices);
-            if (finalServices[0]) setSelectedServiceId(finalServices[0].id);
-          }
-
-          if (Array.isArray(data.staff) && data.staff.length > 0) {
-            setStaffList(data.staff);
-            if (data.staff[0]) setSelectedStaffId(data.staff[0].id);
-          }
-        })
-        .catch(() => {
-          // Keep defaults
-        });
-    };
-
-    void loadCatalog();
     return () => {
       cancelled = true;
     };
-  }, [slug, defaultFreeCancelHours]);
+  }, [slug]);
 
-  const dayStrip = useMemo(() => buildDayStrip(schedule), [schedule]);
-
-  useEffect(() => {
-    if (!selectedDateIso && dayStrip.length > 0) {
-      const firstOpen = dayStrip.find((d) => d.open) ?? dayStrip[0];
-      if (firstOpen) setSelectedDateIso(firstOpen.isoDate);
-    }
-  }, [dayStrip, selectedDateIso]);
-
-  const selectedDay =
-    dayStrip.find((d) => d.isoDate === selectedDateIso) ??
-    dayStrip.find((d) => d.open) ??
-    dayStrip[0];
-
-  const timeChips = useMemo(
-    () => buildTimeChips(selectedDay?.openTime ?? '09:00', selectedDay?.closeTime ?? '19:00'),
-    [selectedDay],
+  const timezone = business?.timezone || 'Africa/Lagos';
+  const selectedService = useMemo(
+    () => services.find((s) => s.id === selectedServiceId) ?? null,
+    [services, selectedServiceId],
   );
 
+  const eligibleStaff = useMemo(() => {
+    if (!selectedService) return staffList;
+    const filtered = staffList.filter(
+      (st) => st.serviceIds.length === 0 || st.serviceIds.includes(selectedService.id),
+    );
+    return filtered.length > 0 ? filtered : staffList;
+  }, [selectedService, staffList]);
+
   useEffect(() => {
-    if (!usingRealBookingApi || !selectedServiceId || !selectedDateIso) return;
+    if (selectedStaffId !== 'any' && !eligibleStaff.some((st) => st.id === selectedStaffId)) {
+      setSelectedStaffId('any');
+    }
+  }, [eligibleStaff, selectedStaffId]);
+
+  const weekDays = useMemo(
+    () =>
+      buildWeekDays(
+        weekOffset,
+        timezone,
+        business?.advanceDays ?? 14,
+        business?.allowSameDay ?? true,
+      ),
+    [business?.advanceDays, business?.allowSameDay, timezone, weekOffset],
+  );
+
+  // 2. Load authoritative availability whenever service, staff, or date changes
+  useEffect(() => {
+    if (!business || !selectedService || !selectedDateIso) return;
     let cancelled = false;
     setSlotsLoading(true);
-    setSlotTakenAlternatives([]);
-    setHoldError(null);
+    setFormError(null);
+    setAlternatives([]);
 
-    const paramsObj = new URLSearchParams({
-      service: selectedServiceId,
+    const qs = new URLSearchParams({
+      service: selectedService.id,
       date: selectedDateIso,
-      limit: '12',
+      limit: '36',
     });
-    if (selectedStaffId && selectedStaffId !== 'any') {
-      paramsObj.set('staff', selectedStaffId);
+    if (selectedStaffId !== 'any') {
+      qs.set('staff', selectedStaffId);
     }
 
-    fetch(`/api/public/${encodeURIComponent(slug)}/slots?${paramsObj.toString()}`)
-      .then(async (res) => {
-        const data = (await res.json()) as {
-          slots?: Array<{ startsAt: string; endsAt: string; staffIds: string[] }>;
-        };
+    fetch(`/api/public/${encodeURIComponent(slug)}/slots?${qs.toString()}`, {
+      cache: 'no-store',
+    })
+      .then((res) => res.json())
+      .then((data: { slots?: Array<{ startsAt: string; endsAt: string; staffIds: string[] }> }) => {
         if (cancelled) return;
-        if (!res.ok || !Array.isArray(data.slots)) {
-          setApiSlots([]);
-          return;
-        }
-        const mapped: ApiSlotOption[] = data.slots.map((s) => ({
-          ...s,
-          label: formatSlotLabel(s.startsAt, businessTimezone),
-        }));
-        setApiSlots(mapped);
-        if (mapped[0]) {
-          setSelectedSlot(mapped[0].label);
-          setSelectedSlotStartsAt(mapped[0].startsAt);
-        } else {
-          setSelectedSlotStartsAt('');
-        }
+        const nextSlots: ApiSlotOption[] = (data.slots ?? []).map((s) => {
+          const fmt = formatSlotTime(s.startsAt, timezone);
+          return {
+            ...s,
+            label: fmt.label,
+            hourLocal: fmt.hour,
+          };
+        });
+        setSlots(nextSlots);
+        setSelectedSlotStartsAt((prev) =>
+          nextSlots.some((s) => s.startsAt === prev) ? prev : (nextSlots[0]?.startsAt ?? ''),
+        );
+        setSlotsAnnouncement(
+          nextSlots.length > 0
+            ? `${nextSlots.length} available time slots loaded for ${selectedDateIso}.`
+            : `No available times for ${selectedDateIso}.`,
+        );
       })
       .catch(() => {
-        if (!cancelled) setApiSlots([]);
+        if (!cancelled) {
+          setSlots([]);
+          setSelectedSlotStartsAt('');
+          setSlotsAnnouncement('Unable to load availability.');
+        }
       })
       .finally(() => {
         if (!cancelled) setSlotsLoading(false);
@@ -570,808 +309,595 @@ export default function PublicBookingPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    usingRealBookingApi,
-    slug,
-    selectedServiceId,
-    selectedDateIso,
-    selectedStaffId,
-    businessTimezone,
-  ]);
+  }, [business, selectedDateIso, selectedService, selectedStaffId, slug, timezone]);
 
-  useEffect(() => {
-    if (!usingRealBookingApi && timeChips.length > 0 && !timeChips.includes(selectedSlot)) {
-      setSelectedSlot(timeChips[0] ?? '10:00 WAT');
-    }
-  }, [usingRealBookingApi, timeChips, selectedSlot]);
+  const groupedSlots = useMemo(() => {
+    const morning = slots.filter((s) => s.hourLocal < 12);
+    const afternoon = slots.filter((s) => s.hourLocal >= 12 && s.hourLocal < 17);
+    const evening = slots.filter((s) => s.hourLocal >= 17);
+    return [
+      { key: 'morning', title: 'Morning', items: morning },
+      { key: 'afternoon', title: 'Afternoon', items: afternoon },
+      { key: 'evening', title: 'Evening', items: evening },
+    ].filter((g) => g.items.length > 0);
+  }, [slots]);
 
-  const selectedService =
-    servicesList.find((s) => s.id === selectedServiceId) ?? servicesList[0] ?? DEFAULT_SERVICES[0];
-  const eligibleStaff = useMemo(() => {
-    if (!selectedService) return staffList;
-    const filtered = staffList.filter(
-      (st) =>
-        !st.serviceIds || st.serviceIds.length === 0 || st.serviceIds.includes(selectedService.id),
-    );
-    return filtered.length > 0 ? filtered : staffList;
-  }, [selectedService, staffList]);
-  const selectedStaff =
-    selectedStaffId === 'any'
-      ? { id: 'any', name: 'Any available specialist', role: 'Fastest opening' }
-      : (eligibleStaff.find((s) => s.id === selectedStaffId) ??
-        eligibleStaff[0] ??
-        DEFAULT_STAFF[0]);
+  const selectedSlotObj = useMemo(
+    () => slots.find((s) => s.startsAt === selectedSlotStartsAt) ?? null,
+    [slots, selectedSlotStartsAt],
+  );
 
-  const baseDepositKobo = selectedService ? resolveServiceDepositKobo(selectedService) : 0;
-  const isNoDepositService = baseDepositKobo === 0;
-  const koraFeeKobo =
-    isNoDepositService || merchantBearsCost ? 0 : computeKoraFeeKobo(baseDepositKobo);
-  const amountExpectedKobo = baseDepositKobo + koraFeeKobo;
-  const serviceFreeCancelHours = selectedService?.freeCancelHours ?? defaultFreeCancelHours;
+  const selectedStaffName = useMemo(() => {
+    if (selectedStaffId === 'any') return 'Anyone available';
+    return eligibleStaff.find((s) => s.id === selectedStaffId)?.name ?? 'Anyone available';
+  }, [eligibleStaff, selectedStaffId]);
 
-  const syncDashboardBooking = (
-    ref: string,
-    nextStatus: DepositCardStatus,
-    expectedKobo: number,
-  ) => {
-    try {
-      const existingRaw = localStorage.getItem('switchboard_dashboard_bookings');
-      const existing = existingRaw
-        ? (JSON.parse(existingRaw) as Array<{
-            id: string;
-            reference: string;
-            status: string;
-            paymentStatus: string;
-          }>)
-        : [];
-      const found = existing.some((b) => b.reference === ref);
-      const paymentStatus =
-        expectedKobo === 0
-          ? 'not_required'
-          : nextStatus === 'confirmed'
-            ? 'verified'
-            : nextStatus === 'pending_verification'
-              ? 'pending_verification'
-              : 'awaiting_payment';
+  const depositKobo = selectedService ? resolveServiceDepositKobo(selectedService) : 0;
+  const priceKobo = selectedService?.priceKobo ?? 0;
+  const remainingKobo = Math.max(0, priceKobo - depositKobo);
 
-      const dashboardStatus =
-        nextStatus === 'underpaid' || nextStatus === 'pending_verification' ? 'held' : nextStatus;
-
-      if (found) {
-        const updated = existing.map((b) =>
-          b.reference === ref ? { ...b, status: dashboardStatus, paymentStatus } : b,
-        );
-        localStorage.setItem('switchboard_dashboard_bookings', JSON.stringify(updated));
-      } else {
-        const newRecord = {
-          id: `bk_${Date.now()}`,
-          reference: ref,
-          customerName: customerName.trim() || 'Walk-in Customer',
-          customerPhone: customerPhone.trim() || '+234 803 000 0000',
-          serviceName: selectedService?.name || 'Service',
-          staffName: selectedStaff?.name || 'Staff',
-          slotTime: `${selectedDay?.shortDay ?? 'Today'} · ${selectedSlot}`,
-          priceKobo: selectedService?.priceKobo ?? 500_000,
-          depositKobo: expectedKobo,
-          status: dashboardStatus,
-          paymentStatus,
-          holdSecondsRemaining: isNoDepositService ? undefined : 900,
-          source: 'booking_page',
-          createdAt: new Date().toISOString(),
-        };
-        localStorage.setItem(
-          'switchboard_dashboard_bookings',
-          JSON.stringify([newRecord, ...existing]),
-        );
-      }
-    } catch {
-      // Ignore storage error
-    }
-  };
-
-  const handleHoldOrConfirmSlot = async (e: React.FormEvent) => {
+  const handleContinueToPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    setHoldError(null);
-    setSlotTakenAlternatives([]);
+    setFormError(null);
+    setAlternatives([]);
 
-    if (usingRealBookingApi && selectedService) {
-      if (!selectedSlotStartsAt) {
-        setHoldError('Please pick an available time slot first.');
-        return;
-      }
-
-      setIsSubmittingHold(true);
-      try {
-        const res = await fetch(`/api/public/${encodeURIComponent(slug)}/holds`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            serviceId: selectedService.id,
-            ...(selectedStaffId !== 'any' ? { staffId: selectedStaffId } : {}),
-            startsAt: selectedSlotStartsAt,
-            customer: {
-              name: customerName.trim(),
-              phone: customerPhone.trim(),
-            },
-            idempotencyKey,
-          }),
-        });
-
-        const payload = (await res.json()) as {
-          replayed?: boolean;
-          booking?: {
-            id: string;
-            status: 'held' | 'confirmed';
-            startsAt: string;
-            endsAt: string;
-            holdExpiresAt: string | null;
-            staffId: string;
-            serviceId: string;
-          };
-          error?: { code?: string; message?: string };
-          alternatives?: Array<{ startsAt: string; endsAt: string; staffIds: string[] }>;
-        };
-
-        if (res.status === 409 && payload.error?.code === 'SLOT_TAKEN') {
-          const alts: ApiSlotOption[] = (payload.alternatives ?? []).map((s) => ({
-            ...s,
-            label: formatSlotLabel(s.startsAt, businessTimezone),
-          }));
-          setSlotTakenAlternatives(alts);
-          setHoldError('That time just got taken. Here are the next three.');
-          if (alts.length > 0) {
-            setApiSlots((prev) => (alts.length > 0 ? alts : prev));
-          }
-          rotateIdempotencyKey();
-          return;
-        }
-
-        if (!res.ok || !payload.booking) {
-          const code = payload.error?.code;
-          if (code === 'INVALID_PHONE') {
-            setHoldError('Please enter a valid Nigerian phone number (e.g. 0803 123 4567).');
-          } else if (code === 'IDEMPOTENCY_KEY_REUSED') {
-            rotateIdempotencyKey();
-            setHoldError('This slot selection changed — please tap Hold this time again.');
-          } else {
-            setHoldError(
-              payload.error?.message ||
-                'Unable to hold that slot right now. Please try another time.',
-            );
-          }
-          return;
-        }
-
-        const b = payload.booking;
-        const nextStatus: DepositCardStatus = b.status === 'confirmed' ? 'confirmed' : 'held';
-        const remSecs = b.holdExpiresAt
-          ? Math.max(1, Math.round((new Date(b.holdExpiresAt).getTime() - Date.now()) / 1000))
-          : 900;
-
-        setReference(b.id);
-        setAmountPaidKobo(0);
-        setHoldRemainingSeconds(remSecs);
-        setBookingStatus(nextStatus);
-        syncDashboardBooking(b.id, nextStatus, amountExpectedKobo);
-        rotateIdempotencyKey();
-
-        await fetch('/api/booking-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reference: b.id,
-            status: nextStatus,
-            amountExpectedKobo,
-            amountPaidKobo: 0,
-            bankName: 'Wema Bank',
-            accountNumber: '7829104482',
-            accountName: `${businessName} via Switchboard`,
-            ttlSeconds: remSecs,
-          }),
-        }).catch(() => {});
-        return;
-      } catch {
-        setHoldError('Network error while contacting the booking engine. Please try again.');
-        return;
-      } finally {
-        setIsSubmittingHold(false);
-      }
+    if (!selectedService) {
+      setFormError('Please select a service.');
+      return;
+    }
+    if (!selectedSlotStartsAt) {
+      setFormError('Please select an available appointment time.');
+      return;
+    }
+    if (!fullName.trim()) {
+      setFormError('Please enter your full name.');
+      return;
+    }
+    const cleanDigits = phoneNumber.replace(/[^\d]/g, '');
+    if (cleanDigits.length < 7 || cleanDigits.length > 15) {
+      setFormError('Please enter a valid phone number.');
+      return;
     }
 
-    const newRef = `sb_dep_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-    setReference(newRef);
-    setAmountPaidKobo(0);
-    setHoldRemainingSeconds(900);
+    const formattedPhone =
+      countryCode === '+234' && cleanDigits.startsWith('0')
+        ? `+234${cleanDigits.slice(1)}`
+        : `${countryCode}${cleanDigits}`;
 
-    const nextStatus: DepositCardStatus = isNoDepositService ? 'confirmed' : 'held';
-    setBookingStatus(nextStatus);
-    syncDashboardBooking(newRef, nextStatus, amountExpectedKobo);
-
+    setIsSubmitting(true);
     try {
-      await fetch('/api/booking-status', {
+      const res = await fetch(`/api/public/${encodeURIComponent(slug)}/holds`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          reference: newRef,
-          status: nextStatus,
-          amountExpectedKobo,
-          amountPaidKobo: 0,
-          bankName: 'Wema Bank',
-          accountNumber: '7829104482',
-          accountName: `${businessName} via Switchboard`,
-          ttlSeconds: 900,
+          serviceId: selectedService.id,
+          ...(selectedStaffId !== 'any' ? { staffId: selectedStaffId } : {}),
+          startsAt: selectedSlotStartsAt,
+          customer: {
+            name: fullName.trim(),
+            phone: formattedPhone,
+          },
+          idempotencyKey,
         }),
       });
+
+      const payload = (await res.json()) as {
+        booking?: { id: string; status: string };
+        error?: { code?: string; message?: string };
+        alternatives?: Array<{ startsAt: string; endsAt: string; staffIds: string[] }>;
+      };
+
+      if (res.status === 409 && payload.error?.code === 'SLOT_TAKEN') {
+        const alts = (payload.alternatives ?? []).map((a) => {
+          const fmt = formatSlotTime(a.startsAt, timezone);
+          return { ...a, label: fmt.label, hourLocal: fmt.hour };
+        });
+        setAlternatives(alts);
+        setFormError(
+          'That time was just booked by someone else. Please pick another available slot.',
+        );
+        rotateIdempotencyKey();
+        return;
+      }
+
+      if (!res.ok || !payload.booking) {
+        if (payload.error?.code === 'INVALID_PHONE') {
+          setFormError('Please enter a valid phone number (e.g. 0803 123 4567).');
+        } else if (payload.error?.code === 'IDEMPOTENCY_KEY_REUSED') {
+          rotateIdempotencyKey();
+          setFormError('Your selection changed—please tap Continue to Payment again.');
+        } else {
+          setFormError(
+            payload.error?.message ||
+              'Unable to reserve this slot right now. Please try another time.',
+          );
+        }
+        return;
+      }
+
+      router.push(
+        `/b/${encodeURIComponent(slug)}/payment/${encodeURIComponent(payload.booking.id)}`,
+      );
     } catch {
-      // Offline fallback works with local state
+      setFormError('Network error while securing your slot. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#F7F8FB] text-[#111827] flex flex-col justify-between font-sans">
-      {/* Business Header */}
-      <header className="w-full border-b border-[#E5E7EB] bg-white px-4 sm:px-6 py-4">
-        <div className="max-w-[1000px] mx-auto flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <SwitchboardIconSvg className="w-10 h-10 shrink-0" />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-[17px] text-[#111827] tracking-tight leading-none">
-                  {businessName}
-                </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-[#10B981]/10 text-[#047857]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                  Open for bookings
-                </span>
-              </div>
-              <p className="text-[12px] text-text-secondary mt-1">
-                {address} · <span className="font-mono">{phone}</span> · Africa/Lagos (WAT)
-              </p>
-            </div>
-          </div>
+  if (loadingCatalog) {
+    return (
+      <main className="min-h-screen bg-[#F5F6FA] flex items-center justify-center p-6">
+        <div className="flex items-center gap-3 text-sm font-medium text-[#22306B]">
+          <span className="w-4 h-4 rounded-full border-2 border-[#22306B] border-t-transparent animate-spin" />
+          <span>Loading booking schedule…</span>
+        </div>
+      </main>
+    );
+  }
 
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[12px] font-medium text-[#111827] hover:bg-[#F7F8FB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] transition-colors"
-          >
-            <AppIcon name="arrow_back" className="text-[14px]" />
-            <span>Back to dashboard</span>
-          </Link>
+  if (catalogError || !business) {
+    return (
+      <main className="min-h-screen bg-[#F5F6FA] flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-2xl bg-white border border-slate-200 p-6 text-center space-y-2 shadow-xs">
+          <h1 className="text-lg font-bold text-[#111827]">Booking page unavailable</h1>
+          <p className="text-sm text-slate-600">
+            {catalogError ?? 'This business booking link could not be found.'}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (services.length === 0) {
+    return (
+      <main className="min-h-screen bg-[#F5F6FA] flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-2xl bg-white border border-slate-200 p-6 text-center space-y-2 shadow-xs">
+          <h1 className="text-lg font-bold text-[#111827]">{business.name}</h1>
+          <p className="text-sm text-slate-600">
+            No bookable services are currently published for this business.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <div className="min-h-screen lg:h-dvh lg:flex lg:flex-col bg-[#F5F6FA] text-[#111827]">
+      {/* Compact Header (56px) */}
+      <header className="h-14 shrink-0 bg-white border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-[#22306B] text-white flex items-center justify-center shrink-0">
+            <SwitchboardIconSvg className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#111827] truncate">{business.name}</p>
+            {business.location && (
+              <p className="text-[11px] text-slate-500 truncate">{business.location}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F5B700]/15 text-[#7A5900] text-[11px] font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F5B700]" />
+            Interledger Test Wallet
+          </span>
+          <span className="text-[11px] font-medium text-slate-500 hidden md:inline">
+            {timezone}
+          </span>
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-[1000px] mx-auto px-4 sm:px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT COLUMN: Services, Staff, Day Strip & Time Chips */}
-          <div className="lg:col-span-7 bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-xs space-y-7">
-            <div>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[#6258E8]/10 text-[#5247D8] font-semibold">
-                Real-time slot protection · exclude using gist
-              </span>
-              <h1 className="text-[24px] font-bold text-[#111827] tracking-tight mt-2">
-                Book an appointment at {businessName}
-              </h1>
-              <p className="text-[13px] text-text-secondary mt-0.5">{cancellationPolicy}</p>
-            </div>
-
-            {/* 1. Services List */}
-            <div className="space-y-2.5">
+      {/* Main Two-Column Booking Form */}
+      <form
+        onSubmit={(e) => void handleContinueToPayment(e)}
+        className="flex-1 min-h-0 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 py-4 pb-28 lg:pb-4 gap-4"
+      >
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* LEFT COLUMN: Service, Staff, Customer Details */}
+          <div className="lg:col-span-6 lg:overflow-y-auto lg:pr-1 space-y-3.5">
+            {/* 1. Service */}
+            <section
+              aria-labelledby="service-heading"
+              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 space-y-2.5"
+            >
               <div className="flex items-center justify-between">
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
-                  1. Choose service
-                </p>
-                <span className="text-[11px] font-mono text-text-secondary">
-                  Prices in NGN · Kora verified
-                </span>
+                <h2
+                  id="service-heading"
+                  className="text-xs font-bold uppercase tracking-wider text-[#22306B]"
+                >
+                  1. Service
+                </h2>
+                <span className="text-[11px] text-slate-500">{services.length} available</span>
               </div>
-              <div className="space-y-2.5">
-                {servicesList.map((svc) => {
-                  const active = svc.id === selectedServiceId;
-                  const svcDepositKobo = resolveServiceDepositKobo(svc);
-                  const noDeposit = svcDepositKobo === 0;
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+                {services.map((svc) => {
+                  const selected = svc.id === selectedServiceId;
+                  const dep = resolveServiceDepositKobo(svc);
                   return (
                     <button
                       key={svc.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedServiceId(svc.id);
-                        setBookingStatus(null);
-                      }}
-                      className={`w-full text-left p-4 rounded-xl border transition-all flex items-center justify-between gap-4 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
-                        active
-                          ? 'border-[#6258E8] bg-[#6258E8]/5 ring-1 ring-[#6258E8]'
-                          : 'border-[#E5E7EB] hover:border-slate-300 bg-white'
+                      aria-pressed={selected}
+                      onClick={() => setSelectedServiceId(svc.id)}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-colors cursor-pointer flex items-center justify-between gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22306B] ${
+                        selected
+                          ? 'border-[#22306B] bg-[#22306B]/[0.04] ring-1 ring-[#22306B]'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
                       }`}
                     >
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-[14px] font-semibold text-[#111827]">{svc.name}</p>
-                          {noDeposit ? (
-                            <span className="px-2 py-0.5 rounded-md bg-[#10B981]/12 text-[#047857] text-[10px] font-mono font-semibold">
-                              No deposit · confirms directly
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-md bg-[#F59E0B]/15 text-[#92400E] text-[10px] font-mono font-semibold">
-                              {svc.depositType === 'percent'
-                                ? `${svc.depositValue}% deposit (${formatNairaFromKobo(svcDepositKobo)})`
-                                : svc.depositType === 'full'
-                                  ? `Full upfront (${formatNairaFromKobo(svcDepositKobo)})`
-                                  : `${formatNairaFromKobo(svcDepositKobo)} deposit`}
-                            </span>
-                          )}
-                        </div>
-                        {svc.description && (
-                          <p className="text-[12px] text-text-secondary line-clamp-1">
-                            {svc.description}
-                          </p>
-                        )}
-                        <p className="text-[11px] font-mono text-text-secondary">
-                          {svc.durationMinutes} mins · Free cancel {svc.freeCancelHours}h before
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#111827] truncate">{svc.name}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {svc.durationMin} mins ·{' '}
+                          {dep > 0 ? `${formatNairaFromKobo(dep)} deposit` : 'No deposit'}
                         </p>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="font-mono text-[15px] font-bold text-[#111827]">
-                          {formatNairaFromKobo(svc.priceKobo)}
-                        </span>
-                      </div>
+                      <span className="text-sm font-bold text-[#22306B] shrink-0">
+                        {formatNairaFromKobo(svc.priceKobo)}
+                      </span>
                     </button>
                   );
                 })}
               </div>
-            </div>
+            </section>
 
-            {/* 2. Staff Selector */}
-            <div className="space-y-2.5">
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
-                2. Choose specialist
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {usingRealBookingApi && (
+            {/* 2. Staff */}
+            <section
+              aria-labelledby="staff-heading"
+              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 space-y-2.5"
+            >
+              <h2
+                id="staff-heading"
+                className="text-xs font-bold uppercase tracking-wider text-[#22306B]"
+              >
+                2. Staff
+              </h2>
+              {eligibleStaff.length === 0 ? (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  No staff members are assigned to this service yet.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedStaffId('any');
-                      setBookingStatus(null);
-                      setHoldError(null);
-                      rotateIdempotencyKey();
-                    }}
-                    className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
+                    aria-pressed={selectedStaffId === 'any'}
+                    onClick={() => setSelectedStaffId('any')}
+                    className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22306B] ${
                       selectedStaffId === 'any'
-                        ? 'border-[#6258E8] bg-[#6258E8]/5 ring-1 ring-[#6258E8]'
-                        : 'border-[#E5E7EB] hover:border-slate-300 bg-white'
+                        ? 'border-[#22306B] bg-[#22306B] text-white'
+                        : 'border-slate-200 bg-white text-[#111827] hover:border-slate-300'
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-full bg-[#6258E8]/10 text-[#5247D8] flex items-center justify-center font-bold text-xs shrink-0">
-                      <AppIcon name="groups" className="text-[18px]" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-semibold text-[#111827] truncate">
-                        Any available specialist
-                      </p>
-                      <p className="text-[12px] text-text-secondary truncate">Fastest opening</p>
-                    </div>
+                    Anyone Available
                   </button>
-                )}
-                {eligibleStaff.map((stf) => {
-                  const active = stf.id === selectedStaffId;
-                  return (
-                    <button
-                      key={stf.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedStaffId(stf.id);
-                        setBookingStatus(null);
-                        setHoldError(null);
-                        rotateIdempotencyKey();
-                      }}
-                      className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
-                        active
-                          ? 'border-[#6258E8] bg-[#6258E8]/5 ring-1 ring-[#6258E8]'
-                          : 'border-[#E5E7EB] hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <div className="w-9 h-9 rounded-full bg-[#6258E8]/10 text-[#5247D8] flex items-center justify-center font-bold text-xs shrink-0">
-                        {stf.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[14px] font-semibold text-[#111827] truncate">
-                          {stf.name}
-                        </p>
-                        <p className="text-[12px] text-text-secondary truncate">{stf.role}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 3. Interactive 7-Day Strip */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
-                  3. Choose day
-                </p>
-                <span className="text-[11px] font-mono text-text-secondary">
-                  {selectedDay?.weekdayName} · {selectedDay?.openTime}–{selectedDay?.closeTime} WAT
-                </span>
-              </div>
-
-              <div className="grid grid-cols-7 gap-2">
-                {dayStrip.map((day) => {
-                  const isSelected = day.isoDate === selectedDay?.isoDate;
-                  return (
-                    <button
-                      key={day.isoDate}
-                      type="button"
-                      disabled={!day.open}
-                      onClick={() => {
-                        setSelectedDateIso(day.isoDate);
-                        setBookingStatus(null);
-                      }}
-                      className={`py-2.5 px-1.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
-                        !day.open
-                          ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
-                          : isSelected
-                            ? 'border-[#6258E8] bg-[#6258E8] text-white shadow-xs cursor-pointer'
-                            : 'border-[#E5E7EB] bg-white text-[#111827] hover:border-[#6258E8]/50 cursor-pointer'
-                      }`}
-                    >
-                      <span
-                        className={`text-[10px] font-semibold uppercase ${
-                          !day.open
-                            ? 'text-slate-300'
-                            : isSelected
-                              ? 'text-white/95'
-                              : 'text-text-secondary'
-                        }`}
-                      >
-                        {day.shortDay}
-                      </span>
-                      <span className="text-[15px] font-mono font-bold leading-tight">
-                        {day.dayNumber}
-                      </span>
-                      <span
-                        className={`text-[10px] font-mono ${
-                          !day.open
-                            ? 'text-slate-300'
-                            : isSelected
-                              ? 'text-white/95'
-                              : 'text-text-secondary'
-                        }`}
-                      >
-                        {day.open ? day.monthShort : 'Closed'}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 4. Time Slot Chips */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
-                  4. Choose time chip (WAT)
-                </p>
-                {usingRealBookingApi && (
-                  <span className="text-[11px] font-mono text-[#047857]">
-                    {slotsLoading ? 'Checking live slots…' : 'Live availability'}
-                  </span>
-                )}
-              </div>
-
-              {usingRealBookingApi ? (
-                apiSlots.length === 0 && !slotsLoading ? (
-                  <div className="p-4 rounded-xl border border-[#E5E7EB] bg-slate-50 text-xs text-text-secondary">
-                    No open slots left on this date. Pick another day above.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-2.5">
-                    {apiSlots.map((slot) => {
-                      const active = slot.startsAt === selectedSlotStartsAt;
-                      return (
-                        <button
-                          key={slot.startsAt}
-                          type="button"
-                          onClick={() => {
-                            setSelectedSlot(slot.label);
-                            setSelectedSlotStartsAt(slot.startsAt);
-                            setBookingStatus(null);
-                            setHoldError(null);
-                            setSlotTakenAlternatives([]);
-                            rotateIdempotencyKey();
-                          }}
-                          className={`py-2.5 px-3 rounded-xl border font-mono text-[13px] font-medium transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
-                            active
-                              ? 'border-[#6258E8] bg-[#6258E8] text-white shadow-xs'
-                              : 'border-[#E5E7EB] text-[#111827] hover:border-[#6258E8]/50 bg-white'
-                          }`}
-                        >
-                          {slot.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )
-              ) : (
-                <div className="grid grid-cols-3 gap-2.5">
-                  {timeChips.map((slot) => {
-                    const active = slot === selectedSlot;
+                  {eligibleStaff.map((st) => {
+                    const selected = selectedStaffId === st.id;
                     return (
                       <button
-                        key={slot}
+                        key={st.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedSlot(slot);
-                          setBookingStatus(null);
-                          setHoldError(null);
-                          rotateIdempotencyKey();
-                        }}
-                        className={`py-2.5 px-3 rounded-xl border font-mono text-[13px] font-medium transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8] ${
-                          active
-                            ? 'border-[#6258E8] bg-[#6258E8] text-white shadow-xs'
-                            : 'border-[#E5E7EB] text-[#111827] hover:border-[#6258E8]/50 bg-white'
+                        aria-pressed={selected}
+                        onClick={() => setSelectedStaffId(st.id)}
+                        className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22306B] ${
+                          selected
+                            ? 'border-[#22306B] bg-[#22306B] text-white'
+                            : 'border-slate-200 bg-white text-[#111827] hover:border-slate-300'
                         }`}
                       >
-                        {slot}
+                        {st.name}
                       </button>
                     );
                   })}
                 </div>
               )}
-            </div>
-          </div>
+            </section>
 
-          {/* RIGHT COLUMN: Hold Band & Kora DepositCard / Direct Confirmation */}
-          <div className="lg:col-span-5 bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-xs space-y-5 sticky top-6">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-4">
-              <div>
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">
-                  Appointment summary
-                </p>
-                <h2 className="text-[17px] font-bold text-[#111827] mt-0.5">
-                  {selectedService?.name}
-                </h2>
-              </div>
-              <span className="px-2.5 py-1 rounded-md bg-slate-100 text-[11px] font-mono font-semibold text-[#111827]">
-                {selectedService?.durationMinutes} mins
-              </span>
-            </div>
-
-            <div className="space-y-2.5 text-[13px]">
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Specialist</span>
-                <span className="font-semibold text-[#111827]">{selectedStaff?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Date &amp; time</span>
-                <span className="font-mono font-semibold text-[#111827]">
-                  {selectedDay?.shortDay} {selectedDay?.dayNumber} {selectedDay?.monthShort} ·{' '}
-                  {selectedSlot}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Total service fee</span>
-                <span className="font-mono font-semibold text-[#111827]">
-                  {formatNairaFromKobo(selectedService?.priceKobo ?? 0)}
-                </span>
-              </div>
-
-              {!isNoDepositService && koraFeeKobo > 0 && (
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-text-secondary">Kora processing fee</span>
-                  <span className="font-mono text-[#111827]">
-                    {formatNairaFromKobo(koraFeeKobo)}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex justify-between pt-2 border-t border-slate-100">
-                <span className="font-semibold text-[#111827]">
-                  {isNoDepositService ? 'Upfront deposit' : 'Exact amount to transfer'}
-                </span>
-                <span
-                  className={`font-mono font-bold ${
-                    isNoDepositService ? 'text-[#047857]' : 'text-[#5247D8]'
-                  }`}
-                >
-                  {isNoDepositService ? '₦0 (No deposit)' : formatNairaFromKobo(amountExpectedKobo)}
-                </span>
-              </div>
-            </div>
-
-            {!bookingStatus ? (
-              <form onSubmit={handleHoldOrConfirmSlot} className="space-y-3.5 pt-1">
+            {/* 3. Customer Details */}
+            <section
+              aria-labelledby="details-heading"
+              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 space-y-2.5"
+            >
+              <h2
+                id="details-heading"
+                className="text-xs font-bold uppercase tracking-wider text-[#22306B]"
+              >
+                3. Your Details
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label
-                    htmlFor="cust-name"
-                    className="block text-[12px] font-medium text-[#111827] mb-1"
+                    htmlFor="booking-full-name"
+                    className="block text-[11px] font-semibold text-slate-700 mb-1"
                   >
-                    Your name
+                    Full name
                   </label>
                   <input
-                    id="cust-name"
+                    id="booking-full-name"
                     type="text"
                     required
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="e.g. Adebayo Ogunlesi"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[13px] focus:outline-none focus:border-[#6258E8] focus:ring-2 focus:ring-[#6258E8]/20"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Adaeze Okonkwo"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#22306B]"
                   />
                 </div>
+
                 <div>
                   <label
-                    htmlFor="cust-phone"
-                    className="block text-[12px] font-medium text-[#111827] mb-1"
+                    htmlFor="booking-phone"
+                    className="block text-[11px] font-semibold text-slate-700 mb-1"
                   >
-                    WhatsApp phone number
+                    Phone number
                   </label>
-                  <input
-                    id="cust-phone"
-                    type="tel"
-                    required
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="+234 803 000 0000"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[13px] font-mono focus:outline-none focus:border-[#6258E8] focus:ring-2 focus:ring-[#6258E8]/20"
-                  />
+                  <div className="flex gap-1.5">
+                    <select
+                      aria-label="Country code"
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="px-2 py-2 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#22306B]"
+                    >
+                      <option value="+234">NG +234</option>
+                      <option value="+44">UK +44</option>
+                      <option value="+1">US +1</option>
+                    </select>
+                    <input
+                      id="booking-phone"
+                      type="tel"
+                      required
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="0803 123 4567"
+                      className="min-w-0 flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#22306B]"
+                    />
+                  </div>
                 </div>
+              </div>
 
-                {holdError && (
-                  <div
-                    role="alert"
-                    className="p-3 rounded-xl border border-amber-300 bg-amber-50 text-xs text-amber-900 space-y-2"
+              <div>
+                <label
+                  htmlFor="booking-email"
+                  className="block text-[11px] font-semibold text-slate-700 mb-1"
+                >
+                  Email <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <input
+                  id="booking-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="adaeze@example.com"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#22306B]"
+                />
+              </div>
+            </section>
+          </div>
+
+          {/* RIGHT COLUMN: Date & Available Time Slots */}
+          <div className="lg:col-span-6 lg:overflow-y-auto lg:pl-1 space-y-3.5">
+            {/* 4. Date */}
+            <section
+              aria-labelledby="date-heading"
+              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 space-y-2.5"
+            >
+              <div className="flex items-center justify-between">
+                <h2
+                  id="date-heading"
+                  className="text-xs font-bold uppercase tracking-wider text-[#22306B]"
+                >
+                  4. Date
+                </h2>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={weekOffset === 0}
+                    onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
+                    aria-label="Previous week"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
                   >
-                    <p className="font-semibold">{holdError}</p>
-                    {slotTakenAlternatives.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {slotTakenAlternatives.map((alt) => (
-                          <button
-                            key={alt.startsAt}
-                            type="button"
-                            onClick={() => {
-                              setSelectedSlot(alt.label);
-                              setSelectedSlotStartsAt(alt.startsAt);
-                              setHoldError(null);
-                              setSlotTakenAlternatives([]);
-                              rotateIdempotencyKey();
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 font-mono font-semibold text-[#111827] hover:border-[#6258E8] cursor-pointer"
-                          >
-                            {alt.label}
-                          </button>
-                        ))}
+                    <AppIcon name="chevron_left" className="text-base" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={(weekOffset + 1) * 7 > (business.advanceDays ?? 14)}
+                    onClick={() => setWeekOffset((w) => w + 1)}
+                    aria-label="Next week"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                  >
+                    <AppIcon name="chevron_right" className="text-base" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex lg:grid lg:grid-cols-7 gap-2 overflow-x-auto pb-1 lg:pb-0">
+                {weekDays.map((day) => {
+                  const selected = day.isoDate === selectedDateIso;
+                  return (
+                    <button
+                      key={day.isoDate}
+                      type="button"
+                      disabled={day.disabled}
+                      aria-pressed={selected}
+                      onClick={() => setSelectedDateIso(day.isoDate)}
+                      className={`min-w-[64px] lg:min-w-0 py-2 px-2 rounded-xl border text-center transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22306B] ${
+                        selected
+                          ? 'border-[#22306B] bg-[#22306B] text-white'
+                          : 'border-slate-200 bg-white text-[#111827] hover:border-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`block text-[10px] font-semibold uppercase ${
+                          selected ? 'text-white/80' : 'text-slate-500'
+                        }`}
+                      >
+                        {day.isToday ? 'Today' : day.shortDay}
+                      </span>
+                      <span className="block text-sm font-bold leading-tight mt-0.5">
+                        {day.dayNumber}
+                      </span>
+                      <span
+                        className={`block text-[10px] ${
+                          selected ? 'text-white/80' : 'text-slate-400'
+                        }`}
+                      >
+                        {day.monthShort}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* 5. Time Slots */}
+            <section
+              aria-labelledby="time-heading"
+              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <h2
+                  id="time-heading"
+                  className="text-xs font-bold uppercase tracking-wider text-[#22306B]"
+                >
+                  5. Available Times (WAT)
+                </h2>
+                <span className="sr-only" aria-live="polite">
+                  {slotsAnnouncement}
+                </span>
+                {selectedSlotObj && (
+                  <span className="text-xs font-semibold text-[#22306B]">
+                    Selected: {selectedSlotObj.label}
+                  </span>
+                )}
+              </div>
+
+              {slotsLoading ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].map((k) => (
+                    <div key={k} className="h-9 rounded-xl bg-slate-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : groupedSlots.length === 0 ? (
+                <div className="rounded-xl bg-[#F5F6FA] border border-slate-200 p-4 text-center space-y-1">
+                  <p className="text-xs font-semibold text-[#111827]">No open slots on this date</p>
+                  <p className="text-[11px] text-slate-500">
+                    Try another day or choose Anyone Available.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {groupedSlots.map((group) => (
+                    <div key={group.key} className="space-y-1.5">
+                      <p className="text-[11px] font-semibold text-slate-500">{group.title}</p>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {group.items.map((slot) => {
+                          const selected = slot.startsAt === selectedSlotStartsAt;
+                          return (
+                            <button
+                              key={slot.startsAt}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => {
+                                setSelectedSlotStartsAt(slot.startsAt);
+                                setFormError(null);
+                                rotateIdempotencyKey();
+                              }}
+                              className={`py-2 px-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22306B] ${
+                                selected
+                                  ? 'border-[#22306B] bg-[#22306B] text-white shadow-xs'
+                                  : 'border-slate-200 bg-white text-[#111827] hover:border-[#22306B]/50'
+                              }`}
+                            >
+                              {slot.label}
+                            </button>
+                          );
+                        })}
                       </div>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSubmittingHold}
-                  className="w-full py-3 rounded-xl bg-[#6258E8] hover:bg-[#4F46E5] text-white font-semibold text-[14px] transition-colors shadow-xs cursor-pointer disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6258E8]"
-                >
-                  {isSubmittingHold
-                    ? 'Securing slot…'
-                    : isNoDepositService
-                      ? 'Hold this time (confirms directly)'
-                      : `Hold this time · Pay ${formatNairaFromKobo(amountExpectedKobo)} deposit`}
-                </button>
-              </form>
-            ) : (
-              <div className="space-y-4 pt-1">
-                {!isNoDepositService && interledgerEnabled && interledgerWalletAddress && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Choose payment method
-                    </p>
-                    <div className="grid grid-cols-1 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('kora')}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                          paymentMethod === 'kora'
-                            ? 'border-[#22306B] bg-[#F5F6FA] ring-2 ring-[#22306B]/20'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                        }`}
-                      >
-                        <p className="text-xs font-bold text-[#111827]">Kora Bank Transfer</p>
-                        <p className="text-[11px] text-slate-600 mt-0.5">
-                          Pay your booking deposit in NGN using a bank transfer.
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('interledger')}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                          paymentMethod === 'interledger'
-                            ? 'border-[#22306B] bg-[#F5F6FA] ring-2 ring-[#22306B]/20'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-bold text-[#111827]">
-                            Interledger Test Wallet
-                          </p>
-                          {interledgerEnvironment === 'testnet' && (
-                            <span className="px-1.5 py-0.5 rounded bg-[#F5B700]/20 text-[#7A5900] text-[10px] font-semibold">
-                              Test Money
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-600 mt-0.5">
-                          Pay with Interledger using an Open Payments test wallet.
-                        </p>
-                      </button>
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
 
-                {paymentMethod === 'interledger' &&
-                !isNoDepositService &&
-                interledgerEnabled &&
-                interledgerWalletAddress ? (
-                  <InterledgerCheckoutCard
-                    slug={slug}
-                    bookingId={reference}
-                    businessName={businessName}
-                    receivingWalletAddress={interledgerWalletAddress}
-                    serviceName={selectedService?.name ?? 'Appointment'}
-                    appointmentLabel={selectedSlot}
-                    depositKobo={baseDepositKobo}
-                    remainingSeconds={holdRemainingSeconds}
-                    environment={interledgerEnvironment}
-                    initialCallbackParams={ilpCallbackParams}
-                    onConfirmed={() => {
-                      setBookingStatus('confirmed');
-                      syncDashboardBooking(reference, 'confirmed', amountExpectedKobo);
-                    }}
-                    onPickDifferentSlot={() => {
-                      setBookingStatus(null);
+        {/* Inline Error / Slot Taken Alternatives */}
+        {formError && (
+          <div
+            role="alert"
+            className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2"
+          >
+            <span className="font-semibold">{formError}</span>
+            {alternatives.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {alternatives.map((alt) => (
+                  <button
+                    key={alt.startsAt}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSlotStartsAt(alt.startsAt);
+                      setFormError(null);
+                      setAlternatives([]);
                       rotateIdempotencyKey();
                     }}
-                  />
-                ) : (
-                  <DepositCard
-                    reference={reference}
-                    businessName={businessName}
-                    customerName={customerName}
-                    customerPhone={customerPhone}
-                    baseDepositKobo={baseDepositKobo}
-                    koraFeeKobo={koraFeeKobo}
-                    amountExpectedKobo={amountExpectedKobo}
-                    amountPaidKobo={amountPaidKobo}
-                    merchantBearsCost={merchantBearsCost}
-                    initialStatus={bookingStatus}
-                    remainingSeconds={holdRemainingSeconds}
-                    freeCancelHours={serviceFreeCancelHours}
-                    pollIntervalMs={3000}
-                    enablePolling={!isNoDepositService}
-                    onStatusChange={(next, paid) => {
-                      setBookingStatus(next);
-                      if (typeof paid === 'number') setAmountPaidKobo(paid);
-                      syncDashboardBooking(reference, next, amountExpectedKobo);
-                    }}
-                    onPickDifferentSlot={() => {
-                      setBookingStatus(null);
-                      rotateIdempotencyKey();
-                    }}
-                  />
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setBookingStatus(null)}
-                  className="w-full py-2 rounded-lg border border-[#E5E7EB] text-xs font-semibold text-text-secondary hover:text-[#111827] hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Choose a different slot
-                </button>
+                    className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 font-semibold text-[#111827] hover:border-[#22306B] cursor-pointer"
+                  >
+                    {alt.label}
+                  </button>
+                ))}
               </div>
             )}
           </div>
+        )}
+
+        {/* Bottom Compact Summary & Continue to Payment Bar */}
+        <div className="fixed bottom-0 inset-x-0 lg:static z-20 bg-white border-t lg:border border-slate-200 lg:rounded-2xl shadow-sm px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs min-w-0">
+            <div>
+              <p className="font-bold text-[#111827] truncate">
+                {selectedService?.name ?? 'Select a service'}
+              </p>
+              <p className="text-[11px] text-slate-500">
+                {selectedService ? `${selectedService.durationMin}m` : '—'} · {selectedStaffName} ·{' '}
+                {selectedDateIso || '—'} {selectedSlotObj ? `at ${selectedSlotObj.label}` : ''}
+              </p>
+            </div>
+            <div className="hidden md:flex items-center gap-4 pl-4 border-l border-slate-200">
+              <div>
+                <p className="text-[10px] uppercase text-slate-400 font-semibold">Total</p>
+                <p className="font-semibold text-[#111827]">{formatNairaFromKobo(priceKobo)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase text-slate-400 font-semibold">Deposit due</p>
+                <p className="font-bold text-[#22306B]">
+                  {depositKobo > 0 ? formatNairaFromKobo(depositKobo) : '₦0'}
+                </p>
+              </div>
+              {remainingKobo > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase text-slate-400 font-semibold">At venue</p>
+                  <p className="font-semibold text-slate-700">
+                    {formatNairaFromKobo(remainingKobo)}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !selectedSlotStartsAt || !selectedService}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#22306B] hover:bg-[#192350] text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22306B]"
+          >
+            {isSubmitting
+              ? 'Reserving slot…'
+              : depositKobo > 0
+                ? 'Continue to Payment'
+                : 'Confirm Booking'}
+          </button>
         </div>
-      </main>
+      </form>
     </div>
   );
 }
