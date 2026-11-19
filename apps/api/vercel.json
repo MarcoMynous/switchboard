@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=@switchboard/api",
-  "git": { "deploymentEnabled": false },
+  "git": { "deploymentEnabled": true },
   "regions": ["fra1"]
 }

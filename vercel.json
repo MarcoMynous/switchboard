@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["fra1"],
-  "git": { "deploymentEnabled": false },
+  "git": { "deploymentEnabled": true },
   "services": {
     "web": {
       "root": "apps/web",
@@ -97,6 +97,18 @@
     },
     {
       "source": "/api/demo/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/payments",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/integrations/interledger",
       "destination": {
         "service": "web"
       }
