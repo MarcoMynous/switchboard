@@ -910,7 +910,22 @@ export function interledgerCallbackRoutes(deps: InterledgerRoutesDeps) {
       !attempt.continueAccessTokenEnc ||
       !attempt.quoteId
     ) {
-      return c.redirect(`${bookingPageBase}&ilp_status=invalid_state`, 302);
+      const reason =
+        attempt.grantState !== 'awaiting_authorization'
+          ? `grant_state_${attempt.grantState}`
+          : !state
+            ? 'missing_state'
+            : attempt.authNonceHash !== incomingHash
+              ? 'state_mismatch'
+              : 'missing_continue_context';
+      deps.logger.warn(
+        { paymentId, reason, grantState: attempt.grantState, hasState: Boolean(state) },
+        'interledger: GET callback invalid_state',
+      );
+      return c.redirect(
+        `${bookingPageBase}&ilp_status=invalid_state&ilp_reason=${encodeURIComponent(reason)}`,
+        302,
+      );
     }
 
     const booking = await deps.db.query.bookings.findFirst({

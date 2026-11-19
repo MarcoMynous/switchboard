@@ -385,13 +385,23 @@ export async function completeAuthorizationAndCreateOutgoingPayment(
   }
 
   if (input.receivedHash) {
-    const validHash = verifyGnapInteractionHash({
-      clientNonce: input.clientNonce,
-      interactNonce: input.interactNonce,
-      interactRef: input.interactRef,
-      grantEndpoint: input.customerWallet.authServer,
-      receivedHash: input.receivedHash,
-    });
+    const authServer = input.customerWallet.authServer;
+    const altAuthServer = authServer.endsWith('/') ? authServer.slice(0, -1) : `${authServer}/`;
+    const validHash =
+      verifyGnapInteractionHash({
+        clientNonce: input.clientNonce,
+        interactNonce: input.interactNonce,
+        interactRef: input.interactRef,
+        grantEndpoint: authServer,
+        receivedHash: input.receivedHash,
+      }) ||
+      verifyGnapInteractionHash({
+        clientNonce: input.clientNonce,
+        interactNonce: input.interactNonce,
+        interactRef: input.interactRef,
+        grantEndpoint: altAuthServer,
+        receivedHash: input.receivedHash,
+      });
     if (!validHash) {
       return err({
         code: 'INVALID_CALLBACK_STATE',

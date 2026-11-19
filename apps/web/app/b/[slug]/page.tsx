@@ -1,8 +1,8 @@
 'use client';
 
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppIcon } from '@/components/AppIcon';
 import { formatNairaFromKobo } from '@/components/DepositCard';
 import { SwitchboardIconSvg } from '@/components/SwitchboardLogo';
 
@@ -49,13 +49,18 @@ interface ApiSlotOption {
   hourLocal: number;
 }
 
-interface DayOption {
+interface CalendarDay {
   isoDate: string;
-  shortDay: string;
-  dayNumber: string;
-  monthShort: string;
+  dayNumber: number;
   isToday: boolean;
   disabled: boolean;
+}
+
+interface MonthCalendar {
+  monthLabel: string;
+  cells: Array<{ key: string; day: CalendarDay | null }>;
+  canPrevMonth: boolean;
+  canNextMonth: boolean;
 }
 
 function resolveServiceDepositKobo(service: ServiceItem): number {
@@ -96,36 +101,61 @@ function getLocalIsoDate(date: Date, timezone: string): string {
   }).format(date);
 }
 
-function buildWeekDays(
-  weekOffset: number,
+function buildMonthCalendar(
+  monthOffset: number,
   timezone: string,
   advanceDays: number,
   allowSameDay: boolean,
-): DayOption[] {
-  const days: DayOption[] = [];
+): MonthCalendar {
   const todayIso = getLocalIsoDate(new Date(), timezone);
-  const startDayOffset = weekOffset * 7;
+  const [todayYStr, todayMStr, todayDStr] = todayIso.split('-');
+  const todayY = Number(todayYStr);
+  const todayM = Number(todayMStr);
+  const todayD = Number(todayDStr);
+  const todayUtcMs = Date.UTC(todayY, todayM - 1, todayD);
 
-  const shortDayFmt = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: timezone });
-  const dayNumFmt = new Intl.DateTimeFormat('en-US', { day: 'numeric', timeZone: timezone });
-  const monthFmt = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: timezone });
+  const firstOfTarget = new Date(Date.UTC(todayY, todayM - 1 + monthOffset, 1, 12, 0, 0));
+  const year = firstOfTarget.getUTCFullYear();
+  const monthIdx = firstOfTarget.getUTCMonth();
+  const daysInMonth = new Date(Date.UTC(year, monthIdx + 1, 0, 12, 0, 0)).getUTCDate();
+  const leadingEmpty = (firstOfTarget.getUTCDay() + 6) % 7; // Monday = 0
 
-  for (let i = 0; i < 7; i++) {
-    const offset = startDayOffset + i;
-    const d = new Date(Date.now() + offset * 86_400_000);
-    const isoDate = getLocalIsoDate(d, timezone);
-    const isToday = isoDate === todayIso;
-    const disabled = offset < 0 || offset > advanceDays || (offset === 0 && !allowSameDay);
-    days.push({
-      isoDate,
-      shortDay: shortDayFmt.format(d),
-      dayNumber: dayNumFmt.format(d),
-      monthShort: monthFmt.format(d),
-      isToday,
-      disabled,
+  const monthLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(firstOfTarget);
+
+  const cells: Array<{ key: string; day: CalendarDay | null }> = [];
+  for (let i = 0; i < leadingEmpty; i++) {
+    cells.push({ key: `pad-${year}-${monthIdx}-${i}`, day: null });
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const isoDate = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const cellUtcMs = Date.UTC(year, monthIdx, day);
+    const diffDays = Math.round((cellUtcMs - todayUtcMs) / 86_400_000);
+    const isToday = diffDays === 0;
+    const disabled = diffDays < 0 || diffDays > advanceDays || (diffDays === 0 && !allowSameDay);
+    cells.push({
+      key: isoDate,
+      day: {
+        isoDate,
+        dayNumber: day,
+        isToday,
+        disabled,
+      },
     });
   }
-  return days;
+
+  const nextMonthStartMs = Date.UTC(year, monthIdx + 1, 1);
+  const nextMonthDiffDays = Math.round((nextMonthStartMs - todayUtcMs) / 86_400_000);
+
+  return {
+    monthLabel,
+    cells,
+    canPrevMonth: monthOffset > 0,
+    canNextMonth: nextMonthDiffDays <= advanceDays,
+  };
 }
 
 export default function PublicBookingPage() {
@@ -141,7 +171,7 @@ export default function PublicBookingPage() {
 
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('any');
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
   const [selectedDateIso, setSelectedDateIso] = useState<string>('');
   const [slots, setSlots] = useState<ApiSlotOption[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -200,13 +230,13 @@ export default function PublicBookingPage() {
           setSelectedServiceId(data.services[0].id);
         }
         const tz = data.business.timezone || 'Africa/Lagos';
-        const initialDays = buildWeekDays(
+        const initialCal = buildMonthCalendar(
           0,
           tz,
           data.business.advanceDays ?? 14,
           data.business.allowSameDay ?? true,
         );
-        const firstOpen = initialDays.find((d) => !d.disabled);
+        const firstOpen = initialCal.cells.find((c) => c.day && !c.day.disabled)?.day;
         if (firstOpen) setSelectedDateIso(firstOpen.isoDate);
       })
       .catch((err) => {
@@ -243,15 +273,15 @@ export default function PublicBookingPage() {
     }
   }, [eligibleStaff, selectedStaffId]);
 
-  const weekDays = useMemo(
+  const monthCalendar = useMemo(
     () =>
-      buildWeekDays(
-        weekOffset,
+      buildMonthCalendar(
+        monthOffset,
         timezone,
         business?.advanceDays ?? 14,
         business?.allowSameDay ?? true,
       ),
-    [business?.advanceDays, business?.allowSameDay, timezone, weekOffset],
+    [business?.advanceDays, business?.allowSameDay, timezone, monthOffset],
   );
 
   // 2. Load authoritative availability whenever service, staff, or date changes
@@ -689,30 +719,44 @@ export default function PublicBookingPage() {
                 >
                   4. Date
                 </h2>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    disabled={weekOffset === 0}
-                    onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
-                    aria-label="Previous week"
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                    disabled={!monthCalendar.canPrevMonth}
+                    onClick={() => setMonthOffset((m) => Math.max(0, m - 1))}
+                    aria-label="Previous month"
+                    className="p-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <AppIcon name="chevron_left" className="text-base" />
+                    <ChevronLeft className="h-4 w-4" />
                   </button>
+                  <span className="text-xs font-semibold text-[#111827] min-w-[108px] text-center">
+                    {monthCalendar.monthLabel}
+                  </span>
                   <button
                     type="button"
-                    disabled={(weekOffset + 1) * 7 > (business.advanceDays ?? 14)}
-                    onClick={() => setWeekOffset((w) => w + 1)}
-                    aria-label="Next week"
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                    disabled={!monthCalendar.canNextMonth}
+                    onClick={() => setMonthOffset((m) => m + 1)}
+                    aria-label="Next month"
+                    className="p-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <AppIcon name="chevron_right" className="text-base" />
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
               </div>
 
-              <div className="flex lg:grid lg:grid-cols-7 gap-2 overflow-x-auto pb-1 lg:pb-0">
-                {weekDays.map((day) => {
+              <div className="grid grid-cols-7 gap-1 text-center">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((wd) => (
+                  <div
+                    key={wd}
+                    className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 py-0.5"
+                  >
+                    {wd}
+                  </div>
+                ))}
+                {monthCalendar.cells.map(({ key, day }) => {
+                  if (!day) {
+                    return <div key={key} className="h-8" />;
+                  }
                   const selected = day.isoDate === selectedDateIso;
                   return (
                     <button
@@ -720,30 +764,17 @@ export default function PublicBookingPage() {
                       type="button"
                       disabled={day.disabled}
                       aria-pressed={selected}
+                      aria-label={day.isoDate}
                       onClick={() => setSelectedDateIso(day.isoDate)}
-                      className={`min-w-[64px] lg:min-w-0 py-2 px-2 rounded-xl border text-center transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22306B] ${
+                      className={`h-8 rounded-lg border text-xs font-semibold transition-colors cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed flex flex-col items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22306B] ${
                         selected
                           ? 'border-[#22306B] bg-[#22306B] text-white'
-                          : 'border-slate-200 bg-white text-[#111827] hover:border-slate-300'
+                          : day.isToday
+                            ? 'border-[#22306B]/40 bg-[#22306B]/[0.05] text-[#22306B] hover:border-[#22306B]'
+                            : 'border-transparent bg-slate-50/70 text-[#111827] hover:border-slate-300 hover:bg-white'
                       }`}
                     >
-                      <span
-                        className={`block text-[10px] font-semibold uppercase ${
-                          selected ? 'text-white/80' : 'text-slate-500'
-                        }`}
-                      >
-                        {day.isToday ? 'Today' : day.shortDay}
-                      </span>
-                      <span className="block text-sm font-bold leading-tight mt-0.5">
-                        {day.dayNumber}
-                      </span>
-                      <span
-                        className={`block text-[10px] ${
-                          selected ? 'text-white/80' : 'text-slate-400'
-                        }`}
-                      >
-                        {day.monthShort}
-                      </span>
+                      <span>{day.dayNumber}</span>
                     </button>
                   );
                 })}

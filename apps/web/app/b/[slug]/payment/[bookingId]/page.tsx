@@ -182,6 +182,7 @@ function PaymentScreenContent() {
   const searchParams = useSearchParams();
   const ilpPaymentParam = searchParams.get('ilp_payment');
   const ilpStatusParam = searchParams.get('ilp_status');
+  const ilpReasonParam = searchParams.get('ilp_reason') ?? searchParams.get('ilp_code');
 
   const [data, setData] = useState<AuthoritativeBookingResponse | null>(null);
   const [screenState, setScreenState] = useState<PaymentScreenState>('preparing_checkout');
@@ -298,7 +299,13 @@ function PaymentScreenContent() {
       if (ilpStatusParam === 'rejected') {
         setErrorMsg('Wallet authorization was cancelled. Your slot hold remains active.');
       } else if (ilpStatusParam === 'error' || ilpStatusParam === 'invalid_state') {
-        setErrorMsg('Authorization callback could not be verified. Please request a new quote.');
+        const detail = json.payment?.attempt?.lastErrorMessage;
+        setErrorMsg(
+          detail ??
+            (ilpReasonParam
+              ? `Authorization callback could not be verified (${ilpReasonParam}). Please request a new quote.`
+              : 'Authorization callback could not be verified. Please request a new quote.'),
+        );
       }
 
       setScreenState('awaiting_wallet_address');
@@ -306,7 +313,7 @@ function PaymentScreenContent() {
       setScreenState('requires_attention');
       setErrorMsg('Network error loading booking state.');
     }
-  }, [bookingId, ilpStatusParam, slug]);
+  }, [bookingId, ilpReasonParam, ilpStatusParam, slug]);
 
   useEffect(() => {
     void loadAuthoritativeBooking();
