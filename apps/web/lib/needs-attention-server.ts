@@ -199,7 +199,7 @@ export async function fetchNeedsAttentionData(
     }>(
       `SELECT
          p.id::text AS payment_id,
-         p.kora_reference,
+         COALESCE(p.provider_reference, p.kora_reference) AS kora_reference,
          p.amount_kobo::text AS amount_kobo,
          p.status::text AS payment_status,
          p.verified_at::text AS verified_at,
@@ -208,7 +208,14 @@ export async function fetchNeedsAttentionData(
          b.id::text AS booking_id,
          b.status::text AS booking_status,
          b.starts_at::text AS starts_at,
-         b.deposit_kobo::text AS deposit_kobo,
+         (
+           CASE
+             WHEN sv.deposit_type = 'none' THEN 0
+             WHEN sv.deposit_type = 'full' THEN COALESCE(sv.price_kobo, 0)
+             WHEN sv.deposit_type = 'percent' THEN ROUND(COALESCE(sv.price_kobo, 0) * COALESCE(sv.deposit_value, 0) / 100.0)::bigint
+             ELSE COALESCE(sv.deposit_value, p.amount_kobo, 0)
+           END
+         )::text AS deposit_kobo,
          b.created_at::text AS booking_created_at,
          sv.name AS service_name,
          st.name AS staff_name,
@@ -223,7 +230,21 @@ export async function fetchNeedsAttentionData(
        WHERE p.business_id = $1
          AND (
            p.status IN ('pending_verification', 'refund_pending', 'refund_failed', 'refunded')
-           OR (p.status = 'succeeded' AND b.id IS NOT NULL AND (p.amount_kobo < b.deposit_kobo OR b.status IN ('expired', 'cancelled')))
+           OR (
+             p.status = 'succeeded'
+             AND b.id IS NOT NULL
+             AND (
+               p.amount_kobo < (
+                 CASE
+                   WHEN sv.deposit_type = 'none' THEN 0
+                   WHEN sv.deposit_type = 'full' THEN COALESCE(sv.price_kobo, 0)
+                   WHEN sv.deposit_type = 'percent' THEN ROUND(COALESCE(sv.price_kobo, 0) * COALESCE(sv.deposit_value, 0) / 100.0)::bigint
+                   ELSE COALESCE(sv.deposit_value, p.amount_kobo, 0)
+                 END
+               )
+               OR b.status IN ('expired', 'cancelled')
+             )
+           )
          )
        ORDER BY p.updated_at DESC
        LIMIT 150`,

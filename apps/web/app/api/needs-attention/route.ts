@@ -119,9 +119,17 @@ export async function POST(request: Request) {
           booking_status: string | null;
         }>(
           `SELECT p.status::text AS payment_status, p.amount_kobo::text AS amount_kobo,
-                  b.deposit_kobo::text AS deposit_kobo, b.status::text AS booking_status
+                  (
+                    CASE
+                      WHEN sv.deposit_type = 'none' THEN 0
+                      WHEN sv.deposit_type = 'full' THEN COALESCE(sv.price_kobo, 0)
+                      WHEN sv.deposit_type = 'percent' THEN ROUND(COALESCE(sv.price_kobo, 0) * COALESCE(sv.deposit_value, 0) / 100.0)::bigint
+                      ELSE COALESCE(sv.deposit_value, p.amount_kobo, 0)
+                    END
+                  )::text AS deposit_kobo, b.status::text AS booking_status
            FROM payments p
            LEFT JOIN bookings b ON b.id = p.booking_id
+           LEFT JOIN services sv ON sv.id = b.service_id
            WHERE p.id = $1 AND p.business_id = $2
            LIMIT 1`,
           [entityId, ctx.business.id],

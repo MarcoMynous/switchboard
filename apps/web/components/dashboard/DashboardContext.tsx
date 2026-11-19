@@ -395,10 +395,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setDemoTourRequestId((n) => n + 1);
   }, []);
 
-  const refreshWorkspaceData = useCallback(() => {
+  const refreshWorkspaceData = useCallback((): Promise<void> => {
     setApiState((prev) => ({ ...prev, loading: true, error: null }));
 
-    fetch('/api/workspace')
+    return fetch('/api/workspace', { cache: 'no-store' })
       .then(async (res) => {
         const data = (await res.json()) as WorkspaceApiData;
         if (!res.ok || !data.ok) {
@@ -464,7 +464,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         // Load real bookings & conversations from Postgres
         const dashUrl = slug ? `/api/dashboard?slug=${encodeURIComponent(slug)}` : '/api/dashboard';
         try {
-          const dashRes = await fetch(dashUrl);
+          const dashRes = await fetch(dashUrl, { cache: 'no-store' });
           if (dashRes.ok) {
             const dashData = (await dashRes.json()) as {
               ok: boolean;
@@ -1043,7 +1043,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           return false;
         }
         setDemoModified(false);
-        refreshWorkspaceData();
+        await refreshWorkspaceData();
         router.push('/dashboard/overview?tour=welcome');
         router.refresh();
         return true;
@@ -1069,7 +1069,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
       setDemoModified(false);
       setDemoNotice('Demo workspace restored to initial Fade Republic sample data.');
-      refreshWorkspaceData();
+      await refreshWorkspaceData();
       return true;
     } catch {
       setDemoNotice('Network error resetting Demo Mode.');

@@ -117,7 +117,7 @@ export async function GET(request: Request) {
         deposit_kobo: string;
         source: string;
         notes: string | null;
-        cancelled_reason: string | null;
+        cancel_reason: string | null;
         created_at: string;
         kora_reference: string | null;
         payment_status: string | null;
@@ -134,13 +134,20 @@ export async function GET(request: Request) {
            b.status::text AS status,
            b.starts_at::text AS starts_at,
            b.hold_expires_at::text AS hold_expires_at,
-           b.price_kobo::text AS price_kobo,
-           b.deposit_kobo::text AS deposit_kobo,
+           COALESCE(sv.price_kobo, 0)::text AS price_kobo,
+           (
+             CASE
+               WHEN sv.deposit_type = 'none' THEN 0
+               WHEN sv.deposit_type = 'full' THEN COALESCE(sv.price_kobo, 0)
+               WHEN sv.deposit_type = 'percent' THEN ROUND(COALESCE(sv.price_kobo, 0) * COALESCE(sv.deposit_value, 0) / 100.0)::bigint
+               ELSE COALESCE(sv.deposit_value, p.amount_kobo, 0)
+             END
+           )::text AS deposit_kobo,
            b.source::text AS source,
-           b.notes,
-           b.cancelled_reason,
+           c.notes AS notes,
+           b.cancel_reason,
            b.created_at::text AS created_at,
-           p.kora_reference,
+           COALESCE(p.provider_reference, p.kora_reference) AS kora_reference,
            p.status::text AS payment_status,
            p.amount_kobo::text AS payment_amount_kobo,
            p.verified_at::text AS verified_at
@@ -149,7 +156,7 @@ export async function GET(request: Request) {
          LEFT JOIN services sv ON sv.id = b.service_id
          LEFT JOIN staff st ON st.id = b.staff_id
          LEFT JOIN LATERAL (
-           SELECT kora_reference, status, amount_kobo, verified_at
+           SELECT kora_reference, provider_reference, status, amount_kobo, verified_at
            FROM payments
            WHERE booking_id = b.id
            ORDER BY created_at DESC
@@ -255,7 +262,7 @@ export async function GET(request: Request) {
         holdSecondsRemaining: holdRemaining,
         holdExpiresAt: row.hold_expires_at ?? undefined,
         verifiedAt: row.verified_at ?? undefined,
-        cancelReason: row.cancelled_reason ?? undefined,
+        cancelReason: row.cancel_reason ?? undefined,
         customerNotes: row.notes ?? undefined,
         source: mapBookingSource(row.source),
         createdAt: row.created_at,
@@ -448,10 +455,10 @@ export async function POST(request: Request) {
           customerId = existingCustomer.rows[0].id;
         } else {
           const insertedCustomer = await client.query<{ id: string }>(
-            `INSERT INTO customers (business_id, phone_e164, name, preferred_channel)
-             VALUES ($1, $2, $3, 'whatsapp')
+            `INSERT INTO customers (id, business_id, phone_e164, name, notes)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING id::text AS id`,
-            [business.id, phoneE164, payload.customerName],
+            [randomUUID(), business.id, phoneE164, payload.customerName, payload.notes ?? null],
           );
           const createdCust = insertedCustomer.rows[0];
           if (!createdCust) {
@@ -508,14 +515,16 @@ export async function POST(request: Request) {
         const holdExpiresAt = payload.requireDeposit ? new Date(Date.now() + 900_000) : null;
         const idempotencyKey = `staff_bk_${randomUUID()}`;
 
+        const newBookingId = randomUUID();
         const bkRes = await client.query<{ id: string; created_at: string }>(
           `INSERT INTO bookings (
-             business_id, customer_id, service_id, staff_id,
+             id, business_id, customer_id, service_id, staff_id,
              status, starts_at, ends_at, hold_expires_at,
-             price_kobo, deposit_kobo, source, idempotency_key, notes
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'staff', $11, $12)
+             source, idempotency_key
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'staff', $10)
            RETURNING id::text AS id, created_at::text AS created_at`,
           [
+            newBookingId,
             business.id,
             customerId,
             serviceRow.id,
@@ -524,10 +533,7 @@ export async function POST(request: Request) {
             validStartsAt.toISOString(),
             endsAtDate.toISOString(),
             holdExpiresAt ? holdExpiresAt.toISOString() : null,
-            payload.priceKobo,
-            payload.depositKobo,
             idempotencyKey,
-            payload.notes ?? null,
           ],
         );
 
@@ -540,10 +546,11 @@ export async function POST(request: Request) {
         if (payload.requireDeposit && payload.depositKobo > 0) {
           await client.query(
             `INSERT INTO payments (
-               business_id, booking_id, kind, amount_kobo, status,
-               kora_reference, expires_at, idempotency_key
-             ) VALUES ($1, $2, 'deposit', $3, 'pending', $4, $5, $6)`,
+               id, business_id, booking_id, kind, amount_kobo, status,
+               kora_reference, provider_reference, expires_at, idempotency_key
+             ) VALUES ($1, $2, $3, 'deposit', $4, 'pending', $5, $5, $6, $7)`,
             [
+              randomUUID(),
               business.id,
               createdBooking.id,
               payload.depositKobo,
@@ -555,9 +562,10 @@ export async function POST(request: Request) {
         }
 
         await client.query(
-          `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
-           VALUES ($1, $2, 'booking.created_manual', 'booking', $3, $4::jsonb)`,
+          `INSERT INTO audit_log (id, business_id, actor, action, entity, entity_id, after)
+           VALUES ($1, $2, $3, 'booking.created_manual', 'booking', $4, $5::jsonb)`,
           [
+            randomUUID(),
             business.id,
             `staff:${user.id}`,
             createdBooking.id,
@@ -612,7 +620,7 @@ export async function POST(request: Request) {
         if (payload.status) {
           await client.query(
             `UPDATE bookings
-             SET status = $1, cancelled_reason = COALESCE($2, cancelled_reason), updated_at = now()
+             SET status = $1, cancel_reason = COALESCE($2, cancel_reason), updated_at = now()
              WHERE id = $3 AND business_id = $4`,
             [payload.status, payload.cancelReason ?? null, payload.bookingId, business.id],
           );
@@ -634,9 +642,10 @@ export async function POST(request: Request) {
         }
 
         await client.query(
-          `INSERT INTO audit_log (business_id, actor, action, entity, entity_id, after)
-           VALUES ($1, $2, 'booking.updated', 'booking', $3, $4::jsonb)`,
+          `INSERT INTO audit_log (id, business_id, actor, action, entity, entity_id, after)
+           VALUES ($1, $2, $3, 'booking.updated', 'booking', $4, $5::jsonb)`,
           [
+            randomUUID(),
             business.id,
             `staff:${user.id}`,
             payload.bookingId,
@@ -676,11 +685,11 @@ export async function POST(request: Request) {
 
         if (payload.replyText) {
           await client.query(
-            `INSERT INTO messages (conversation_id, direction, author, body)
-             SELECT id, 'out', 'staff', $1
+            `INSERT INTO messages (id, conversation_id, direction, author, body)
+             SELECT $1, id, 'out', 'staff', $2
              FROM conversations
-             WHERE id = $2 AND business_id = $3`,
-            [payload.replyText, payload.conversationId, business.id],
+             WHERE id = $3 AND business_id = $4`,
+            [randomUUID(), payload.replyText, payload.conversationId, business.id],
           );
           await client.query(
             `UPDATE conversations SET last_message_at = now(), updated_at = now()
