@@ -548,12 +548,12 @@ export function AiReceptionistView() {
       : 'Connected (Paused)';
 
   return (
-    <div data-tour="ai-receptionist-panel" className="flex flex-col w-full space-y-6 max-w-6xl">
+    <div data-tour="ai-receptionist-panel" className="flex flex-col w-full space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-border/50">
-        <div className="space-y-1">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-200/80">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="font-headline-md text-2xl font-bold text-text-primary tracking-tight">
+            <h1 className="font-headline-md text-2xl sm:text-[26px] font-bold text-[#111827] tracking-tight">
               AI Receptionist
             </h1>
             <span
@@ -562,29 +562,29 @@ export function AiReceptionistView() {
               {overallStatus.label}
             </span>
             {dirty && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                Unsaved Changes
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                Unsaved changes
               </span>
             )}
             {saveState === 'saved' && !dirty && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                 Saved
               </span>
             )}
           </div>
-          <p className="text-sm text-text-secondary">
+          <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
             Configure your assistant&apos;s identity, business knowledge, booking capabilities,
             human handoff rules, channels, and isolated test chat.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => setActiveTab('test_chat')}
-            className="h-9 text-xs"
+            className="h-9 px-3.5 rounded-xl text-xs font-semibold border-slate-200"
           >
             <AppIcon name="chat" className="text-[16px]" />
             <span>Test Chat</span>
@@ -594,7 +594,7 @@ export function AiReceptionistView() {
             variant="outline"
             size="sm"
             onClick={() => setActiveNav('conversations')}
-            className="h-9 text-xs"
+            className="h-9 px-3.5 rounded-xl text-xs font-semibold border-slate-200"
           >
             <AppIcon name="forum" className="text-[16px]" />
             <span>Conversations</span>
@@ -605,7 +605,7 @@ export function AiReceptionistView() {
               size="sm"
               disabled={!dirty || saveState === 'saving'}
               onClick={() => void handleSave()}
-              className="h-9 text-xs"
+              className="h-9 px-4 rounded-xl text-xs font-semibold bg-[#22306B] text-white hover:bg-[#192350]"
             >
               <AppIcon name="save" className="text-[16px]" />
               <span>{saveState === 'saving' ? 'Saving...' : 'Save Changes'}</span>
@@ -631,7 +631,7 @@ export function AiReceptionistView() {
       )}
 
       {toggleFeedback && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-900 flex items-center justify-between gap-3">
+        <div className="rounded-xl border border-[#22306B]/20 bg-[#F5F6FA] px-4 py-3 text-xs text-[#22306B] flex items-center justify-between gap-3">
           <span>{toggleFeedback}</span>
           <button
             type="button"
@@ -644,28 +644,28 @@ export function AiReceptionistView() {
       )}
 
       {/* Assistant Activation & Today's Activity Summary */}
-      <div className="rounded-xl border border-border/60 bg-white p-5 shadow-xs space-y-4">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-[#22306B] text-[#F5B700] flex items-center justify-center shrink-0 shadow-xs">
               <AppIcon name="smart_toy" className="text-[24px]" />
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-headline-sm text-lg font-bold text-text-primary">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="font-headline-sm text-xl font-bold text-[#111827] tracking-tight">
                   {assistantName || data.receptionist.assistantName}
                 </h2>
-                <span className="text-xs text-text-secondary">
-                  • {tone} • {primaryLanguage}
+                <span className="text-xs font-medium text-slate-500">
+                  {tone} · {primaryLanguage}
                 </span>
               </div>
-              <p className="text-xs text-text-secondary">
-                Business: <strong className="text-text-primary">{data.business.name}</strong> • Last
+              <p className="text-xs text-slate-500">
+                Business: <strong className="text-[#111827]">{data.business.name}</strong> · Last
                 saved {formatDateTime(data.receptionist.updatedAt, timezone)}
               </p>
               <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium border ${
                     data.readiness.webChatReady && data.receptionist.agentEnabled
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       : data.readiness.webChatReady
@@ -676,7 +676,7 @@ export function AiReceptionistView() {
                   Web Chat: {webChatStatusLabel}
                 </span>
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium border ${
                     data.readiness.whatsappConnected && data.receptionist.agentEnabled
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       : data.readiness.whatsappConnected
@@ -690,24 +690,15 @@ export function AiReceptionistView() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap shrink-0">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setActiveTab('channels')}
-              className="h-8 text-xs"
+              className="h-9 px-3.5 rounded-xl text-xs font-semibold border-slate-200"
             >
               Channel Readiness
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setActiveTab('test_chat')}
-              className="h-8 text-xs"
-            >
-              Open Test Chat
             </Button>
             {isOwner && (
               <Button
@@ -716,7 +707,11 @@ export function AiReceptionistView() {
                 size="sm"
                 disabled={toggling}
                 onClick={() => void handleToggleAgent()}
-                className="h-8 text-xs"
+                className={`h-9 px-3.5 rounded-xl text-xs font-semibold ${
+                  data.receptionist.agentEnabled
+                    ? 'border-slate-200 text-[#111827]'
+                    : 'bg-[#22306B] text-white hover:bg-[#192350]'
+                }`}
               >
                 {toggling
                   ? 'Updating...'
@@ -728,28 +723,30 @@ export function AiReceptionistView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-border/50">
-          <div className="rounded-lg bg-surface-container-lowest border border-border/40 px-3.5 py-2.5">
-            <span className="text-[11px] text-text-secondary block">Conversations today</span>
-            <span className="font-headline-sm text-lg font-bold text-text-primary">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 pt-4 border-t border-slate-100">
+          <div className="rounded-xl bg-[#F5F6FA] border border-slate-200/70 px-4 py-3">
+            <span className="text-xs font-medium text-slate-500 block">Conversations today</span>
+            <span className="font-headline-sm text-2xl font-bold text-[#111827] mt-0.5 block">
               {data.activity.conversationsToday}
             </span>
           </div>
-          <div className="rounded-lg bg-surface-container-lowest border border-border/40 px-3.5 py-2.5">
-            <span className="text-[11px] text-text-secondary block">AI booking requests</span>
-            <span className="font-headline-sm text-lg font-bold text-text-primary">
+          <div className="rounded-xl bg-[#F5F6FA] border border-slate-200/70 px-4 py-3">
+            <span className="text-xs font-medium text-slate-500 block">AI booking requests</span>
+            <span className="font-headline-sm text-2xl font-bold text-[#111827] mt-0.5 block">
               {data.activity.bookingRequestsInitiated}
             </span>
           </div>
-          <div className="rounded-lg bg-surface-container-lowest border border-border/40 px-3.5 py-2.5">
-            <span className="text-[11px] text-text-secondary block">Confirmed from AI chats</span>
-            <span className="font-headline-sm text-lg font-bold text-emerald-700">
+          <div className="rounded-xl bg-[#F5F6FA] border border-slate-200/70 px-4 py-3">
+            <span className="text-xs font-medium text-slate-500 block">
+              Confirmed from AI chats
+            </span>
+            <span className="font-headline-sm text-2xl font-bold text-emerald-700 mt-0.5 block">
               {data.activity.confirmedFromAi}
             </span>
           </div>
-          <div className="rounded-lg bg-surface-container-lowest border border-border/40 px-3.5 py-2.5">
-            <span className="text-[11px] text-text-secondary block">Human handoffs active</span>
-            <span className="font-headline-sm text-lg font-bold text-amber-700">
+          <div className="rounded-xl bg-[#F5F6FA] border border-slate-200/70 px-4 py-3">
+            <span className="text-xs font-medium text-slate-500 block">Human handoffs active</span>
+            <span className="font-headline-sm text-2xl font-bold text-amber-700 mt-0.5 block">
               {data.activity.humanHandoffsRaised}
             </span>
           </div>
@@ -762,7 +759,7 @@ export function AiReceptionistView() {
           aria-label="Select AI Receptionist section"
           value={activeTab}
           onChange={(e) => setActiveTab(e.target.value as SectionTab)}
-          className="w-full h-10 rounded-lg border border-border bg-white px-3 text-sm font-medium text-text-primary"
+          className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-[#111827]"
         >
           {SECTIONS.map((s) => (
             <option key={s.id} value={s.id}>
@@ -772,7 +769,7 @@ export function AiReceptionistView() {
         </select>
       </div>
 
-      <div className="hidden md:flex items-center gap-1.5 border-b border-border/60 pb-2 overflow-x-auto">
+      <div className="hidden md:flex items-center gap-1.5 rounded-xl bg-[#F5F6FA] p-1.5 border border-slate-200/80 overflow-x-auto">
         {SECTIONS.map((s) => {
           const active = activeTab === s.id;
           return (
@@ -780,10 +777,10 @@ export function AiReceptionistView() {
               key={s.id}
               type="button"
               onClick={() => setActiveTab(s.id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                 active
-                  ? 'bg-primary text-white'
-                  : 'text-text-secondary hover:bg-surface-container-low hover:text-text-primary'
+                  ? 'bg-[#22306B] text-white shadow-2xs'
+                  : 'text-slate-600 hover:bg-white hover:text-[#111827]'
               }`}
             >
               <AppIcon name={s.icon} className="text-[16px]" />
@@ -797,14 +794,14 @@ export function AiReceptionistView() {
 
       {/* SECTION 1: Identity & Greeting */}
       {activeTab === 'identity' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 rounded-xl border border-border/60 bg-white p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
               <div>
-                <h3 className="font-headline-sm text-base font-bold text-text-primary">
+                <h3 className="font-headline-sm text-lg font-bold text-[#111827] tracking-tight">
                   1. Identity &amp; Greeting
                 </h3>
-                <p className="text-xs text-text-secondary">
+                <p className="text-sm text-slate-600 mt-0.5">
                   Configure your assistant&apos;s name, tone, supported language, and opening
                   message.
                 </p>
@@ -822,16 +819,16 @@ export function AiReceptionistView() {
                     setGreeting(defaultWelcome);
                     setDirty(true);
                   }}
-                  className="h-8 text-xs shrink-0"
+                  className="h-9 px-3.5 rounded-xl text-xs font-semibold border-slate-200 shrink-0"
                 >
                   Use Default Greeting
                 </Button>
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div className="space-y-1.5">
-                <label htmlFor="ai-name" className="text-xs font-semibold text-text-primary block">
+                <label htmlFor="ai-name" className="text-sm font-semibold text-[#111827] block">
                   Assistant Name
                 </label>
                 <input
@@ -846,15 +843,15 @@ export function AiReceptionistView() {
                   }}
                   maxLength={40}
                   placeholder="e.g. Maya"
-                  className="w-full h-9 rounded-lg border border-border bg-white px-3 text-sm text-text-primary"
+                  className="w-full h-10 rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#22306B]"
                 />
-                <p className="text-[11px] text-text-secondary">
+                <p className="text-xs text-slate-500">
                   2–40 characters ({assistantName.trim().length}/40)
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="ai-lang" className="text-xs font-semibold text-text-primary block">
+                <label htmlFor="ai-lang" className="text-sm font-semibold text-[#111827] block">
                   Supported Language
                 </label>
                 <select
@@ -866,23 +863,21 @@ export function AiReceptionistView() {
                     setDirty(true);
                     setSaveState('idle');
                   }}
-                  className="w-full h-9 rounded-lg border border-border bg-white px-3 text-sm text-text-primary"
+                  className="w-full h-10 rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#22306B]"
                 >
                   <option value="English">English (Nigerian-English friendly)</option>
                   <option value="Nigerian Pidgin">Nigerian Pidgin</option>
                 </select>
-                <p className="text-[11px] text-text-secondary">
+                <p className="text-xs text-slate-500">
                   Understands Nigerian booking phrases (&ldquo;low cut&rdquo;, &ldquo;I wan
                   book&rdquo;, &ldquo;abeg&rdquo;) in both modes.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-text-primary block">
-                Communication Tone
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="space-y-2">
+              <span className="text-sm font-semibold text-[#111827] block">Communication Tone</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {(
                   [
                     {
@@ -898,46 +893,47 @@ export function AiReceptionistView() {
                       desc: 'Relaxed, direct, and easygoing',
                     },
                   ] as const
-                ).map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    disabled={!isOwner}
-                    onClick={() => {
-                      setTone(option.id);
-                      setDirty(true);
-                      setSaveState('idle');
-                    }}
-                    className={`p-3 rounded-lg border text-left transition-colors ${
-                      tone === option.id
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-white text-text-primary border-border hover:bg-surface-container-low'
-                    }`}
-                  >
-                    <span className="text-xs font-bold block">{option.id}</span>
-                    <span
-                      className={`text-[11px] mt-0.5 block ${
-                        tone === option.id ? 'text-white/85' : 'text-text-secondary'
+                ).map((option) => {
+                  const selected = tone === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      disabled={!isOwner}
+                      aria-pressed={selected}
+                      onClick={() => {
+                        setTone(option.id);
+                        setDirty(true);
+                        setSaveState('idle');
+                      }}
+                      className={`p-3.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                        selected
+                          ? 'border-[#22306B] bg-[#22306B]/[0.05] ring-1 ring-[#22306B]'
+                          : 'bg-white text-[#111827] border-slate-200 hover:border-slate-300 hover:bg-slate-50/70'
                       }`}
                     >
-                      {option.desc}
-                    </span>
-                  </button>
-                ))}
+                      <span
+                        className={`text-sm font-bold block ${
+                          selected ? 'text-[#22306B]' : 'text-[#111827]'
+                        }`}
+                      >
+                        {option.id}
+                      </span>
+                      <span className="text-xs text-slate-600 mt-0.5 block leading-snug">
+                        {option.desc}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label
-                  htmlFor="ai-greeting"
-                  className="text-xs font-semibold text-text-primary block"
-                >
+                <label htmlFor="ai-greeting" className="text-sm font-semibold text-[#111827] block">
                   Welcome Message
                 </label>
-                <span className="text-[11px] text-text-secondary">
-                  {greeting.trim().length}/600
-                </span>
+                <span className="text-xs text-slate-500">{greeting.trim().length}/600</span>
               </div>
               <textarea
                 id="ai-greeting"
@@ -950,9 +946,9 @@ export function AiReceptionistView() {
                   setSaveState('idle');
                 }}
                 maxLength={600}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text-primary"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-[#111827] leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#22306B]"
               />
-              <p className="text-[11px] text-text-secondary">
+              <p className="text-xs text-slate-500">
                 Shown when a customer opens Web Chat or starts a new WhatsApp conversation. Cannot
                 override deposit or booking confirmation rules.
               </p>
@@ -960,12 +956,10 @@ export function AiReceptionistView() {
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label htmlFor="ai-intro" className="text-xs font-semibold text-text-primary block">
+                <label htmlFor="ai-intro" className="text-sm font-semibold text-[#111827] block">
                   Short Role Tagline (Optional)
                 </label>
-                <span className="text-[11px] text-text-secondary">
-                  {shortIntro.trim().length}/200
-                </span>
+                <span className="text-xs text-slate-500">{shortIntro.trim().length}/200</span>
               </div>
               <input
                 id="ai-intro"
@@ -978,42 +972,42 @@ export function AiReceptionistView() {
                   setSaveState('idle');
                 }}
                 maxLength={200}
-                className="w-full h-9 rounded-lg border border-border bg-white px-3 text-sm text-text-primary"
+                className="w-full h-10 rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#22306B]"
               />
             </div>
 
             {validationIssue && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
                 {validationIssue}
               </div>
             )}
           </div>
 
           {/* Live Greeting Preview */}
-          <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4 h-fit">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+          <div className="lg:col-span-4 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4 h-fit lg:sticky lg:top-6">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#22306B]">
               Customer Welcome Preview
             </h4>
-            <div className="rounded-xl bg-surface-container-lowest border border-border/50 p-4 space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
+            <div className="rounded-2xl bg-[#F5F6FA] border border-slate-200/80 p-4 space-y-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-[#22306B] text-[#F5B700] flex items-center justify-center text-sm font-bold shrink-0">
                   {assistantName.trim().slice(0, 1).toUpperCase() || 'M'}
                 </div>
-                <div>
-                  <span className="text-xs font-semibold text-text-primary block">
-                    {assistantName.trim() || 'Assistant'} • {data.business.name}
+                <div className="min-w-0">
+                  <span className="text-sm font-semibold text-[#111827] block truncate">
+                    {assistantName.trim() || 'Assistant'} · {data.business.name}
                   </span>
-                  <span className="text-[11px] text-text-secondary block">
-                    {tone} tone • {primaryLanguage}
+                  <span className="text-xs text-slate-500 block">
+                    {tone} tone · {primaryLanguage}
                   </span>
                 </div>
               </div>
               {shortIntro.trim() && (
-                <p className="text-[11px] text-text-secondary italic border-l-2 border-primary/40 pl-2">
+                <p className="text-xs text-slate-600 italic border-l-2 border-[#22306B]/40 pl-2.5">
                   {shortIntro.trim()}
                 </p>
               )}
-              <div className="rounded-lg bg-white border border-border/50 p-3 text-xs text-text-primary leading-relaxed">
+              <div className="rounded-xl bg-white border border-slate-200/80 p-3.5 text-sm text-[#111827] leading-relaxed shadow-2xs">
                 {greeting.trim() || 'Enter a welcome message to preview how customers are greeted.'}
               </div>
             </div>
@@ -1022,7 +1016,7 @@ export function AiReceptionistView() {
               variant="outline"
               size="sm"
               onClick={() => setActiveTab('test_chat')}
-              className="w-full h-8 text-xs"
+              className="w-full h-9 rounded-xl text-xs font-semibold border-slate-200"
             >
               Try in Test Chat
             </Button>
